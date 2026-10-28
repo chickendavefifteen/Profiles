@@ -77,12 +77,19 @@ function renderPaneTabs(){
     b.addEventListener("dblclick", function(){ toggleMax(id); });
     bar.appendChild(b);
   });
-  var add=document.createElement("button"); add.type="button"; add.textContent="+ Pane";
-  add.title="Reopen a closed pane";
-  add.addEventListener("click", function(){
-    var closed=PANES.filter(function(id){ return !paneVisible(id); });
-    if(closed.length) showPaneEl(closed[0]);
-    else bubble("All panes are already on the canvas. Drag their headers to rearrange; double-click a tab to maximise.", "sys");
+  var add=document.createElement("button"); add.type="button"; add.textContent="+";
+  add.title="Add a pane"; add.setAttribute("aria-label","Add a pane");
+  add.style.cssText="font-weight:900;font-size:1.25rem;line-height:1;padding:6px 15px";
+  add.addEventListener("click", function(e){
+    e.stopPropagation();
+    var menu=$("addMenu"), open=menu.hidden;
+    document.querySelectorAll(".pane").forEach(function(){});
+    if(open){
+      var r=add.getBoundingClientRect();
+      menu.style.left=Math.min(r.left, innerWidth-290)+"px";
+      menu.style.top=(r.bottom+8+scrollY)+"px";
+      menu.hidden=false;
+    } else menu.hidden=true;
   });
   bar.appendChild(add);
 }
@@ -161,6 +168,16 @@ function toggleMax(id){
   applyLayout();
 }
 function showPane(id){ focusPane(id); }
+document.querySelectorAll("[data-add]").forEach(function(b){
+  b.addEventListener("click", function(){
+    $("addMenu").hidden=true;
+    showPaneEl(b.dataset.add);
+    focusPane(b.dataset.add);
+  });
+});
+document.addEventListener("pointerdown", function(e){
+  if(!$("addMenu").hidden && !e.target.closest("#addMenu") && e.target.textContent!=="+") $("addMenu").hidden=true;
+}, true);
 document.querySelectorAll("[data-focus]").forEach(function(b){
   b.addEventListener("click", function(){ toggleMax(b.dataset.focus); });
 });
@@ -388,6 +405,10 @@ function runReal(q){
         $("agentStatus").classList.remove("working");
         $("agentStatusText").textContent="done ✓ — answer in chat, detail here";
         bubble(res.chat || res.result, "agent");
+        if(res.ui && res.ui.showPane){
+          showPaneEl(res.ui.showPane, true);
+          setTimeout(function(){ browserCall("/api/browser/view", {}); }, 600);
+        }
         if(res.setup){ renderSetup(res.setup, res.capabilities); showPane("pane-setup"); }
         if(res.staged){ bubble("Staged “"+res.staged.title+"” — see the Document pane.", "sys"); loadStaged(); }
         if(res.macroCreated){ bubble("You have asked that 3 times, so I scripted it: “"+res.macroCreated.id+"” is now a one-tap macro below the chat — instant, no thinking loop. Delete its file in vault/macros/ any time to unlearn.", "sys"); loadMacros(); }

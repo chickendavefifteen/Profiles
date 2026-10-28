@@ -117,3 +117,25 @@ export async function viewBack(slot) {
   await page.waitForTimeout(700);
   return snap(slot);
 }
+
+export async function viewCurrent(slot) { return snap(slot); }
+export async function viewRead(slot) {
+  const { page } = await ensureSession(slot);
+  const text = await page.locator('body').innerText({ timeout: 8000 }).catch(() => '');
+  return { ok: true, title: await page.title().catch(() => ''), url: page.url(), text: String(text).slice(0, 4000) };
+}
+/** Web search through the integrated browser (DDG html results). */
+export async function webSearch(slot, query) {
+  const { page } = await ensureSession(slot);
+  await page.goto('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), { timeout: 25000 });
+  const results = await page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('.result').forEach((r) => {
+      const a = r.querySelector('.result__a');
+      const sn = r.querySelector('.result__snippet');
+      if (a) out.push({ title: a.textContent.trim(), href: a.href, snippet: sn ? sn.textContent.trim() : '' });
+    });
+    return out.slice(0, 6);
+  }).catch(() => []);
+  return { ok: true, query, results };
+}

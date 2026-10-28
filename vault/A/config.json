@@ -10,7 +10,7 @@
   "intensity": "full",
   "tier": null,
   "modelFile": null,
-  "updated": "2026-10-28T20:32:19.375Z",
+  "updated": "2026-10-28T20:45:06.874Z",
   "layout": {
     "order": null,
     "hidden": [
@@ -22,7 +22,4 @@
     ],
     "maxed": null
   }
-}maxed": null
-  },
-  "closedPanes": []
 }

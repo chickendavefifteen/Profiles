@@ -46,6 +46,11 @@ await page.waitForTimeout(400);
 await page.click('#trashList button');
 await page.waitForTimeout(1600);
 check('doc RECOVERS from trash', await page.isVisible('#pane-doc'));
+// agent tool hooks: ask -> browser actually opens BBC
+await page.fill('#ask', 'open a brower on bbc news');
+await page.click('#askForm .btn');
+await page.waitForTimeout(9000);
+check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.textContent('#browserStatus')));
 check('zero page errors', errors.length === 0);
 if (errors.length) console.log(errors);
 await browser.close();

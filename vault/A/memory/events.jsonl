@@ -39,3 +39,54 @@
 {"at":"2026-10-28T20:32:09.853Z","type":"ask","query":"hi r u agentic now","mode":"lifeful"}
 {"at":"2026-10-28T20:33:23.854Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"lifeful"}
 {"at":"2026-10-28T20:33:43.853Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T20:34:03.853Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T20:34:23.853Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T20:34:43.854Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T20:35:03.855Z","type":"context","panes":[],"mode":"lifeful"}
+{"at":"2026-10-28T20:35:23.859Z","type":"context","panes":["pane-setup"],"mode":"lifeful"}
+{"at":"2026-10-28T20:35:43.866Z","type":"context","panes":["pane-setup"],"mode":"lite"}
+{"at":"2026-10-28T20:36:03.867Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:36:05.323Z","type":"ask","query":"hi","mode":"focus"}
+{"at":"2026-10-28T20:36:11.196Z","type":"ask","query":"how are you today","mode":"focus"}
+{"at":"2026-10-28T20:36:19.555Z","type":"ask","query":"open a brower on bbc news","mode":"focus"}
+{"at":"2026-10-28T20:36:23.871Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:36:27.826Z","type":"ask","query":"opem browser","mode":"focus"}
+{"at":"2026-10-28T20:36:43.877Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:37:03.879Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:37:23.883Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:37:43.888Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:38:03.891Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:38:23.895Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:38:43.899Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:39:03.903Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:39:23.907Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:39:24.715Z","type":"ask","query":"open a brower on bbc news","mode":"lifeful"}
+{"at":"2026-10-28T20:39:38.354Z","type":"ask","query":"open a brower on bbc news","mode":"lifeful"}
+{"at":"2026-10-28T20:39:43.914Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:39:45.999Z","type":"ask","query":"search the web for allotment jobs in October","mode":"lifeful"}
+{"at":"2026-10-28T20:40:03.916Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:40:23.920Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:40:43.924Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:40:47.961Z","type":"ask","query":"search the web for allotment jobs in October","mode":"lifeful"}
+{"at":"2026-10-28T20:40:56.631Z","type":"ask","query":"search for cats","mode":"lifeful"}
+{"at":"2026-10-28T20:41:03.931Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:41:23.931Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:41:43.935Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:41:55.939Z","type":"ask","query":"search for cats","mode":"lifeful"}
+{"at":"2026-10-28T20:42:03.939Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:42:23.944Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:42:43.947Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:43:03.952Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:43:23.957Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:43:43.960Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:44:03.964Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:44:10.215Z","type":"ask","query":"search the web for allotment jobs in October","mode":"lifeful"}
+{"at":"2026-10-28T20:44:23.971Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:44:38.628Z","type":"ask","query":"hi r u agentic now","mode":"lifeful"}
+{"at":"2026-10-28T20:44:43.972Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:44:49.794Z","type":"ask","query":"open a brower on bbc news","mode":"lifeful"}
+{"at":"2026-10-28T20:44:56.758Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T20:45:03.976Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:45:06.071Z","type":"ask","query":"open a brower on bbc news","mode":"lifeful"}
+{"at":"2026-10-28T20:45:23.980Z","type":"context","panes":["pane-chat"],"mode":"focus"}
+{"at":"2026-10-28T20:45:43.983Z","type":"context","panes":["pane-chat"],"mode":"focus"}

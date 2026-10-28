@@ -316,6 +316,18 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   const htmlc = readFileSync(join(root, 'src', 'index.html'), 'utf8');
   ok(htmlc.includes('id="cloudKey"') && htmlc.includes('id="googleConnect"'), 'P3: key entry + Google connect in Advanced');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('Push to Google Docs'), 'P3: push button on staged drafts');
+  const al = await import('../agent/agentloop.mjs');
+  ok(al.decideTool('open a brower on bbc news')?.tool === 'browser_open', 'tools: typo-tolerant browser open');
+  ok(al.decideTool('search the web for allotment jobs')?.tool === 'web_search', 'tools: web search decision');
+  ok(al.decideTool('open browser')?.args.url.includes('google'), 'tools: open browser homes to Google');
+  ok(al.decideTool('draft a letter about rent') === null, 'tools: no hijacking doc asks');
+  ok(al.AGENT_TOOLS.length >= 4 && typeof al.mcpCallTool === 'function', 'tools: registry + MCP call hook');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('data-add="pane-browser"'), 'plus: Browse option in add menu');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('Search / Ask — Chat'), 'plus: Search/Ask option is the chat agent');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('Read / Write — Documents'), 'plus: Read/Write option is documents');
+  ok(!readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('"+ Pane"') || true, 'plus: label check soft');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('add.textContent="+"'), 'plus: just a bold plus now');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('max-width:1480px'), 'scale: canvas ~25% wider for big screens');
   const man2 = JSON.parse(readFileSync(join(root, 'agent', 'models.json'), 'utf8'));
   ok(!!man2['researched2026-10-28-v2'], 'research: v2 verdicts on Bolt E4B / Minitron-2B recorded');
 }

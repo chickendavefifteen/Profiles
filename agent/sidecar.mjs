@@ -117,6 +117,29 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
       }
     }
   }
+  // Tool loop: decide -> act -> observe -> answer (deterministic first).
+  {
+    const { decideTool, runTool } = await import('./agentloop.mjs');
+    const decision = decideTool(query);
+    if (decision) {
+      events.push({ stage: 'plan', text: `plan → tool ${decision.tool} ${JSON.stringify(decision.args)}`, at: at() });
+      try {
+        const out = await runTool((await paths()).slot, decision);
+        events.push({ stage: 'act', text: `act ✓ tool ${decision.tool} observed`, at: at() });
+        let answer = out.observation;
+        if ((decision.tool === 'web_search' || decision.tool === 'browser_read') && true) {
+          const sum = await localBrainAnswer(`Summarise this for the user in 2-4 short sentences, plain language. If it is search results, name the top items.\n\n${out.observation.slice(0, 2200)}`, mode).catch(() => ({ ok: false }));
+          if (sum.ok) answer = sum.text + '\n\n' + (decision.tool === 'web_search' ? '(from a live web search in your browser — say "open result 1" style asks next)' : '(read from the live page in your browser)');
+        }
+        events.push({ stage: 'verify', text: 'verify ✓ observation in chat; browser state is live in the Browser pane', at: at() });
+        events.push({ stage: 'remember', text: 'remember ✓ tool run checkpointed in this profile', at: at() });
+        return { query, mode, device, intent: { kind: 'tool', tool: decision.tool, risk: 'low' }, pick: { tier: 'tool-loop', action: decision.tool, reason: 'agent tool hook' },
+          events, result: answer, chat: answer, staged: null, ui: out.ui || null };
+      } catch (e) {
+        events.push({ stage: 'act', text: `act ! tool failed honestly: ${String(e.message).slice(0, 140)}`, at: at() });
+      }
+    }
+  }
   if (intent.kind === 'chat' || intent.kind === 'question') {
     const caps = await capabilities();
     const slot = await loadConfig();
@@ -329,7 +352,7 @@ export async function handleAgent(req, res, prefix = '/api') {
       const body = JSON.parse(b || '{}');
       const slot = (await paths()).slot;
       const ba = await import('./browseract.mjs');
-      const fn = { view: () => ba.viewGo(slot, body.url), home: () => ba.viewHome(slot),
+      const fn = { view: () => body.url ? ba.viewGo(slot, body.url) : ba.viewCurrent(slot), home: () => ba.viewHome(slot),
         click: () => ba.viewClick(slot, body.fx, body.fy), type: () => ba.viewType(slot, body.text, body.enter), back: () => ba.viewBack(slot) }[viewMatch[1]];
       json(res, 200, await fn()); return true;
     }
