@@ -79,7 +79,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(html.includes('data-profile="lifeful"') && html.includes('data-profile="calm"'), 'frontend: 5 profile pills incl. lifeful + calm');
   ok(html.includes('id="agentLog"') && html.includes('id="stages"'), 'frontend: TUI agent panel with stage strip');
   ok(js.includes('speech') && js.includes('"full"') && js.includes('"sparse"') && js.includes('"quiet"'), 'frontend: agent verbosity follows the mode');
-  ok(js.includes('showPane("pane-agent")'), 'frontend: agent pane sits beside chat once you ask');
+  ok(!js.includes('showPane("pane-agent")'), 'frontend: agent detail stays out of the way when you ask');
   ok(!html.includes('id="meterText"'), 'frontend: no quantified meter chip — budget is implied by the mode');
   ok(html.includes('id="routingToggle"') && !html.includes('checked'), 'frontend: routing toggle present and OFF by default');
   ok(js.includes('Cost preview') || js.includes('cap $2'), 'frontend: cost-preview text for opt-in routing');
@@ -220,7 +220,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(js4.includes('rippleFx'), 'feel: lifeful ripples on ask');
   const js5 = readFileSync(join(root, 'src', 'main.js'), 'utf8');
   const html5 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
-  ok(html5.includes('data-home="browse"') && html5.includes('data-home="ask"') && html5.includes('data-home="work"'), 'front door: Browse / Search-Ask / Work options');
+  ok(!html5.includes('data-home="browse"'), 'front door: extra option cards removed — chat/browser/doc only');
   ok(js5.includes('HOME_LAYOUTS') && js5.includes('goHome'), 'front door: each option arranges the canvas');
   ok(html5.includes('data-app="https://docs.google.com/presentation') && html5.includes('office.com/launch/word'), 'work: Google/Microsoft apps housed as browser tiles');
   ok(html5.includes('id="detailToggle"') && js5.includes('agentDetail'), 'agent: sleek vs detailed reasoning/tool-call view, per profile');
@@ -303,7 +303,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(pb2.includes('wholeMachine') && pb2.includes('homedir()'), 'X widening: whole-machine is a separate explicit flag');
   ok(pb2.includes("profile.wholeMachine ? homedir() : xRoot"), 'X widening: default stays ringfenced to vault/X');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="wholeMachineToggle"'), 'X widening: second-gate toggle with warning');
-  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="driveBtn"'), 'P4: confirmed drive button in Browser pane');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/prepare'), 'P4: token-confirmed agent drive still available via API');
   ok(existsSync(join(root, '.gitignore')) && readFileSync(join(root, '.gitignore'), 'utf8').includes('agent/models/*.gguf'), 'housekeeping: weights/build artefacts ignored');
   ok(existsSync(join(root, 'agent', 'cloud.mjs')), 'P3: cloud/accounts module');
   const cl = readFileSync(join(root, 'agent', 'cloud.mjs'), 'utf8');
