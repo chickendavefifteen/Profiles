@@ -1098,7 +1098,7 @@ function bootAgent(){
     state.agentOk=true;
     $("brainBadge").textContent="agent on · local";
     $("agentStatusText").textContent="lite agent on — ask in chat; detail lands here";
-    bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. The Agent pane next door keeps the receipts. Ask me anything, or tap “Help me get a better agent plugged in” and I will upgrade myself with you, step by step.", "agent");
+    bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. Ask me anything, or tap “Help me get a better agent plugged in” and I will upgrade myself with you, step by step.", "agent");
     stream("lite agent ON — "+h.brain);
   }).catch(function(){
     state.agentOk=false;
