@@ -3,7 +3,7 @@
   "macroCandidates": [
     {
       "phrase": "hi r u agentic now",
-      "count": 3
+      "count": 4
     }
   ],
   "linkedGroups": [
@@ -30,6 +30,6 @@
     }
   ],
   "lastDismissal": null,
-  "events": 38,
-  "derivedAt": "2026-10-28T20:29:32.628Z"
+  "events": 39,
+  "derivedAt": "2026-10-28T20:32:09.855Z"
 }
