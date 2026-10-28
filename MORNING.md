@@ -298,3 +298,26 @@ then depth over breadth:
   section (backup kept). Per-machine proof caveat preserved — this is
   documentation + desky code, not peer adoption claims.
 - npm test 175/175.
+
+## Simplification + QA pipeline (2026-10-28 night 6)
+
+Owner vibe-check (annoyed, fairly): cut the clutter. Now default canvas =
+clean Chat + real Browser + Document. Browse/Search/Work cards, chat
+chips, bottom copy, agent-detail in-your-face: gone (agent pane opt-in).
+- **Browser actually works:** Google can never be iframed (X-Frame SAMEORIGIN
+  everywhere), so the pane is a real Playwright Firefox session — live
+  screenshot view, click/type/back, google.com home. Verified in native
+  window (real Google consent page rendering).
+- **Life-ful renamed Vibes** (pack + pill + label).
+- **Colour swap readability:** body ink no longer transitions — text flips
+  instantly, only surfaces crossfade. Chill muted contrast bumped.
+- **Trash recover data-loss bug:** reproduced in QA, root-caused to a
+  layout clobber race (save response re-applied persisted layout), fixed
+  with authoritative-local-layout guard. Pinned forever in
+  `tests/qa/core-flows.mjs` (Playwright, headed+headless both 13/13) —
+  the Atomic-Acres-style pipeline, now permanent (`npm run qa` next).
+- **P3 built:** OS-keyring API keys (verified), per-profile cloud routing
+  (labelled), Google OAuth PKCE + Docs push complete; live gate = Dave's
+  own Google client creds. Repo: github.com/chickendavefifteen/profiles
+  PRIVATE (xtgeorge69 does not exist on GitHub).
+- Tests: unit 197/197, QA 13/13 x2. Everything pushed.
