@@ -76,7 +76,7 @@ phone→beast with a single binary.
 | Voice in/out | PARTIAL | Web Speech wired with natural-voice pick + honest errors; engine availability depends on host webview. Parakeet adapter NOT STARTED (manifest only) |
 | Profile X full access | DONE (P2.1 + widening) | real Pi brain live; whole-machine widening implemented as a SECOND explicit flag (`wholeMachine`, X-only, home-dir cwd) — default ringfenced, owner opted per §6.3 direction 2026-10-28 |
 | Browser-act (Playwright) | DONE core (P4) | playwright installed, Firefox drives for real; X/Advanced + 60s confirm token + allowlist (goto/title/text/screenshot); verified end-to-end with screenshot receipt. CUA+vision still gated (P4.2) |
-| Cloud brains (API key/OAuth) | PARTIAL | env opt-in gate exists; no in-app key entry, no OAuth flow — P3 |
+| Cloud brains (API key/OAuth) | DONE code, owner-credential gate | in-app key entry -> OS keyring (verified roundtrip), per-profile cloud toggle routes chat to cloud with labelling; Google OAuth PKCE + Drive push implemented end-to-end — live gate needs Daves own Google Cloud client id/secret (env) |
 | Phone (Android/iPhone) | PARTIAL (P1.3 built, device gate pending) | src/ is installable PWA (manifest+SW, API never cached); hub-URL setting remotes a phone to the home PC sidecar. Acceptance gate (real phone screenshot) needs Dave's handset |
 | Private mode (no recording) | DONE (P2.2) | per-slot `privateMode` stops events/learning recording; toggle in Setup |
 | Overdrive/Chaos personalities | DONE | intensity per slot; calm forces static |

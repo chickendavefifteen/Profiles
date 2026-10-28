@@ -65,3 +65,55 @@ export async function runPrepared(token) {
   return { ok: true, slot: job.slot, url: job.url, results };
 }
 export { ALLOWED as BROWSER_ACTIONS };
+
+/* ---- live pane sessions: the Browser pane IS a browser ----
+   One headless Firefox per slot, kept open. The user drives it by
+   clicking the screenshot (their click IS the consent); agent-drive
+   above stays token-gated because the agent initiates it. */
+const sessions = new Map();
+async function ensureSession(slot) {
+  if (sessions.has(slot)) return sessions.get(slot);
+  const playwright = await import('playwright');
+  const browser = await playwright.firefox.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1100, height: 750 } });
+  await page.goto('https://www.google.com', { timeout: 25000 }).catch(() => {});
+  const sess = { browser, page };
+  sessions.set(slot, sess);
+  return sess;
+}
+async function snap(slot) {
+  const { page } = await ensureSession(slot);
+  const p = slotPaths(slot);
+  const dir = join(p.staging, 'browser');
+  await mkdir(dir, { recursive: true });
+  const file = `view-${slot}.png`;
+  await page.screenshot({ path: join(dir, file) });
+  return { ok: true, title: await page.title().catch(() => ''), url: page.url(), shot: file };
+}
+export async function viewGo(slot, url) {
+  const { page } = await ensureSession(slot);
+  const u = /^https?:\/\//i.test(url || '') ? url : 'https://' + (url || 'www.google.com');
+  await page.goto(u, { timeout: 25000 }).catch(async () => { await page.goto('https://www.google.com').catch(() => {}); });
+  return snap(slot);
+}
+export async function viewHome(slot) { return viewGo(slot, 'https://www.google.com'); }
+export async function viewClick(slot, fx, fy) {
+  const { page } = await ensureSession(slot);
+  const vp = page.viewportSize() || { width: 1100, height: 750 };
+  await page.mouse.click(Math.max(0, Math.min(1, fx)) * vp.width, Math.max(0, Math.min(1, fy)) * vp.height);
+  await page.waitForTimeout(900);
+  return snap(slot);
+}
+export async function viewType(slot, text, enter) {
+  const { page } = await ensureSession(slot);
+  await page.keyboard.type(String(text || '').slice(0, 300), { delay: 12 });
+  if (enter) await page.keyboard.press('Enter');
+  await page.waitForTimeout(900);
+  return snap(slot);
+}
+export async function viewBack(slot) {
+  const { page } = await ensureSession(slot);
+  await page.goBack({ timeout: 12000 }).catch(() => {});
+  await page.waitForTimeout(700);
+  return snap(slot);
+}

@@ -1,0 +1,23 @@
+// Repro: close a pane -> Recently closed -> Recover -> pane must RETURN.
+import { firefox } from 'playwright';
+const base = process.env.QA_BASE || 'http://localhost:8123/src/';
+const browser = await firefox.launch({ headless: process.env.QA_HEADED !== '1' });
+const page = await browser.newPage();
+const errors = [];
+page.on('pageerror', (e) => errors.push(String(e)));
+await page.goto(base + '?mode=lifeful', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1200);
+const before = await page.isVisible('#pane-doc');
+await page.click('[data-close="pane-doc"]');
+await page.waitForTimeout(600);
+const afterClose = await page.isVisible('#pane-doc');
+await page.click('#trashBtn');
+await page.waitForTimeout(400);
+const binText = await page.textContent('#trashList');
+await page.click('#trashList button');
+await page.waitForTimeout(1500);
+const afterRecover = await page.isVisible('#pane-doc');
+const binAfter = await page.textContent('#trashList').catch(() => '');
+console.log(JSON.stringify({ before, afterClose, binHadItem: /Document/.test(binText || ''), afterRecover, binAfterRecoverEmpty: !/Document/.test(binAfter || ''), errors }, null, 2));
+await browser.close();
+process.exit(afterRecover ? 0 : 1);

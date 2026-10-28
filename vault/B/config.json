@@ -6,5 +6,9 @@
   "kids": false,
   "advanced": false,
   "brain": "lite",
-  "voiceOut": false
+  "voiceOut": false,
+  "intensity": "full",
+  "tier": null,
+  "modelFile": null,
+  "updated": "2026-10-28T20:26:26.526Z"
 }

@@ -1,7 +1,7 @@
 {
-  "name": "dev",
+  "name": "Vibes",
   "version": 1,
-  "description": "Dev/Heavy — parallel agent, proactive, checkpointed before anything irreversible.",
+  "description": "Dev/Heavy \u2014 parallel agent, proactive, checkpointed before anything irreversible.",
   "ui": {
     "density": "compact",
     "font_scale": 1.0,
@@ -9,14 +9,35 @@
     "palette": "default-dark",
     "animation_level": 2
   },
-  "sensory_budget": { "max_animation": 1.0, "flash_hz": 0, "max_simultaneous": 4 },
+  "sensory_budget": {
+    "max_animation": 1.0,
+    "flash_hz": 0,
+    "max_simultaneous": 4
+  },
   "input": {
-    "modes": ["keyboard", "pointer", "voice"],
-    "keybinds": { "capture": "c", "complete-task": "e", "command": "k" },
+    "modes": [
+      "keyboard",
+      "pointer",
+      "voice"
+    ],
+    "keybinds": {
+      "capture": "c",
+      "complete-task": "e",
+      "command": "k"
+    },
     "big_targets": false,
     "voice": true
   },
-  "notifications": { "allow": ["tasks", "calendar"], "quiet_hours": null, "break_through": ["alarms"] },
+  "notifications": {
+    "allow": [
+      "tasks",
+      "calendar"
+    ],
+    "quiet_hours": null,
+    "break_through": [
+      "alarms"
+    ]
+  },
   "agent": {
     "verbosity": "detailed",
     "proactivity": 2,
@@ -25,6 +46,14 @@
     "rest_reminders": true,
     "cadence_s": 120
   },
-  "widgets": ["tasks", "notes", "calendar", "files", "news"],
-  "routing": { "preferred_model": "muse-spark-1.3-contributor" }
+  "widgets": [
+    "tasks",
+    "notes",
+    "calendar",
+    "files",
+    "news"
+  ],
+  "routing": {
+    "preferred_model": "muse-spark-1.3-contributor"
+  }
 }

@@ -305,6 +305,17 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="wholeMachineToggle"'), 'X widening: second-gate toggle with warning');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="driveBtn"'), 'P4: confirmed drive button in Browser pane');
   ok(existsSync(join(root, '.gitignore')) && readFileSync(join(root, '.gitignore'), 'utf8').includes('agent/models/*.gguf'), 'housekeeping: weights/build artefacts ignored');
+  ok(existsSync(join(root, 'agent', 'cloud.mjs')), 'P3: cloud/accounts module');
+  const cl = readFileSync(join(root, 'agent', 'cloud.mjs'), 'utf8');
+  ok(cl.includes('secret-tool') && cl.includes('os-keyring'), 'P3: keys in OS keyring, never plain files');
+  ok(cl.includes('code_challenge') && cl.includes('S256'), 'P3: Google OAuth is real PKCE');
+  ok(cl.includes('googlePush') && cl.includes('google-apps.document'), 'P3: staged drafts push to Google Docs (docx convert)');
+  const scc = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(scc.includes("path === '/cloud/key'") && scc.includes("path === '/oauth/google/callback'"), 'P3: key + oauth endpoints mounted');
+  ok(scc.includes('cloudEnabled') && scc.includes('cloudAnswer'), 'P3: cloud answers only when profile opted in');
+  const htmlc = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  ok(htmlc.includes('id="cloudKey"') && htmlc.includes('id="googleConnect"'), 'P3: key entry + Google connect in Advanced');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('Push to Google Docs'), 'P3: push button on staged drafts');
   const man2 = JSON.parse(readFileSync(join(root, 'agent', 'models.json'), 'utf8'));
   ok(!!man2['researched2026-10-28-v2'], 'research: v2 verdicts on Bolt E4B / Minitron-2B recorded');
 }

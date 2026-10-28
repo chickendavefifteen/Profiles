@@ -15,7 +15,7 @@ var MODES={
              note:"Chill — warm, slow, rest reminders. Governor: motion 35%, 1 simultaneous, flash 0/s (capped). Agent brief/checkpointed, parallelism 1."},
   focus:   {label:"Focus · mono-task",          motion:10, sim:1, tick:1000, speech:"terse",
              note:"Focus — mono-task, distractions held. Governor: motion 10%, 1 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."},
-  lifeful: {label:"Life-ful · Busy",            motion:100,sim:4, tick:700,  speech:"full",
+  lifeful: {label:"Vibes · full energy",            motion:100,sim:4, tick:700,  speech:"full",
              note:"Dev/Heavy — parallel agent, proactive, checkpointed before anything irreversible. Governor: motion 100%, 4 simultaneous, flash 0/s (capped). Agent detailed/act-with-checkpoint, parallelism 4."},
   calm:    {label:"Low-Sensory · ND calm",      motion:0,  sim:0, tick:4200, speech:"quiet",
              note:"Low-Sensory — motion stops, palette softens, agent terse and mono-task. Governor: motion 0%, 0 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."}
@@ -39,7 +39,7 @@ function setAvatar(buddy){
   p.setAttribute("d", AVATAR_PATHS[buddy] || AVATAR_PATHS.person);
   var av=document.querySelector(".avatarCircle"); if(av) av.title="";
 }
-var state={mode:"lifeful", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", layout:{order:null,hidden:["pane-browser","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
+var state={mode:"lifeful", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", layout:{order:null,hidden:["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
   stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null};
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
@@ -373,7 +373,6 @@ function tick(q){
 /* ---- real sidecar: always on, chat-first ---- */
 function runReal(q){
   state.runCount++;
-  showPane("pane-agent");
   $("agentStatus").classList.add("working");
   $("agentStatusText").textContent="working on “"+q+"” — lite agent · "+MODES[state.mode].label;
   paintStages(-1);
@@ -510,7 +509,7 @@ function loadSetup(){
     v.textContent="Voice: browser speech today · Parakeet 0.6B + NeuDecide 43MB-class are staged adapter options (agent/models.json). New models appear here as the app updates — recommendations, never silent swaps.";
     box.appendChild(v);
   }).catch(function(){});
-  loadConfig(); loadSnaps();
+  loadConfig(); loadSnaps(); refreshCloud();
 }
 
 /* ---- meta-profiles: slots, reset, snapshots (easy unstitch/rollback) ---- */
@@ -543,7 +542,15 @@ function applyConfig(res){
   $("buddyInput").value=slot.buddy||"fox";
   renderTrash(slot.closedPanes||[]);
   if(slot.agentDetail){ document.body.dataset.detail=slot.agentDetail; if($("detailToggle")) $("detailToggle").textContent=slot.agentDetail==="sleek"?"Sleek":"Detailed"; }
-  if(slot.layout){ state.layout={order:slot.layout.order||null, hidden:slot.layout.hidden||["pane-browser","pane-notes","pane-video","pane-setup","pane-activity"], maxed:null}; applyLayout(); }
+  /* Persisted layout applies ONCE (first load / world switch). Re-applying
+     it on every config save was the trash-recover data-loss bug: recover
+     un-hid the pane locally, then the save response clobbered it back. */
+  if(!state.layoutInit){ state.layoutInit=true; state.layoutAppliedOnce=true; } /* first config sighting: local layout is authoritative from here */
+  if(slot.layout && (slotChanged || !state.layoutAppliedOnce)){
+    state.layout={order:slot.layout.order||null, hidden:slot.layout.hidden||["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"], maxed:null};
+    state.layoutAppliedOnce=true;
+    applyLayout();
+  }
   if(slot.metaMode && slot.metaMode!==state.mode && !state.urlMode) setMode(slot.metaMode, "this profile settles here");
   if(slotChanged) resetWorldView(slot);
   if(slotChanged && state.slot==="X") bubble("⚡ Profile X — ringfenced power world. Extensible pi + durable, deeper access where this device allows, advised brain: PC-standard or better. A and B cannot see or touch any of this, and X cannot touch them.", "agent");
@@ -671,21 +678,48 @@ function loadStaged(){
       pre.textContent=(d.sections||[]).map(function(x){ return x.heading+": "+x.body; }).join("\n");
       var a1=document.createElement("a"); a1.href="/api/stage/"+d.id+"/export?format=md"; a1.textContent="Export .md";
       var a2=document.createElement("a"); a2.href="/api/stage/"+d.id+"/export?format=docx"; a2.textContent="Export .docx (Word / Google Docs)";
-      div.appendChild(h); div.appendChild(pre); div.appendChild(a1); div.appendChild(a2);
+      div.appendChild(h); div.appendChild(pre); div.appendChild(a1); div.appendChild(a2); div.appendChild(pb);
       box.appendChild(div);
     });
   }).catch(function(){});
 }
 $("stageRefresh").addEventListener("click", loadStaged);
 
-/* ---- browser pane: sandboxed iframe, no heroics ---- */
+/* ---- browser pane: a real browser, driven by your clicks ---- */
+var browserLoaded=false;
+function browserShow(out){
+  if(!out || !out.ok) { $("browserStatus").textContent="Could not load — try Go again."; return; }
+  $("browserImg").src=apiUrl("/api/browser/shot/"+out.shot)+"?t="+Date.now();
+  $("browserHint").style.display="none";
+  $("urlInput").value=out.url||$("urlInput").value;
+  $("browserStatus").textContent=(out.title?("“"+out.title+"” · "):"")+ "live — click the picture to interact";
+  browserLoaded=true;
+}
+function browserCall(path, body){
+  $("browserStatus").textContent="working…";
+  fetch(apiUrl(path),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body||{})})
+    .then(function(r){ return r.json(); }).then(browserShow)
+    .catch(function(){ $("browserStatus").textContent="Browser unreachable — is npm start running?"; });
+}
 $("urlForm").addEventListener("submit", function(e){
   e.preventDefault();
+  browserCall("/api/browser/view", {url:$("urlInput").value.trim()});
+});
+$("browserHome").addEventListener("click", function(){ browserCall("/api/browser/home", {}); });
+$("browserBack").addEventListener("click", function(){ browserCall("/api/browser/back", {}); });
+$("browserImg").addEventListener("click", function(e){
+  var r=$("browserImg").getBoundingClientRect();
+  browserCall("/api/browser/click", {fx:(e.clientX-r.left)/r.width, fy:(e.clientY-r.top)/r.height});
+});
+$("typeForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var t=$("typeInput").value; $("typeInput").value="";
+  browserCall("/api/browser/type", {text:t, enter:true});
+});
+if($("openExternal")) $("openExternal").addEventListener("click", function(){
   var u=$("urlInput").value.trim();
   if(u && !/^https?:\/\//i.test(u)) u="https://"+u;
-  $("browserFrame").src=u;
-  showPane("pane-browser");
-  stream("browser → "+u+" (sandboxed iframe)");
+  if(u) window.open(u, "_blank");
 });
 
 /* ---- voice: talk -> it listens; answers spoken back in a natural voice ---- */
@@ -845,6 +879,44 @@ function updateModelLine(){
   if(on){ c.classList.add("on"); c.textContent="Cost preview: ~10 light hops ≈ pennies · 1 heavy ≈ ~$0.02 · cap $2/mo — over cap, tasks queue quietly."; }
   else{ c.classList.remove("on"); c.textContent="Opt in to let Astra pick per hop, with that same cap. Agent suggests, never auto-switches."; }
 }
+function refreshCloud(){
+  fetch(apiUrl("/api/cloud/status")).then(function(r){ return r.json(); }).then(function(st){
+    $("cloudToggle").checked=!!st.enabled;
+    if($("cloudModel") && st.model) $("cloudModel").value=st.model;
+    $("cloudLine").textContent = st.enabled
+      ? ("On — cloud model "+st.model+" via "+st.base+", key "+(st.hasKey?"stored in your OS keyring":"MISSING (save one above)")+". Local brain still answers if cloud is unreachable, and says so.")
+      : "Off. On + a key = questions can go to your cloud model instead of the local one. Per profile, always labelled in chat.";
+  }).catch(function(){});
+  fetch(apiUrl("/api/oauth/google/status")).then(function(r){ return r.json(); }).then(function(st){
+    $("googleLine").textContent = st.connected ? "Google connected — staged drafts get a Push button." :
+      st.clientConfigured ? "Google not connected for this profile." :
+      "Needs your own Google Cloud OAuth client (see Setup note in the agent docs) — then this button works.";
+  }).catch(function(){});
+}
+if($("cloudToggle")) $("cloudToggle").addEventListener("change", function(e){
+  postConfig({slot:{cloudEnabled:e.target.checked}});
+  bubble(e.target.checked?"Cloud brain on for this profile only — answers will say when they used it.":"Cloud off — local only.", "sys");
+  setTimeout(refreshCloud, 300);
+});
+if($("cloudKeySave")) $("cloudKeySave").addEventListener("click", function(){
+  var key=$("cloudKey").value.trim(); if(!key){ bubble("Paste a key first.", "sys"); return; }
+  var model=$("cloudModel").value.trim();
+  if(model) postConfig({slot:{cloudModel:model}});
+  fetch(apiUrl("/api/cloud/key"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({key:key})})
+  .then(function(r){ return r.json(); }).then(function(out){
+    $("cloudKey").value="";
+    bubble(out.ok ? "Key saved to your OS keyring (never in plain files). Cloud is "+($("cloudToggle").checked?"live for this profile":"ready — flip Cloud brain on to use it")+"."
+                 : "Could not save the key: "+(out.error||"unknown"), "agent");
+    refreshCloud();
+  }).catch(function(){ bubble("Key save failed — is npm start running?", "agent"); });
+});
+if($("googleConnect")) $("googleConnect").addEventListener("click", function(){
+  fetch(apiUrl("/api/oauth/google/start")).then(function(r){ return r.json(); }).then(function(out){
+    if(!out.ok){ bubble("Google connect not ready: "+out.error, "agent"); return; }
+    window.open(out.url, "_blank");
+    bubble("Google sign-in opened in your browser. Approve there, then come back — staged drafts will gain a Push to Google Docs button.", "agent");
+  }).catch(function(){ bubble("Google connect unreachable.", "agent"); });
+});
 $("routingToggle").addEventListener("change", function(e){
   state.routing=e.target.checked;
   updateModelLine();
@@ -1020,16 +1092,17 @@ setInterval(function(){
 }, 20000);
 
 /* ---- agent presence: always on, no toggle, honest badge ---- */
+setTimeout(function(){ if(!browserLoaded && paneVisible("pane-browser")) browserCall("/api/browser/home", {}); }, 1200);
 function bootAgent(){
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
     state.agentOk=true;
-    $("brainBadge").textContent="lite agent: ON · "+h.brain+" · cloud "+h.cloud;
+    $("brainBadge").textContent="agent on · local";
     $("agentStatusText").textContent="lite agent on — ask in chat; detail lands here";
     bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. The Agent pane next door keeps the receipts. Ask me anything, or tap “Help me get a better agent plugged in” and I will upgrade myself with you, step by step.", "agent");
     stream("lite agent ON — "+h.brain);
   }).catch(function(){
     state.agentOk=false;
-    $("brainBadge").textContent="lite agent: sidecar unreachable (simulated, labelled)";
+    $("brainBadge").textContent="agent offline";
     bubble("I cannot reach my sidecar right now, so I will simulate and say so. Run npm start and I am real.", "agent");
   });
 }

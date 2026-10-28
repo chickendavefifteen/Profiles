@@ -140,6 +140,17 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
       if (orch.ok) return { query, mode, device, intent, pick: { tier: 'laptop-local', action: 'orchestrate', reason: 'bounded Scout/Worker/Critic fan-out, parent accepted' }, events, result: orch.text, chat: orch.text, staged: null };
       events.push({ stage: 'verify', text: 'verify ! orchestration fell back (' + orch.reason + ') — single brain instead', at: at() });
     }
+    if (slot.cloudEnabled) {
+      const { cloudAnswer } = await import('./cloud.mjs');
+      const cAns = await cloudAnswer((await paths()).slot, slot, query, mode);
+      if (cAns.ok) {
+        events.push({ stage: 'act', text: `act ✓ cloud brain answered (${cAns.model}) — cloud was opted in for this profile`, at: at() });
+        events.push({ stage: 'verify', text: 'verify ✓ answered in chat; cloud use is per-profile and shown, never silent', at: at() });
+        events.push({ stage: 'remember', text: 'remember ✓ conversation kept in this session pane', at: at() });
+        return { query, mode, device, intent, pick: { tier: 'cloud', action: 'cloud-answer', reason: 'profile opted into cloud' }, events, result: cAns.text, chat: cAns.text, staged: null };
+      }
+      events.push({ stage: 'act', text: `act ! cloud opted in but unavailable (${cAns.reason}) — local brain instead, labelled`, at: at() });
+    }
     const modelAns = caps.modelsPresent.length ? await localBrainAnswer(query, mode) : { ok: false, reason: 'no local model downloaded yet' };
     events.push({ stage: 'act', text: modelAns.ok ? `act ✓ local model thinking (${modelAns.model})` : 'act ✓ lite brain answering from live status (deterministic)', at: at() });
     let answer;
@@ -277,6 +288,58 @@ export async function handleAgent(req, res, prefix = '/api') {
       const out = await runPrepared(token);
       if (out.ok) await recordEvent({ type: 'browser-act', url: out.url, slot: out.slot });
       json(res, 200, out); return true;
+    }
+    if (path === '/cloud/status' && req.method === 'GET') {
+      const { cloudStatus } = await import('./cloud.mjs');
+      json(res, 200, await cloudStatus((await paths()).slot, await loadConfig())); return true;
+    }
+    if (path === '/cloud/key' && req.method === 'POST') {
+      let b = ''; for await (const c of req) b += c;
+      const { key } = JSON.parse(b || '{}');
+      if (!key || typeof key !== 'string' || key.length < 8) { json(res, 400, { error: 'key looks too short' }); return true; }
+      const { storeSecret } = await import('./cloud.mjs');
+      json(res, 200, await storeSecret((await paths()).slot, 'cloud-api-key', key.trim())); return true;
+    }
+    if (path === '/oauth/google/start' && req.method === 'GET') {
+      const { googleStart } = await import('./cloud.mjs');
+      const proto = req.headers['x-forwarded-proto'] || 'http';
+      const redirectUri = `${proto}://${req.headers.host}/api/oauth/google/callback`;
+      json(res, 200, googleStart((await paths()).slot, redirectUri)); return true;
+    }
+    if (path === '/oauth/google/callback' && req.method === 'GET') {
+      const { googleCallback } = await import('./cloud.mjs');
+      const out = await googleCallback(url.searchParams.get('code') || '', url.searchParams.get('state') || '');
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(`<!doctype html><title>Profiles</title><p style="font-family:system-ui;padding:2rem">${out.ok ? 'Google connected for this profile. You can close this tab and go back to Profiles.' : 'Connection failed: ' + out.error}</p>`);
+      return true;
+    }
+    if (path === '/oauth/google/status' && req.method === 'GET') {
+      const { googleStatus } = await import('./cloud.mjs');
+      json(res, 200, await googleStatus((await paths()).slot)); return true;
+    }
+    if (path === '/google/push' && req.method === 'POST') {
+      let b = ''; for await (const c of req) b += c;
+      const { stagedId } = JSON.parse(b || '{}');
+      const { googlePush } = await import('./cloud.mjs');
+      json(res, 200, await googlePush((await paths()).slot, stagedId, draftToDocx)); return true;
+    }
+    const viewMatch = path.match(/^\/browser\/(view|home|click|type|back)$/);
+    if (viewMatch && req.method === 'POST') {
+      let b = ''; for await (const c of req) b += c;
+      const body = JSON.parse(b || '{}');
+      const slot = (await paths()).slot;
+      const ba = await import('./browseract.mjs');
+      const fn = { view: () => ba.viewGo(slot, body.url), home: () => ba.viewHome(slot),
+        click: () => ba.viewClick(slot, body.fx, body.fy), type: () => ba.viewType(slot, body.text, body.enter), back: () => ba.viewBack(slot) }[viewMatch[1]];
+      json(res, 200, await fn()); return true;
+    }
+    const shotMatch = path.match(/^\/browser\/shot\/([\w.-]+)$/);
+    if (shotMatch && req.method === 'GET') {
+      const slot = (await paths()).slot;
+      const file = join(slotPaths(slot).staging, 'browser', shotMatch[1]);
+      try { const buf = await readFile(file); res.writeHead(200, { 'content-type': 'image/png', 'content-length': buf.length }); res.end(buf); }
+      catch { json(res, 404, { error: 'no shot' }); }
+      return true;
     }
     if (path === '/learn' && req.method === 'POST') {
       let b = ''; for await (const c of req) b += c;
