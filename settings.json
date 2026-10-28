@@ -1,0 +1,7 @@
+{
+  "activePack": "lite",
+  "routingEnabled": false,
+  "defaultModel": "muse-spark-1.3-contributor",
+  "monthlyBudgetUsd": 20,
+  "note": "Smart routing is opt-in, OFF by default. Turning it on shows a cost preview and meter."
+}

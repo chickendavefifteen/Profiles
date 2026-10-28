@@ -1,0 +1,40 @@
+{
+  "name": "",
+  "buddy": "person",
+  "metaMode": "lifeful",
+  "guided": true,
+  "kids": false,
+  "advanced": false,
+  "brain": "local-model",
+  "voiceOut": true,
+  "intensity": "full",
+  "tier": null,
+  "modelFile": "qwen2.5-3b-instruct-q4_k_m.gguf",
+  "updated": "2026-10-28T20:17:06.735Z",
+  "closedPanes": [
+    {
+      "id": "pane-chat",
+      "title": "💬 Chat",
+      "at": "2026-10-28T20:16:57.196Z"
+    },
+    {
+      "id": "pane-agent",
+      "title": "🤖 Agent",
+      "at": "2026-10-28T20:16:58.276Z"
+    }
+  ],
+  "layout": {
+    "order": null,
+    "hidden": [
+      "pane-browser",
+      "pane-notes",
+      "pane-video",
+      "pane-setup",
+      "pane-activity",
+      "pane-chat",
+      "pane-agent",
+      "pane-doc"
+    ],
+    "maxed": null
+  }
+}

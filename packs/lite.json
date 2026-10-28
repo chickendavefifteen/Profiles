@@ -1,0 +1,30 @@
+{
+  "name": "lite",
+  "version": 1,
+  "description": "Lite — Chromebook, kids, family. One thing at a time, big targets, always asks.",
+  "ui": {
+    "density": "spacious",
+    "font_scale": 1.25,
+    "target_min_px": 64,
+    "palette": "high-contrast-light",
+    "animation_level": 0
+  },
+  "sensory_budget": { "max_animation": 0.1, "flash_hz": 0, "max_simultaneous": 1 },
+  "input": {
+    "modes": ["pointer", "touch", "voice"],
+    "keybinds": {},
+    "big_targets": true,
+    "voice": true
+  },
+  "notifications": { "allow": ["family", "alarms"], "quiet_hours": "21:00-08:00", "break_through": ["alarms"] },
+  "agent": {
+    "verbosity": "plain",
+    "proactivity": 0,
+    "parallelism": 1,
+    "autonomy": "suggest-only",
+    "rest_reminders": false,
+    "cadence_s": 900
+  },
+  "widgets": ["tasks", "notes"],
+  "routing": { "preferred_model": null }
+}

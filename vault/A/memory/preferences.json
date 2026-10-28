@@ -1,0 +1,30 @@
+{
+  "preferredMode": {},
+  "macroCandidates": [],
+  "linkedGroups": [
+    {
+      "panes": [
+        "pane-agent",
+        "pane-chat"
+      ],
+      "count": 36
+    },
+    {
+      "panes": [
+        "pane-chat",
+        "pane-doc"
+      ],
+      "count": 36
+    },
+    {
+      "panes": [
+        "pane-agent",
+        "pane-doc"
+      ],
+      "count": 36
+    }
+  ],
+  "lastDismissal": null,
+  "events": 37,
+  "derivedAt": "2026-10-28T19:48:49.858Z"
+}

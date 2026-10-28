@@ -1,0 +1,30 @@
+{
+  "name": "low-sensory",
+  "version": 1,
+  "description": "Low-Sensory — motion stops, palette calms, agent terse and mono-task. Provable on camera.",
+  "ui": {
+    "density": "spacious",
+    "font_scale": 1.15,
+    "target_min_px": 56,
+    "palette": "calm-no-blue-light",
+    "animation_level": 0
+  },
+  "sensory_budget": { "max_animation": 0, "flash_hz": 0, "max_simultaneous": 0 },
+  "input": {
+    "modes": ["pointer", "keyboard"],
+    "keybinds": { "capture": "c" },
+    "big_targets": true,
+    "voice": false
+  },
+  "notifications": { "allow": [], "quiet_hours": null, "break_through": ["alarms"] },
+  "agent": {
+    "verbosity": "terse",
+    "proactivity": 0,
+    "parallelism": 1,
+    "autonomy": "suggest-only",
+    "rest_reminders": false,
+    "cadence_s": 900
+  },
+  "widgets": ["tasks", "notes"],
+  "routing": { "preferred_model": null }
+}

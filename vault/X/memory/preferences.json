@@ -1,0 +1,21 @@
+{
+  "preferredMode": {},
+  "macroCandidates": [
+    {
+      "phrase": "list the files in your current directory and tell me which profile vault you are in one short paragraph",
+      "count": 4
+    }
+  ],
+  "linkedGroups": [
+    {
+      "panes": [
+        "pane-chat",
+        "pane-doc"
+      ],
+      "count": 3
+    }
+  ],
+  "lastDismissal": null,
+  "events": 9,
+  "derivedAt": "2026-10-28T19:11:08.639Z"
+}

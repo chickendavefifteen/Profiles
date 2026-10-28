@@ -1,0 +1,8 @@
+node_modules/
+agent/models/*.gguf
+agent/models/*.sha256
+src-tauri/target/
+vault/*/pi-sessions/
+vault/*/staging/browser/
+*.log
+.DS_Store

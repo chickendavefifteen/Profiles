@@ -1,0 +1,7 @@
+{
+  "name": "Profiles", "short_name": "Profiles",
+  "start_url": "./index.html", "scope": "./", "display": "standalone",
+  "background_color": "#101022", "theme_color": "#101022",
+  "description": "One calm front door over your agent, browser and work apps.",
+  "icons": []
+}

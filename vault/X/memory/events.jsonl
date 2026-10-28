@@ -1,0 +1,12 @@
+{"at":"2026-10-28T18:57:35.006Z","type":"context","panes":["pane-chat","pane-browser","pane-doc","pane-notes"],"mode":"lifeful"}
+{"at":"2026-10-28T19:10:02.399Z","type":"ask","query":"List the files in your current directory and tell me which profile vault you are in. One short paragraph.","mode":"lifeful"}
+{"at":"2026-10-28T19:10:24.252Z","type":"ask","query":"List the files in your current directory and tell me which profile vault you are in. One short paragraph.","mode":"lifeful"}
+{"at":"2026-10-28T19:10:32.605Z","type":"context","panes":["pane-chat","pane-agent","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T19:10:45.167Z","type":"ask","query":"Say exactly: X brain alive","mode":"lifeful"}
+{"at":"2026-10-28T19:10:52.538Z","type":"ask","query":"List the files in your current directory and tell me which profile vault you are in. One short paragraph.","mode":"lifeful"}
+{"at":"2026-10-28T19:10:52.606Z","type":"context","panes":["pane-chat","pane-agent","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T19:11:02.319Z","type":"ask","query":"List the files in your current directory and tell me which profile vault you are in. One short paragraph.","mode":"lifeful"}
+{"at":"2026-10-28T19:11:08.639Z","type":"ask","query":"Using your tools, look inside the notes folder here and summarise what profiles means in this vault, briefly.","mode":"lifeful"}
+{"at":"2026-10-28T19:11:12.614Z","type":"context","panes":["pane-chat","pane-agent","pane-doc"],"mode":"lifeful"}
+{"at":"2026-10-28T20:18:50.345Z","type":"browser-act","url":"https://example.org","slot":"X"}
+{"at":"2026-10-28T20:18:59.070Z","type":"context","panes":[],"mode":"lifeful"}

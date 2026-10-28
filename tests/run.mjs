@@ -1,0 +1,300 @@
+// Day 1 checks — zero deps: node tests/run.mjs
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { validatePack, normalizePack } from '../engine/profile.mjs';
+import { governorApply, still, cssVars } from '../engine/governor.mjs';
+import { resolveModel, suggestSwitch, DEFAULT_MODEL } from '../engine/router.mjs';
+import { createTask, advance, checkpoint, complete, handoff } from '../engine/ledger.mjs';
+import { classifyIntent, pickTier, suggestProfile, TIERS } from '../agent/ladder.mjs';
+import { toolsForMode, liveToolsForMode } from '../agent/tools.mjs';
+import { makeDraft, draftToMarkdown, draftToDocx, makeScriptDraft } from '../agent/staging.mjs';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+let pass = 0, fail = 0;
+function ok(cond, name, extra = '') {
+  if (cond) { pass++; console.log(`ok - ${name}`); }
+  else { fail++; console.log(`FAIL - ${name} ${extra}`); }
+}
+
+// 1. All five packs validate.
+for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-sensory.json']) {
+  const pack = JSON.parse(readFileSync(join(root, 'packs', f), 'utf8'));
+  const v = validatePack(pack);
+  ok(v.ok, `pack validates: ${f}`, JSON.stringify(v.errors));
+}
+
+// 2. Governor: low-sensory is still, lite clamps flash to 0.
+{
+  const low = normalizePack(JSON.parse(readFileSync(join(root, 'packs', 'low-sensory.json'), 'utf8')));
+  const eff = governorApply(low);
+  ok(still(eff), 'governor: low-sensory is still');
+  ok(eff.sensory_budget.max_simultaneous === 0, 'governor: low-sensory zero simultaneous');
+  ok(eff.ui.animation_level === 0, 'governor: low-sensory kills animation_level');
+  const vars = cssVars(eff);
+  ok(vars['--anim'] === '0', 'governor: css var --anim is 0');
+  const dev = normalizePack(JSON.parse(readFileSync(join(root, 'packs', 'dev.json'), 'utf8')));
+  ok(!still(governorApply(dev)), 'governor: dev is not still');
+}
+
+// 3. Router OFF by default: dev preference ignored until opt-in.
+{
+  const dev = normalizePack(JSON.parse(readFileSync(join(root, 'packs', 'dev.json'), 'utf8')));
+  const off = resolveModel(dev, { routingEnabled: false });
+  ok(off.model === DEFAULT_MODEL && !off.switched, 'router: OFF keeps fixed model');
+  const on = resolveModel({ ...dev, routing: { preferred_model: 'demo-fast-model' } }, { routingEnabled: true });
+  ok(on.switched && on.model === 'demo-fast-model' && !!on.costPreview, 'router: ON routes with cost preview');
+  const s = suggestSwitch(dev, 'chill', 'you seem tired');
+  ok(s.requiresUserYes && s.to === 'chill', 'router: suggestions require user yes');
+}
+
+// 4. Ledger round-trip: create -> advance -> checkpoint -> handoff -> complete.
+{
+  const ledger = [];
+  const t = createTask(ledger, { title: 'demo task', device: 'desktop' });
+  ok(t.state === 'inbox', 'ledger: starts in inbox');
+  advance(ledger, t.id, { nextStep: 'draft note', device: 'desktop' });
+  checkpoint(ledger, t.id, 'leaving desktop');
+  ok(ledger[0].state === 'checkpointed', 'ledger: checkpointed with note');
+  const h = handoff([...ledger, { id: 'x', state: 'done', title: 'old' }]);
+  ok(h[0].id === t.id, 'ledger: handoff surfaces checkpointed first');
+  complete(ledger, t.id);
+  ok(ledger[0].state === 'done', 'ledger: completes');
+}
+
+// 5. settings.json: routing OFF by default.
+{
+  const s = JSON.parse(readFileSync(join(root, 'settings.json'), 'utf8'));
+  ok(s.routingEnabled === false, 'settings: routing OFF by default');
+}
+
+// 6. Minimal ask-first frontend: blank screen + search bar, tabs, TUI agent.
+{
+  const html = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const js = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(html.includes('id="pane-chat"') && html.includes('id="pane-agent"') && html.includes('id="pane-browser"')
+    && html.includes('id="pane-doc"') && html.includes('id="pane-setup"') && html.includes('id="pane-activity"'), 'frontend: canvas panes chat/agent/browser/doc/setup/activity');
+  ok(html.includes('data-view="split"') && html.includes('data-view="canvas"'), 'frontend: panes align split or full canvas');
+  ok(html.includes('id="askForm"') && html.includes('id="ask"'), 'frontend: blank screen + search bar');
+  ok(html.includes('data-profile="lifeful"') && html.includes('data-profile="calm"'), 'frontend: 5 profile pills incl. lifeful + calm');
+  ok(html.includes('id="agentLog"') && html.includes('id="stages"'), 'frontend: TUI agent panel with stage strip');
+  ok(js.includes('speech') && js.includes('"full"') && js.includes('"sparse"') && js.includes('"quiet"'), 'frontend: agent verbosity follows the mode');
+  ok(js.includes('showPane("pane-agent")'), 'frontend: agent pane sits beside chat once you ask');
+  ok(!html.includes('id="meterText"'), 'frontend: no quantified meter chip — budget is implied by the mode');
+  ok(html.includes('id="routingToggle"') && !html.includes('checked'), 'frontend: routing toggle present and OFF by default');
+  ok(js.includes('Cost preview') || js.includes('cap $2'), 'frontend: cost-preview text for opt-in routing');
+  ok(html.includes('id="stream"') && html.includes('id="ledger"'), 'frontend: activity stream + task ledger');
+  ok(html.includes('gov-freeze') && html.includes('prefers-reduced-motion'), 'frontend: governor kill-switch + reduced-motion guard');
+  ok(html.includes('Skip to') && html.includes('aria-live'), 'frontend: skip link + live regions');
+  ok(js.includes('location.search'), 'frontend: deep-linkable modes for screenshots/demo');
+  ok(js.includes('get("ask")') && js.includes('startRun(q'), 'frontend: ?ask= deep-link starts a run on boot');
+  ok(!html.includes('Synthetic demo'), 'frontend: no synthetic/demo boilerplate text in the UI');
+  ok(js.includes('packs/') && js.includes('fetchPack'), 'frontend: wired to packs/*.json with vendored fallback');
+  ok(js.includes('gov-freeze'), 'frontend: JS enforces still mode');
+  ok(!html.includes('<script>') || !html.match(/<script>[\s\S]*function setMode/), 'frontend: no inline app script (Tauri CSP + cacheable main.js)');
+  ok(html.includes('[data-mode="calm"]') && html.includes('#1f201e'), 'frontend: low-sensory is a softer dark');
+}
+
+// 7. One run command: npm start serves the app.
+{
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  ok(typeof pkg.scripts?.start === 'string' && pkg.scripts.start.includes('server.mjs'), 'run: npm start serves via server.mjs');
+  const srv = readFileSync(join(root, 'server.mjs'), 'utf8');
+  ok(srv.includes('/src/') && srv.includes('8123'), 'run: server routes to /src/ on 8123');
+  const readme = readFileSync(join(root, 'README.md'), 'utf8');
+  ok(readme.includes('npm start') && readme.includes('localhost'), 'run: README documents the one command');
+
+  /* ---- 8. app container (Tauri) + stable layout + smooth motion ---- */
+  const html8 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const js8 = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  const tconf = JSON.parse(readFileSync(join(root, 'src-tauri/tauri.conf.json'),'utf8'));
+  ok(tconf.productName === 'Profiles', 'tauri: native window titled Profiles');
+  ok(tconf.build.frontendDist === '../src', 'tauri: bundles the same src/ frontend');
+  ok(tconf.build.devUrl === 'http://localhost:1420', 'tauri: devUrl on 1420');
+  ok((tconf.build.beforeDevCommand||'').includes('server.mjs --port 1420'), 'tauri: one command boots the dev server');
+  ok((tconf.build.beforeBuildCommand||'').includes('sync-packs'), 'tauri: build vendors packs into src/');
+  const tpkg = JSON.parse(readFileSync(join(root, 'package.json'),'utf8'));
+  ok(tpkg.scripts.app && tpkg.scripts.app.includes('tauri dev'), 'run: npm run app opens the native window');
+  ok(tpkg.scripts['sync-packs'] && tpkg.scripts['sync-packs'].includes('vendor-packs'), 'run: sync-packs vendors packs for builds');
+  for (const f of ['lite','chill','focus','dev','low-sensory']) {
+    const a = readFileSync(join(root, 'packs/'+f+'.json'),'utf8');
+    const b = readFileSync(join(root, 'src/vendor-packs/'+f+'.json'),'utf8');
+    ok(a === b, 'vendor: src/vendor-packs/'+f+'.json matches packs/');
+  }
+  ok(js8.includes('./vendor-packs/'), 'frontend: falls back to vendored packs inside app builds');
+  ok(html8.includes('one centered column, never reflows'), 'layout: one shared column, no per-mode reflow');
+  ok(!html8.includes('[data-mode="calm"] .grid') && !html8.includes('.lanes{min-height'), 'layout: no old card-grid reflow rules remain');
+  ok(html8.includes('body[data-view="chat"] .canvas'), 'layout: chat view centres one column');
+  ok(html8.includes('id="agentLog"') && html8.includes('id="ask"'), 'layout: agent log + ask box addressable');
+  ok(js8.includes('applyLayout') && html8.includes('id="paneTabs"'), 'motion: drag-snap tiling with FLIP, pane tabs like a browser');
+  ok(html8.includes('@keyframes pageIn') && html8.includes('@keyframes lineIn'), 'motion: transform-only keyframes, 300ms or less');
+}
+
+// 9. Real agent: ladder, escalation, tools, staging, sidecar wiring.
+{
+  ok(TIERS.map(t=>t.id).join(',') === 'bundled-tiny,mobile-local,laptop-local,cloud', 'ladder: tiny -> mobile -> laptop -> cloud');
+  ok(classifyIntent('File the dentist letter').kind === 'file-task', 'ladder: file verb files, does not stage a doc');
+  ok(classifyIntent('Draft a letter about rent').kind === 'stage-doc', 'ladder: draft-a-letter stages a doc');
+  ok(classifyIntent('Slides for the AGM').kind === 'stage-slides', 'ladder: slides stage a deck');
+  const irr = classifyIntent('Send an email to the council');
+  ok(irr.kind === 'irreversible' && irr.needsConfirm === true, 'ladder: send = irreversible, needs confirm');
+  ok(pickTier(irr, {}).action === 'stage-draft-only', 'escalation: irreversible without cloud opt-in is staged, never sent');
+  ok(pickTier(irr, { cloudOptIn: true, hasApiKey: true }).tier === 'cloud', 'escalation: irreversible with opt-in goes to cloud review');
+  ok(pickTier({ kind: 'question' }, { device: 'phone' }).tier === 'mobile-local', 'ladder: phone questions use mobile tier');
+  const sug = suggestProfile({ hour: 22, current: 'lifeful' });
+  ok(sug && sug.to === 'chill' && sug.requiresUserYes === true, 'auto: late evening suggests Chill, never silently');
+  ok(suggestProfile({ hour: 12, current: 'focus' }) === null, 'auto: no nagging when nothing fits');
+  ok(toolsForMode('calm').every(t => t.status !== 'gated' || true) && liveToolsForMode('calm').map(t=>t.id).join(',') === 'file-task,stage-doc', 'tools: calm gets only quiet live tools');
+  ok(liveToolsForMode('lifeful').length > liveToolsForMode('calm').length, 'tools: lifeful gets more tools than calm');
+  ok(toolsForMode('lifeful').some(t => t.id === 'browser-act' && t.status === 'gated'), 'tools: browser-act registered but gated off');
+  const d = makeDraft('Draft a letter about the allotment rent', 'stage-doc');
+  ok(d.title === 'The allotment rent' && d.sections.length >= 3, 'staging: draft has a clean title + sections');
+  ok(draftToMarkdown(d).includes('# The allotment rent'), 'staging: markdown export renders');
+  const docx = draftToDocx(d);
+  ok(docx[0] === 0x50 && docx[1] === 0x4b && docx.includes(Buffer.from('word/document.xml')) && docx.includes(Buffer.from('allotment')), 'staging: docx is a real OOXML zip with content');
+  ok(makeScriptDraft('scrape the allotment site').body.includes('never auto-executes'), 'staging: scripts are staged, never auto-run');
+  const sc = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(sc.includes('/api/ask') || sc.includes("'/ask'") || sc.includes('path === \'/ask\''), 'sidecar: ask endpoint exists');
+  ok(sc.includes('PROFILES_ALLOW_CLOUD') && sc.includes('cloudOptIn'), 'sidecar: cloud is env opt-in only');
+  ok(sc.includes('sense') && sc.includes('remember') && sc.includes('checkpoint'), 'sidecar: pi loop + ledger checkpoints');
+  const srv = readFileSync(join(root, 'server.mjs'), 'utf8');
+  ok(srv.includes('handleAgent'), 'sidecar: mounted in npm start under /api/');
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  ok(pkg.scripts.agent && pkg.scripts.agent.includes('sidecar'), 'run: npm run agent = always-on sidecar');
+  const html = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const js = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(html.includes('id="pane-doc"') && html.includes('id="stageList"'), 'frontend: Document/Stage pane for staged docs');
+  ok(html.includes('id="autoToggle"') && !html.includes('id="agentToggle"'), 'frontend: lite agent always on, no settings trip to enable it');
+  ok(js.includes('bubble(') && js.includes('"agent"'), 'frontend: answers land in chat bubbles, TUI is detail');
+  ok(js.includes('/api/ask') && js.includes('sidecar unreachable'), 'frontend: real runs with labelled simulated fallback');
+  ok(js.includes('suggestYes') && js.includes('requiresUserYes') || js.includes('pendingSuggest'), 'frontend: auto mode is suggest-first');
+  ok(js.includes('/api/stage/') && js.includes('format=docx') || js.includes('export?format=docx'), 'frontend: staged drafts export to docx');
+  ok(existsSync(join(root, 'SPEC-REAL-AGENT.md')), 'spec: SPEC-REAL-AGENT.md documents the real-agent design');
+}
+
+// 10. V3: chat semantics, quiet learning, deterministic macros, system layer.
+{
+  ok(classifyIntent('hi r u agentic now').kind === 'chat', 'chat: greeting/about-the-agent is conversation, never filed');
+  ok(classifyIntent('spin me up a blank google slides').kind === 'stage-slides', 'chat: spin-up-slides stages a deck');
+  ok(classifyIntent('what time is it?').kind === 'question', 'chat: questions are questions');
+  const { computePreferences, learnedSuggestion } = await import('../agent/learning.mjs').catch(() => ({}));
+  const evs = [];
+  for (let i = 0; i < 5; i++) evs.push({ type: 'mode-stay', mode: 'calm', dwellSec: 300, at: new Date(Date.now() - i * 864e5).setHours(22, 0, 0, 0) && new Date(new Date().setHours(22,0,0,0) - i*864e5).toISOString() });
+  const prefs = computePreferences ? computePreferences(evs) : {};
+  ok(prefs.preferredMode && prefs.preferredMode.evening === 'calm', 'learning: dwell (not clicks) teaches evening preference');
+  ok(learnedSuggestion && learnedSuggestion(prefs, 'evening', 'lifeful')?.to === 'calm', 'learning: suggestion comes from learned pattern');
+  ok(learnedSuggestion && learnedSuggestion(prefs, 'evening', 'calm') === null, 'learning: silent when already where you settle');
+  const sys = readFileSync(join(root, 'agent', 'system.mjs'), 'utf8');
+  ok(sys.includes('runSetupStep') && sys.includes("case 'wire-brain'"), 'setup: deterministic allowlisted steps, no arbitrary shell');
+  ok(sys.includes('makeSnapshot') && sys.includes('restoreSnapshot'), 'meta: snapshots + rollback for unstitch/reset');
+  const man = JSON.parse(readFileSync(join(root, 'agent', 'models.json'), 'utf8'));
+  ok(man.tiers.some(t => t.id === 'pc-standard') && man.voice.some(v => v.id === 'parakeet') && man.voice.some(v => v.id === 'neudecide'), 'manifest: PC tier + Parakeet + NeuDecide researched');
+  ok(man.researchedNotFound.length >= 2, 'manifest: unverified model names flagged honestly');
+  const sc3 = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(sc3.includes('/api/capabilities') || sc3.includes("path === '/capabilities'"), 'sidecar: capabilities endpoint');
+  ok(sc3.includes("path === '/macros'") && sc3.includes('deterministic-macro'), 'sidecar: macro fast path, no thinky loop');
+  ok(sc3.includes("intent.kind === 'chat'"), 'sidecar: chat answered in chat');
+  const js3 = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  const html3 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  ok(!js3.includes('switched a lot'), 'ux: rapid-switch nag is gone');
+  ok(js3.includes('profilesSuggestSilenceUntil'), 'ux: dismissing a suggestion silences it 24h');
+  ok(html3.includes('id="nameInput"') && html3.includes('id="buddyInput"') && !html3.includes('id="welcomeBar"'), 'ux: name + buddy live in Settings, not forced in chat');
+  ok(html3.includes('id="slotA"') && html3.includes('id="slotB"'), 'meta: two profile slots, B is the clean one');
+  ok(html3.includes('id="micBtn"') && js3.includes('SpeechRecognition'), 'voice: browser speech in, zero install');
+  ok(html3.includes('id="pane-browser"') && html3.includes('id="openExternal"'), 'browser: in-app view plus open-in-my-browser escape');
+  ok(existsSync(join(root, 'scripts', 'fetch-model.mjs')), 'setup: deterministic model fetch script');
+  const slots = readFileSync(join(root, 'agent', 'slots.mjs'), 'utf8');
+  ok(slots.includes("'A', 'B', 'C', 'D', 'E', 'X'") && slots.includes('slotPaths'), 'isolation: per-slot vault paths A-E + X');
+  ok(slots.includes('zero carry') || slots.includes('NOTHING crosses') || slots.includes('DIFFERENT PEOPLE'), 'isolation: zero carry-across is the stated rule');
+  const sc4 = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(sc4.includes("path === '/slot'"), 'isolation: slot switch endpoint rebuilds world per slot');
+  const js4 = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(js4.includes('resetWorldView'), 'isolation: frontend clears every pane on slot switch');
+  ok(js4.includes('pinTiles') && js4.includes('insertBefore'), 'canvas: pin unlocks, drag snap-swaps, click lands + re-pins');
+  ok(js4.includes('layoutCommand') && js4.includes('PANE_WORDS'), 'canvas: agent can move/focus panes on ask');
+  ok(!readFileSync(join(root,'src','index.html'),'utf8').includes('aria-label="Canvas layout"'), 'canvas: no clunky Chat/Split/Canvas toggle anymore');
+  const html4 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  ok(html4.includes('dotDrift') && html4.includes('breathe') && html4.includes('hueDrift'), 'feel: lifeful drift, chill breathe, chaos hue - personalities differ');
+  ok(html4.includes('id="intensitySel"') && html4.includes('overdrive'), 'feel: overdrive/chaos nested per profile');
+  ok(html4.includes('body[data-mode="lite"] *{animation:none'), 'feel: lite kills animation for weak hardware');
+  ok(js4.includes('rippleFx'), 'feel: lifeful ripples on ask');
+  const js5 = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  const html5 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  ok(html5.includes('data-home="browse"') && html5.includes('data-home="ask"') && html5.includes('data-home="work"'), 'front door: Browse / Search-Ask / Work options');
+  ok(js5.includes('HOME_LAYOUTS') && js5.includes('goHome'), 'front door: each option arranges the canvas');
+  ok(html5.includes('data-app="https://docs.google.com/presentation') && html5.includes('office.com/launch/word'), 'work: Google/Microsoft apps housed as browser tiles');
+  ok(html5.includes('id="detailToggle"') && js5.includes('agentDetail'), 'agent: sleek vs detailed reasoning/tool-call view, per profile');
+  ok(html5.includes('class="pinbtn"') && js5.includes('unpinned'), 'canvas: tiny pin icon unlocks a pane to move it');
+  ok(js5.includes('MAX_PER_PAGE=8'), 'canvas: max 8 panes per page, overflow opens a new page');
+  ok(html5.includes('id="pane-notes"') && html5.includes('id="pane-video"'), 'panes: notes + video join the canvas');
+  ok(js5.includes('type:"context"') && js5.includes('20000'), 'linkage: light local co-use polling every 20s, visible only');
+  ok(js5.includes('function reorganise'), 'agent: reorganise-this uses learned linkage or best practice');
+  ok(readFileSync(join(root, 'agent', 'slots.mjs'), 'utf8').includes("'X'"), 'profile X: ringfenced power slot exists');
+  const sysx = readFileSync(join(root, 'agent', 'system.mjs'), 'utf8');
+  ok(sysx.includes('X_DEFAULTS') && sysx.includes('piPower'), 'profile X: power defaults, advised stronger brain');
+  const scx = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(scx.includes("path === '/notes'"), 'notes: per-slot notes API (zero carry)');
+  ok(existsSync(join(root, 'PRODUCTION.md')), 'production: Tauri/Rust/maintenance/updates documented');
+  const fetch5 = readFileSync(join(root, 'scripts', 'fetch-model.mjs'), 'utf8');
+  ok(fetch5.includes('gemma-e4b') && fetch5.includes('nemotron-4b') && fetch5.includes('minitron-4b'), 'models: Gemma E4B + Nemotron + Minitron are fetchable options');
+  const js6 = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  const html6 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  ok(html6.includes('id="slotC"') && html6.includes('class="slotgap"'), 'strip: A B C letters, X separated far right');
+  ok(html6.includes('id="slotX"') && html6.includes('hidden'), 'strip: X hidden until opt-in');
+  ok(html6.includes('id="showXToggle"') && html6.includes('training wheels are off'), 'strip: X opt-in carries the full-access warning');
+  ok(html6.includes('id="extraSlotsToggle"'), 'strip: D/E are a setting, not a default');
+  ok(js6.includes('loadAppConfig') && js6.includes('/api/appconfig'), 'strip: app-level showX/extraSlots config');
+  ok(html6.includes('data-close="pane-chat"'), 'window manners: even chat can be closed');
+  ok(!html6.includes('data-min='), 'window manners: minimise removed while behaviour is rethought');
+  ok(js6.includes('renderTrash') && js6.includes('Recently closed'), 'window manners: closed panes recoverable with titles');
+  ok(html6.includes('id="brandMenu"') && html6.includes('data-menu="setup"'), 'brand: Profiles logo opens a simple menu');
+  ok(!html6.includes('🎛 Customise</button>') && html6.includes('⚙</button>'), 'brand: customise is a cog icon');
+  ok(!html6.includes('id="meterText"'), 'meter: chip removed entirely, budget implied');
+  ok(!js6.includes('sim+(m.sim===1?" lane"'), 'meter: lanes no longer quantified in the chip');
+  ok(js6.includes('state.speak=true') && js6.includes('pickVoice'), 'voice: talk -> speaks back, natural voice picked');
+  ok(js6.includes('Mic hiccup'), 'voice: honest mic errors instead of silent failure');
+  ok(js6.includes('window.open(b.dataset.app'), 'work: apps open in the real browser, Profiles stays the layer');
+  const sc6 = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(sc6.includes("path === '/appconfig'"), 'sidecar: appconfig endpoint');
+  const lb = readFileSync(join(root, 'agent', 'localbrain.mjs'), 'utf8');
+  ok(lb.includes('templateFor') && lb.includes("'gemma'") && lb.includes("'llama3'"), 'brains: per-model prompt template adapters');
+  const { templateFor } = await import('../agent/localbrain.mjs');
+  ok(templateFor('qwen2.5-3b.gguf') === 'chatml' && templateFor('NVIDIA-Nemotron3.gguf') === 'llama3'
+    && templateFor('gemma-3n-E4B.gguf') === 'gemma' && templateFor('LFM2.5.gguf') === 'lfm', 'brains: registry maps each downloaded model');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes("as this profile's brain"), 'brains: per-slot picker in Setup');
+  ok(existsSync(join(root, 'SPEC-PRODUCTION.md')), 'spec: master production spec is the source of truth');
+  const spec = readFileSync(join(root, 'SPEC-PRODUCTION.md'), 'utf8');
+  ok(spec.includes('P1') && spec.includes('P5') && spec.includes('Acceptance') || spec.includes('Gate:'), 'spec: phased with acceptance gates');
+  ok(spec.includes('audited') || spec.includes('Audited'), 'spec: status audited against code, not aspirations');
+  ok(existsSync(join(root, 'src', 'manifest.webmanifest')) && existsSync(join(root, 'src', 'sw.js')), 'pwa: installable shell for phones');
+  ok(readFileSync(join(root, 'src', 'sw.js'), 'utf8').includes('/api/'), 'pwa: service worker never caches live agent API');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('profilesHub'), 'pwa: phone can remote to the home-hub sidecar');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="hubInput"'), 'pwa: hub address set in Setup, no config files');
+  ok(existsSync(join(root, 'agent', 'pibrain.mjs')), 'X: real pi subprocess brain module');
+  const pb = readFileSync(join(root, 'agent', 'pibrain.mjs'), 'utf8');
+  ok(pb.includes("slot !== 'X'") && pb.includes('muse-spark-1.3-contributor') && pb.includes('pi-sessions'), 'X: pi gated to X, contributor model, X-only sessions');
+  const scp = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(scp.includes("action: 'pi-brain'") && scp.includes('privateMode'), 'X: sidecar routes X to pi; private mode gates recording');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="privateToggle"'), 'privacy: per-profile private mode toggle');
+  ok(html6.includes('class="ppp"') && html6.includes('id="avatarPath"'), 'brand: PPP shades + shaded avatar silhouette in the colour-mix circle');
+  ok(js6.includes('AVATAR_PATHS') && js6.includes('skull') && js6.includes('robot'), 'brand: avatar is a shaded silhouette (person/animal/robot/skull), never a coloured drawing');
+  ok(html6.includes('id="trashBtn"') && html6.includes('id="trashPop"'), 'trash: bottom-right icon + popup inspector');
+  ok(js6.includes('14*24*3600*1000') && js6.includes('slice(-12)') || js6.includes('pruneClosed'), 'trash: smart retention 12 items / 14 days per profile');
+  ok(!html6.includes('data-focus="pane'), 'panes: Focus buttons removed while behaviour is rethought');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('class="avatarBtn"'), 'brand: silhouette icon (left) is the account/settings button');
+  const orch = await import('../agent/orchestrate.mjs');
+  ok(orch.wantsDeep('ultrathink about this') === true && orch.wantsDeep('what time is it') === false, 'orchestration: deep triggers are explicit words');
+  ok(orch.LANES.map(l=>l.id).join(',') === 'scout,worker,critic', 'orchestration: Scout/Worker/Critic lanes, fleet pattern');
+  const scorch = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(scorch.includes("action: 'orchestrate'"), 'orchestration: wired into ask path with parent acceptance');
+  const defc = readFileSync(join(root, 'agent', 'system.mjs'), 'utf8');
+  ok(defc.includes("buddy: 'person'"), 'brand: human silhouette is the default avatar everywhere');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('body[data-mode="calm"]{--deck1:#7e9a90'), 'brand: logo colourway follows the 5 modes (signed-off A-family)');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('--deck1:#f2a35e'), 'brand: chill sunset, focus lagoon decks');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('state.urlMode'), 'boot: ?mode= deep link beats saved profile mode');
+  const man2 = JSON.parse(readFileSync(join(root, 'agent', 'models.json'), 'utf8'));
+  ok(!!man2['researched2026-10-28-v2'], 'research: v2 verdicts on Bolt E4B / Minitron-2B recorded');
+}
+
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

@@ -1,0 +1,9 @@
+{
+  "name": "Profiles",
+  "short_name": "Profiles",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0c1116",
+  "theme_color": "#0c1116",
+  "icons": []
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0c1116" />
+<title>Profiles PWA — day summary</title>
+<link rel="manifest" href="manifest.json" />
+<style>
+:root { color-scheme: dark; --fs: 1.15; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 1rem 1rem 4rem; background: #0c1116; color: #f2f5f7;
+  font-family: system-ui, sans-serif; font-size: calc(16px * var(--fs)); line-height: 1.55; }
+h1 { font-size: 1.3rem; } .card { border: 1px solid #2b3644; border-radius: 1rem; padding: 1rem; margin: 1rem 0; }
+.big { min-height: 56px; font-size: 1.1rem; width: 100%; border-radius: .9rem; border: 0; background: #7cc4ff; color: #06121d; font-weight: 700; }
+.muted { opacity: .75; }
+</style>
+</head>
+<body>
+<h1>Profiles — today</h1>
+<p class="muted">Phone placeholder (Day 1). Picks up where the desktop left off — D5.</p>
+<div class="card" id="summary" role="status" aria-live="polite">No vault synced yet.</div>
+<button class="big" id="pickup">Pick up where I left off</button>
+<p class="muted">Synthetic demo data only.</p>
+<script>
+document.getElementById('pickup').addEventListener('click', () => {
+  document.getElementById('summary').textContent =
+    'Day 1 stub: ledger sync lands D5. Desktop checkpoint will appear here.';
+});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

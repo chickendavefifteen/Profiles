@@ -1,0 +1,30 @@
+{
+  "name": "chill",
+  "version": 1,
+  "description": "Chill — evening mode. Calm palette, slow cadence, rest reminders on.",
+  "ui": {
+    "density": "comfortable",
+    "font_scale": 1.1,
+    "target_min_px": 48,
+    "palette": "warm-dim",
+    "animation_level": 1
+  },
+  "sensory_budget": { "max_animation": 0.3, "flash_hz": 0, "max_simultaneous": 1 },
+  "input": {
+    "modes": ["pointer", "keyboard", "voice"],
+    "keybinds": { "capture": "c" },
+    "big_targets": false,
+    "voice": true
+  },
+  "notifications": { "allow": ["family"], "quiet_hours": "22:00-08:00", "break_through": ["alarms"] },
+  "agent": {
+    "verbosity": "plain",
+    "proactivity": 0,
+    "parallelism": 1,
+    "autonomy": "suggest-only",
+    "rest_reminders": true,
+    "cadence_s": 600
+  },
+  "widgets": ["notes", "calendar", "tasks"],
+  "routing": { "preferred_model": null }
+}

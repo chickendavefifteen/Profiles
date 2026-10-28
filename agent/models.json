@@ -1,0 +1,149 @@
+{
+  "note": "Researched 2026-10-28 against HuggingFace. Sizes are Q4_K_M GGUF unless said. Download is always an explicit, scripted step (scripts/fetch-model.mjs) - Profiles never silently pulls gigabytes.",
+  "tiers": [
+    {
+      "id": "bundled-tiny",
+      "label": "Bundled tiny (in the box)",
+      "model": "deterministic heuristic classifier (agent/ladder.mjs)",
+      "sizeMB": 1,
+      "runsOn": "anything incl. 4GB Celeron laptop, offline",
+      "role": "intent classify, profile suggest, setup wizard, canned drafts. Never acts alone.",
+      "status": "built-in"
+    },
+    {
+      "id": "mobile-lite",
+      "label": "Mobile lite",
+      "model": "Qwen2.5-0.5B-Instruct Q4_K_M GGUF",
+      "sizeMB": 491,
+      "runsOn": "iPhone 16 / mid Android, ~1GB RAM budget",
+      "role": "triage, summaries, short drafts on-device (llama.cpp mobile / remote to home PC)",
+      "hf": "Qwen/Qwen2.5-0.5B-Instruct-GGUF/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "status": "manifest - fetch via setup"
+    },
+    {
+      "id": "mobile-beefy",
+      "label": "Mobile beefy (a little slow, smarter)",
+      "model": "Qwen2.5-1.5B/3B-Instruct Q4_K_M GGUF",
+      "sizeMB": 2105,
+      "runsOn": "flagship phones, tablets; fine as remote-to-PC too",
+      "role": "real short agent runs on-device where RAM allows",
+      "hf": "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf",
+      "status": "manifest - fetch via setup"
+    },
+    {
+      "id": "pc-standard",
+      "label": "PC standard (2-4B)",
+      "model": "Qwen2.5-3B-Instruct Q4_K_M GGUF (llama.cpp)",
+      "sizeMB": 2105,
+      "runsOn": "any modern laptop/PC, CPU ok, GPU fast",
+      "role": "the always-on lite agent brain: chat, drafts, staging, tool routing",
+      "hf": "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf",
+      "status": "DOWNLOADED on Desky 2026-10-28, wired into sidecar"
+    },
+    {
+      "id": "pc-beast",
+      "label": "PC beast (this machine: 5080+3060, 64GB)",
+      "model": "Qwen2.5-7B/14B-Instruct Q4_K_M GGUF or nvidia/NVIDIA-Nemotron-3-Nano-4B (GGUF when available)",
+      "sizeMB": 4680,
+      "runsOn": "dual-GPU / 16GB+ VRAM PCs",
+      "role": "near-cloud local quality; also serves phones on the home fleet as the always-on hub",
+      "hf": "Qwen/Qwen2.5-7B-Instruct-GGUF",
+      "status": "manifest - fetch via setup (3B already proves the path)"
+    },
+    {
+      "id": "cloud",
+      "label": "Cloud / subscription (opt-in)",
+      "model": "Muse Spark 1.3 Contributor xhigh via API key or OAuth logins (pi-style auth)",
+      "sizeMB": 0,
+      "runsOn": "any device online",
+      "role": "heavy reasoning, review hop for irreversible actions",
+      "status": "gated: PROFILES_ALLOW_CLOUD=1 + key; OFF by default"
+    }
+  ],
+  "voice": [
+    {
+      "id": "webspeech",
+      "label": "Browser speech (built-in, zero install)",
+      "model": "Web Speech API recognition + speechSynthesis",
+      "sizeMB": 0,
+      "status": "WIRED in frontend (mic + read-aloud), browser-dependent"
+    },
+    {
+      "id": "parakeet",
+      "label": "Parakeet TDT 0.6B v3 (NVIDIA, local ASR)",
+      "model": "nvidia/parakeet-tdt-0.6b-v3; GGUF ports: handy-computer/parakeet-tdt-0.6b-v3-gguf, nemotron-3.5-asr-streaming-0.6b-gguf",
+      "sizeMB": 620,
+      "status": "manifest - optional adapter, fetch via setup; not auto-installed"
+    },
+    {
+      "id": "neudecide",
+      "label": "NeuDecide (neuphonic) - audio-first tiny decision model",
+      "model": "neuphonic/neudecide (ONNX q4 encoder+decoder on HF, ~43MB class, single CPU thread claim per owner)",
+      "sizeMB": 43,
+      "status": "manifest - EXPERIMENTAL adapter slot; wake/intent decisions only, never actions"
+    }
+  ],
+  "researchedNotFound": [
+    "'Nemotron 3.5 Bolt E4B 4GB' - no such public model found 2026-10-28; closest real: nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16 and Nemotron-3.5-ASR-streaming-0.6B GGUF. Treated as unverified name, not packaged.",
+    "'Mistral-Nemo-Minitron-2B' - NVIDIA's Mistral-NeMo-Minitron ships 8B and Minitron-4B (the PUBG ACE ally SLM family); no official 2B found. 4B is the packaged option in that family if wanted."
+  ],
+  "deviceGuide": {
+    "celeron-4gb-laptop": "bundled-tiny + guided mode; brain = remote to home PC or cloud opt-in. Do not load >0.5B locally.",
+    "iphone-16-android": "mobile-lite on-device for triage, or remote to the home beast (best battery + brains). iOS: no true always-on; the house hub is always-on instead.",
+    "beast-pc": "pc-standard now; pc-beast tier + serves the fleet; advanced mode lives here."
+  },
+  "researched2026-10-28-v2": {
+    "nemotronBoltVerdict": "No 'Nemotron 3.5 Bolt E4B' found on HF or web search. Almost certainly a conflation: Google Gemma 3n E2B/E4B (effective 2B/4B, phone-class, GGUF via unsloth/ggml-org) + NVIDIA Nemotron-3-Nano-4B. Packaged instead: Gemma-3n-E2B/E4B as the beefy-mobile option, Nemotron-3-Nano-4B as a PC option.",
+    "minitronVerdict": "No official Mistral-NeMo-Minitron-2B. Family ships 8B and Minitron-4B (NVIDIA ACE / PUBG Ally SLM lineage). A literal ~2B in that spirit: Gemma-3n-E2B or LFM2.5-1.2B below.",
+    "litePacked": [
+      {
+        "model": "LiquidAI/LFM2.5-1.2B-Instruct Q4_K_M GGUF",
+        "sizeMB": 731,
+        "runsOn": "phones, small Chromebooks, Celeron-class - CPU fast",
+        "status": "DOWNLOADED on Desky 2026-10-28 as the lite-packed proof"
+      },
+      {
+        "model": "LiquidAI/LFM2.5-230M GGUF",
+        "sizeMB": 150,
+        "runsOn": "anything - router/classifier tier upgrade path from heuristic",
+        "status": "manifest"
+      },
+      {
+        "model": "Qwen3-0.6B GGUF",
+        "sizeMB": 400,
+        "runsOn": "phones/chromebooks",
+        "status": "manifest"
+      },
+      {
+        "model": "google/gemma-3n-E2B-it (GGUF via unsloth)",
+        "sizeMB": 1600,
+        "runsOn": "beefy phones (iPhone 16 class), multimodal",
+        "status": "manifest"
+      }
+    ],
+    "pcMid": [
+      {
+        "model": "Qwen2.5-3B-Instruct Q4_K_M",
+        "sizeMB": 2105,
+        "status": "DOWNLOADED + wired (this PC)"
+      },
+      {
+        "model": "HuggingFaceTB/SmolLM3-3B GGUF (ggml-org)",
+        "sizeMB": 2000,
+        "status": "manifest - strong alternative 3B"
+      },
+      {
+        "model": "google/gemma-3n-E4B-it GGUF",
+        "sizeMB": 2600,
+        "status": "manifest - beefy mobile / small PC, multimodal"
+      }
+    ],
+    "pcBeast": [
+      {
+        "model": "Qwen2.5-7B/14B Q4_K_M or nvidia Nemotron-3-Nano-4B GGUF",
+        "sizeMB": 4680,
+        "status": "manifest - dual-GPU Desky tier, also fleet hub"
+      }
+    ]
+  }
+}

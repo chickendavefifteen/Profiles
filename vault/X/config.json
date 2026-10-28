@@ -1,0 +1,17 @@
+{
+  "name": "",
+  "buddy": "rocket",
+  "metaMode": "lifeful",
+  "guided": false,
+  "kids": false,
+  "advanced": true,
+  "brain": "lite",
+  "voiceOut": false,
+  "intensity": "overdrive",
+  "tier": null,
+  "modelFile": null,
+  "updated": "2026-10-28T19:10:02.393Z",
+  "piPower": true,
+  "note": "Profile X: ringfenced power profile - extensible pi + durable, full access where the platform allows. Advised brain: PC-standard tier or better.",
+  "piBrain": true
+}
