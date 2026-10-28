@@ -13,8 +13,8 @@ export const TOOLS = [
     modes: ['chill', 'focus', 'lifeful'], status: 'live' },
   { id: 'write-script', label: 'Write a Playwright/codemode script to vault (never auto-runs)', risk: 'medium', confirm: true,
     modes: ['focus', 'lifeful'], status: 'live' },
-  { id: 'browser-act', label: 'Drive a browser (Playwright / CUA+vision)', risk: 'high', confirm: true,
-    modes: ['lifeful'], status: 'gated', gate: 'needs per-site permission UX before any live driving' },
+  { id: 'browser-act', label: 'Drive a browser (Playwright, read-only actions, per-run confirm token)', risk: 'high', confirm: true,
+    modes: ['lifeful'], status: 'gated', gate: 'live via /api/browser/prepare+run (X or Advanced, 60s token); CUA+vision still gated' },
   { id: 'google-docs', label: 'Push staged draft to Google Docs/Slides', risk: 'medium', confirm: true,
     modes: ['chill', 'focus', 'lifeful'], status: 'gated', gate: 'needs Google OAuth (next hop); .docx export works today' },
 ];

@@ -74,8 +74,8 @@ phone→beast with a single binary.
 | Quiet learning + macros + linkage + reorganise | DONE | learning.mjs; macros at 3× repeats |
 | Staging .md/.docx, slides outline | DONE | staging.mjs; Google *push* needs OAuth (P3) |
 | Voice in/out | PARTIAL | Web Speech wired with natural-voice pick + honest errors; engine availability depends on host webview. Parakeet adapter NOT STARTED (manifest only) |
-| Profile X full access | PARTIAL→DONE core (P2.1) | **real Pi brain live**: `pi --print` contributor, tools working, sessions in vault/X/pi-sessions, cwd ringfenced, A proven unable to reach it (18s tool-using run). Whole-machine widening beyond vault/X remains an owner decision (spec §6.3) |
-| Browser-act (Playwright/CUA+vision) | STUB | registry entry gated; runner NOT STARTED (browsers cached, library absent) — P4, X-only, per-action confirm |
+| Profile X full access | DONE (P2.1 + widening) | real Pi brain live; whole-machine widening implemented as a SECOND explicit flag (`wholeMachine`, X-only, home-dir cwd) — default ringfenced, owner opted per §6.3 direction 2026-10-28 |
+| Browser-act (Playwright) | DONE core (P4) | playwright installed, Firefox drives for real; X/Advanced + 60s confirm token + allowlist (goto/title/text/screenshot); verified end-to-end with screenshot receipt. CUA+vision still gated (P4.2) |
 | Cloud brains (API key/OAuth) | PARTIAL | env opt-in gate exists; no in-app key entry, no OAuth flow — P3 |
 | Phone (Android/iPhone) | PARTIAL (P1.3 built, device gate pending) | src/ is installable PWA (manifest+SW, API never cached); hub-URL setting remotes a phone to the home PC sidecar. Acceptance gate (real phone screenshot) needs Dave's handset |
 | Private mode (no recording) | DONE (P2.2) | per-slot `privateMode` stops events/learning recording; toggle in Setup |

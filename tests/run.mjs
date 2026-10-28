@@ -292,6 +292,19 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('body[data-mode="calm"]{--deck1:#7e9a90'), 'brand: logo colourway follows the 5 modes (signed-off A-family)');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('--deck1:#f2a35e'), 'brand: chill sunset, focus lagoon decks');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('state.urlMode'), 'boot: ?mode= deep link beats saved profile mode');
+  ok(existsSync(join(root, 'agent', 'browseract.mjs')), 'P4: browser-act module exists');
+  const ba = await import('../agent/browseract.mjs');
+  ok(ba.prepare('A', { advanced: false }, 'https://example.org', [{ type: 'goto' }]).ok === false, 'P4: A without Advanced is refused');
+  ok(ba.prepare('X', {}, 'https://example.org', [{ type: 'goto' }]).ok === true, 'P4: X may prepare');
+  ok(ba.prepare('X', {}, 'https://example.org', [{ type: 'click' }]).ok === false, 'P4: actions are allowlisted (no clicking)');
+  ok(ba.prepare('X', {}, 'ftp://x', [{ type: 'goto' }]).ok === false, 'P4: http(s) only');
+  ok((await ba.runPrepared('deadbeefdeadbeefdeadbeef')).ok === false, 'P4: no token, no driving');
+  const pb2 = readFileSync(join(root, 'agent', 'pibrain.mjs'), 'utf8');
+  ok(pb2.includes('wholeMachine') && pb2.includes('homedir()'), 'X widening: whole-machine is a separate explicit flag');
+  ok(pb2.includes("profile.wholeMachine ? homedir() : xRoot"), 'X widening: default stays ringfenced to vault/X');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="wholeMachineToggle"'), 'X widening: second-gate toggle with warning');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="driveBtn"'), 'P4: confirmed drive button in Browser pane');
+  ok(existsSync(join(root, '.gitignore')) && readFileSync(join(root, '.gitignore'), 'utf8').includes('agent/models/*.gguf'), 'housekeeping: weights/build artefacts ignored');
   const man2 = JSON.parse(readFileSync(join(root, 'agent', 'models.json'), 'utf8'));
   ok(!!man2['researched2026-10-28-v2'], 'research: v2 verdicts on Bolt E4B / Minitron-2B recorded');
 }
