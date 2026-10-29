@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:1420 http://localhost:8123 http://127.0.0.1:1420; img-src 'self' data: blob: http://localhost:1420 http://localhost:8123"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:1420 http://localhost:8123 http://127.0.0.1:1420; img-src 'self' data: blob: http://localhost:1420 http://localhost:8123; frame-src http://localhost:1420 http://localhost:8123 http://127.0.0.1:1420"
     }
   },
   "bundle": {
