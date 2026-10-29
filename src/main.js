@@ -187,7 +187,7 @@ document.querySelectorAll("[data-min]").forEach(function(b){
   });
 });
 function showPaneEl(id, silent){
-  if(id==="pane-browser"){ /* iframe persists; nothing to re-attach */ }
+  if(id==="pane-browser"){ nudgeSoon(500); }
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
   if(state.layout.maxed && state.layout.maxed!==id) state.layout.maxed=null;
   applyLayout();
@@ -608,14 +608,12 @@ function askFailed(q, err){
     $("agentStatusText").textContent="connection hiccup — retrying…";
     bubble("Connection hiccup — retrying your ask by itself…", "sys");
     setTimeout(function(){
-      if((askRetries[q]||0)>1) return;
-      askRetries[q]=0;
       state.agentOk=true;
       runReal(q, true);
     }, 2500);
     return;
   }
-  askRetries[q]=0;
+  askRetries[q]=0; /* terminal: fresh budget for future asks */
   $("agentStatusText").textContent="idle — that ask did not go through";
   bubble("That one did not go through — the connection dropped it, and I did not file or stage anything. Tap Go again to retry.", "agent");
   stream("ask failed honestly — nothing filed, nothing faked");
@@ -649,6 +647,7 @@ function runReal(q, isRetry){
         paintStages(99);
         $("agentStatus").classList.remove("working");
         $("agentStatusText").textContent="done \u2713 — answer in chat, detail here";
+        askRetries[q]=0;
         bubble(res.chat || res.result || "Done.", "agent");
         if(res.ui && res.ui.showPane){
           showPaneEl(res.ui.showPane, true);
@@ -1113,6 +1112,7 @@ function showFallback(msg, realUrl){
 }
 function hideFallback(){ var fb=$("browserFallback"); if(fb) fb.hidden=true; }
 $("browserFrame").addEventListener("load", function(){
+  nudgeSoon(900);
   /* proxy errors come back tiny: surface the escape instead of a void */
   hideFallback();
   try{
@@ -1134,13 +1134,33 @@ setInterval(function(){
     }
   }catch(e){}
 }, 2000);
+function nudgeFrame(){
+  /* some pages (Bing) measure their width once at first paint — if the
+     pane was still animating open, they lay out squashed and stick. A
+     resize event makes them measure again. */
+  try{
+    var f=$("browserFrame");
+    f.contentWindow.dispatchEvent(new f.contentWindow.Event("resize"));
+  }catch(e){}
+}
+var nudgeTimer=null;
+function nudgeSoon(ms){
+  clearTimeout(nudgeTimer);
+  nudgeTimer=setTimeout(nudgeFrame, ms||400);
+}
+window.addEventListener("resize", function(){ nudgeSoon(400); });
 $("urlForm").addEventListener("submit", function(e){
   e.preventDefault();
   var u=normUrl($("urlInput").value.trim());
   lastBrowserUrl=u;
   $("urlInput").value=u;
-  $("browserFrame").src=proxyFor(u);
+  var f=$("browserFrame");
   hideFallback();
+  try{
+    if(f.contentWindow.location.href===proxyFor(u)) f.contentWindow.location.reload();
+    else f.src=proxyFor(u);
+  }catch(err){ f.src=proxyFor(u); }
+  setTimeout(nudgeFrame, 1200);
   browserLoaded=true;
 });
 $("browserBack").addEventListener("click", function(){

@@ -119,40 +119,69 @@ function stripFraming(headers) {
   return out;
 }
 
+/** Plain HTTP/1.1 fetch (http/https modules, never H2): search engines
+   GOAWAY undici H2 sessions under bot-mitigation, while plain H1 sails
+   through. Returns {status, headers, body, url}. */
+import http from 'node:http';
+import https from 'node:https';
+function h1Fetch(url, { method = 'GET', headers = {}, body = null, timeoutMs = 20000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const lib = u.protocol === 'https:' ? https : http;
+    const req = lib.request(u, { method, headers, timeout: timeoutMs }, (res) => {
+      const chunks = [];
+      let size = 0;
+      res.on('data', (c) => {
+        size += c.length;
+        if (size > 8 * 1024 * 1024) { req.destroy(); reject(new Error('page too large to embed')); return; }
+        chunks.push(c);
+      });
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => { req.destroy(new Error('upstream timeout')); });
+    req.on('error', reject);
+    if (body && method !== 'GET') req.write(body);
+    req.end();
+  });
+}
 /** Fetch through redirects with the slot jar. Returns {status, headers, body, url}. */
 export async function fetchUpstream(url, slot, method = 'GET', body = null, contentType = '') {
   await ensureJar(slot);
   let current = url;
-  let jar = jarFor(slot);
-  void jar;
   for (let hop = 0; hop < 5; hop++) {
     const u = new URL(current);
     const headers = { 'user-agent': UA, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'accept-language': 'en-GB,en;q=0.9' };
     const ck = cookieHeader(slot, u.host);
     if (ck) headers.cookie = ck;
     if (body && method !== 'GET') headers['content-type'] = contentType || 'application/x-www-form-urlencoded';
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 20000);
-    let res;
+    let status, rheaders, buf;
     try {
-      res = await fetch(current, { method, headers, body: method === 'GET' ? undefined : body, redirect: 'manual', signal: ctrl.signal });
-    } finally { clearTimeout(timer); }
-    storeCookies(slot, u.host, res.headers);
-    if ([301, 302, 303, 307, 308].includes(res.status)) {
-      const loc = res.headers.get('location');
-      if (!loc) return { status: res.status, headers: {}, body: Buffer.alloc(0), url: current };
-      await res.arrayBuffer().catch(() => {});
+      ({ status, headers: rheaders, body: buf } = await h1Fetch(current, { method, headers, body }));
+    } catch (e) {
+      return { status: 502, headers: {}, body: Buffer.from('proxy failed: ' + String(e.message || e).slice(0, 120)), url: current };
+    }
+    const setCookies = rheaders['set-cookie'] || [];
+    if (setCookies.length) {
+      const jar = jarFor(slot);
+      const fresh = setCookies.map((c) => String(c).split(';')[0].trim()).filter(Boolean).join('; ');
+      const prev = jar.get(u.host) || '';
+      jar.set(u.host, prev ? prev + '; ' + fresh : fresh);
+      schedulePersist();
+    }
+    if ([301, 302, 303, 307, 308].includes(status)) {
+      const loc = Array.isArray(rheaders.location) ? rheaders.location[0] : rheaders.location;
+      if (!loc) return { status, headers: {}, body: Buffer.alloc(0), url: current };
       current = new URL(loc, current).toString();
-      if (res.status === 303) { method = 'GET'; body = null; }
+      if (status === 303) { method = 'GET'; body = null; }
       continue;
     }
-    const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length > 8 * 1024 * 1024) return { status: 413, headers: {}, body: Buffer.from('page too large to embed'), url: current };
-    return { status: res.status, headers: res.headers, body: buf, url: current };
+    const h = { get: (k) => rheaders[String(k).toLowerCase()], 'content-type': rheaders['content-type'] };
+    return { status, headers: h, body: buf, url: current };
   }
   return { status: 508, headers: {}, body: Buffer.from('too many redirects'), url: current };
 }
-
 export function proxyUrl(url) {
   return '/api/proxy?url=' + encodeURIComponent(url);
 }

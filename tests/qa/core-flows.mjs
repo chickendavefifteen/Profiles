@@ -34,14 +34,20 @@ await page.waitForTimeout(3500);
 check('chat answer bubble appears', /lite-agentic|agentic/i.test(await page.textContent('#chatLog')));
 // browser actually browses: native iframe, same-origin readable, Bing home rendered
 await page.waitForTimeout(4000);
-check('browser iframe renders proxied home', await page.evaluate(() => {
-  const f = document.querySelector('#browserFrame');
-  if (!f || !f.src.includes('/api/proxy?url=')) return false;
-  try {
-    const t = f.contentDocument && f.contentDocument.title || '';
-    return /bing|search/i.test(t) && f.contentDocument.body.innerText.length > 500;
-  } catch { return false; }
-}));
+let _homeOk = false;
+for (let _i = 0; _i < 8; _i++) {
+  await page.waitForTimeout(2000);
+  _homeOk = await page.evaluate(() => {
+    const f = document.querySelector('#browserFrame');
+    if (!f || !f.src.includes('/api/proxy?url=')) return false;
+    try {
+      const t = f.contentDocument && f.contentDocument.title || '';
+      return /bing|search/i.test(t) && f.contentDocument.body.innerText.length > 500;
+    } catch { return false; }
+  });
+  if (_homeOk) break;
+}
+check('browser iframe renders proxied home', _homeOk);
 // mode swap contrast: ink flips instantly (no color transition on body)
 const trans = await page.evaluate(() => getComputedStyle(document.body).transitionProperty);
 check('body does not transition color', !/color/.test(trans.split(',').map(s=>s.trim()).filter(s=>s==='color').join()));
@@ -65,8 +71,13 @@ check('doc RECOVERS from trash', await page.isVisible('#pane-doc'));
 // agent tool hooks: ask -> browser actually opens BBC
 await page.fill('#ask', 'open a brower on bbc news');
 await page.press('#ask', 'Enter');
-await page.waitForTimeout(9000);
-check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.inputValue('#urlInput')));
+let _bbcUrl = '';
+for (let _i = 0; _i < 12; _i++) {
+  await page.waitForTimeout(2500);
+  _bbcUrl = await page.inputValue('#urlInput');
+  if (/bbc/i.test(_bbcUrl)) break;
+}
+check('tool: browser pane shows BBC after ask', /bbc/i.test(_bbcUrl));
 // resize: pin browser, drag its left edge — chat must ADAPT, not be underlapped
 {
   const chatBox = await page.locator('#pane-chat').boundingBox();
@@ -124,8 +135,24 @@ check('thinking clears when the answer lands', await page.locator('#thinkingBubb
 // go to bc news website (typo phrasing) drives the browser
 await page.fill('#ask', 'go to bc news website');
 await page.press('#ask', 'Enter');
-await page.waitForTimeout(14000);
-check('go to bc news website -> BBC in browser', /bbc/i.test(await page.inputValue('#urlInput')));
+let _bcUrl = '';
+for (let _i = 0; _i < 12; _i++) {
+  await page.waitForTimeout(2500);
+  _bcUrl = await page.inputValue('#urlInput');
+  if (/bbc/i.test(_bcUrl)) break;
+}
+check('go to bc news website -> BBC in browser', /bbc/i.test(_bcUrl));
+
+check('page layout sane (no squash)', await page.evaluate(() => {
+  try {
+    const doc = document.querySelector('#browserFrame').contentDocument;
+    const q = doc.querySelector('input[name="q"], input[type="search"], input[type="text"], textarea');
+    if (!q) return true;
+    const r = q.getBoundingClientRect();
+    const fw = document.querySelector('#browserFrame').getBoundingClientRect().width;
+    return r.width > fw * 0.3;
+  } catch { return false; }
+}));
 check('BBC content actually rendered', await page.evaluate(() => {
   try {
     const doc = document.querySelector('#browserFrame').contentDocument;
@@ -136,8 +163,13 @@ check('chat has pin + close like browser', await page.locator('#pane-chat .pinbt
 // Dave's failures, pinned: bare "bbc news" must act (never fake-fallback)
 await page.fill('#ask', 'bbc news');
 await page.press('#ask', 'Enter');
-await page.waitForTimeout(9000);
-check('bare "bbc news" opens BBC (no fake fallback)', /bbc/i.test(await page.inputValue('#urlInput')) && !(await page.textContent('#chatLog')).includes('warming up'));
+let _bareUrl = '';
+for (let _i = 0; _i < 12; _i++) {
+  await page.waitForTimeout(2500);
+  _bareUrl = await page.inputValue('#urlInput');
+  if (/bbc/i.test(_bareUrl)) break;
+}
+check('bare "bbc news" opens BBC (no fake fallback)', /bbc/i.test(_bareUrl) && !(await page.textContent('#chatLog')).includes('warming up'));
 // stream endpoint serves real JPEG frames
 /* Live view proven two ways: the pane img is wired to the MJPEG stream
    URL, and the poster's first bytes are a real JPEG render from the live
