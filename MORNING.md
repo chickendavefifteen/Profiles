@@ -382,3 +382,14 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
   its pane hides; everyNthFrame 3/q68; /browser/state carries frames.
 - Clicks: /mouse endpoint verified live; native drag-eat prevented.
 - Tests 285 unit, QA 30/30. Pushed.
+
+## Native iframe browser rework (2026-10-29)
+- Replaced MJPEG screenshot-streaming with a framing proxy + native
+  iframe (GPU rendering, real clicks/typing, zero encode). Agent keeps
+  the invisible CDP actor session for tools/reads/search.
+- Solved the white-pane mystery: Tauri CSP blocked the frame (bundled
+  origin tauri:// vs http) — added frame-src, rebuilt.
+- Solved the click trap: inline display:flex defeated hidden; global
+  [hidden] rule + Retry fallback.
+- Search moved to Bing (Google sorry-pages automation; DDG challenges).
+- QA rewritten for iframe (native click+type proven in Chromium).
