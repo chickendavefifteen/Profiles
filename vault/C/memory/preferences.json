@@ -3,30 +3,38 @@
   "macroCandidates": [
     {
       "phrase": "go to bc news website",
-      "count": 14
+      "count": 20
+    },
+    {
+      "phrase": "hi r u agentic now",
+      "count": 6
+    },
+    {
+      "phrase": "open a brower on bbc news",
+      "count": 6
     }
   ],
   "linkedGroups": [
     {
       "panes": [
-        "pane-chat",
-        "pane-doc"
-      ],
-      "count": 22
-    },
-    {
-      "panes": [
         "pane-browser",
         "pane-chat"
       ],
-      "count": 15
+      "count": 272
+    },
+    {
+      "panes": [
+        "pane-chat",
+        "pane-doc"
+      ],
+      "count": 250
     },
     {
       "panes": [
         "pane-browser",
         "pane-doc"
       ],
-      "count": 15
+      "count": 243
     },
     {
       "panes": [
@@ -44,6 +52,6 @@
     }
   ],
   "lastDismissal": null,
-  "events": 39,
-  "derivedAt": "2026-10-29T09:38:10.743Z"
+  "events": 320,
+  "derivedAt": "2026-10-29T11:23:26.758Z"
 }

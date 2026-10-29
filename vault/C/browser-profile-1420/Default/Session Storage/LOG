@@ -1,2 +1,3 @@
-2026/10/29-09:33:31.799 2951e3 Creating DB /home/dh/profiles-hackathon/vault/C/browser-profile-1420/Default/Session Storage since it was missing.
-2026/10/29-09:33:31.801 2951e3 Reusing MANIFEST /home/dh/profiles-hackathon/vault/C/browser-profile-1420/Default/Session Storage/MANIFEST-000001
+2026/10/29-11:20:58.588 32327b Reusing MANIFEST /home/dh/profiles-hackathon/vault/C/browser-profile-1420/Default/Session Storage/MANIFEST-000001
+2026/10/29-11:20:58.588 32327b Recovering log #3
+2026/10/29-11:20:58.588 32327b Reusing old log /home/dh/profiles-hackathon/vault/C/browser-profile-1420/Default/Session Storage/000003.log 

@@ -1,6 +1,3 @@
-2026/10/29-09:27:18.772 28d57f Reusing MANIFEST /home/dh/profiles-hackathon/vault/A/browser-profile-1420/Default/Local Storage/leveldb/MANIFEST-000001
-2026/10/29-09:27:18.772 28d57f Recovering log #3
-2026/10/29-09:27:18.772 28d57f Reusing old log /home/dh/profiles-hackathon/vault/A/browser-profile-1420/Default/Local Storage/leveldb/000003.log 
-2026/10/29-09:32:19.006 28d583 Level-0 table #5: started
-2026/10/29-09:32:19.008 28d583 Level-0 table #5: 58321 bytes OK
-2026/10/29-09:32:19.009 28d583 Delete type=0 #3
+2026/10/29-09:33:38.779 2955da Reusing MANIFEST /home/dh/profiles-hackathon/vault/A/browser-profile-1420/Default/Local Storage/leveldb/MANIFEST-000001
+2026/10/29-09:33:38.779 2955da Recovering log #4
+2026/10/29-09:33:38.779 2955da Reusing old log /home/dh/profiles-hackathon/vault/A/browser-profile-1420/Default/Local Storage/leveldb/000004.log 

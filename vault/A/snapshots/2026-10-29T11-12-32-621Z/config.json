@@ -1,0 +1,43 @@
+{
+  "name": "",
+  "buddy": "person",
+  "metaMode": "lifeful",
+  "guided": true,
+  "kids": false,
+  "advanced": false,
+  "brain": "lite",
+  "voiceOut": false,
+  "intensity": "full",
+  "tier": null,
+  "modelFile": null,
+  "updated": "2026-10-29T11:11:34.363Z",
+  "layout": {
+    "order": [
+      "pane-chat",
+      "pane-agent",
+      "pane-browser",
+      "pane-doc",
+      "pane-notes",
+      "pane-video",
+      "pane-setup",
+      "pane-activity"
+    ],
+    "hidden": [
+      "pane-agent",
+      "pane-notes",
+      "pane-video",
+      "pane-setup",
+      "pane-activity"
+    ],
+    "maxed": null,
+    "cols": {
+      "pane-browser": 1.39
+    },
+    "sizes": {
+      "pane-browser": {
+        "w": 440,
+        "h": 600
+      }
+    }
+  }
+}

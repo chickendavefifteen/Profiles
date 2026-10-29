@@ -1,0 +1,14 @@
+{
+  "name": "",
+  "buddy": "person",
+  "metaMode": "lifeful",
+  "guided": true,
+  "kids": false,
+  "advanced": false,
+  "brain": "lite",
+  "voiceOut": false,
+  "intensity": "full",
+  "tier": null,
+  "modelFile": null,
+  "updated": "2026-10-29T11:20:19.260Z"
+}

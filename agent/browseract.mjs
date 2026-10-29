@@ -91,16 +91,21 @@ async function dismissConsent(page) {
   } catch {}
 }
 async function ensureSession(slot) {
-  if (sessions.has(slot)) return sessions.get(slot);
+  if (sessions.has(slot)) {
+    const s = sessions.get(slot);
+    try { if (!s.page.isClosed()) return s; } catch {}
+    sessions.delete(slot); /* dead session: never serve a corpse */
+  }
   const { chromium } = await import('playwright');
   const p = slotPaths(slot);
   const profileDir = join(p.root, 'browser-profile-' + (process.env.PROFILES_SERVER_PORT || process.env.PROFILES_AGENT_PORT || 'main'));
   await mkdir(profileDir, { recursive: true });
-  const opts = { viewport: { width: 1280, height: 800 },
+  /* Headless persistent Chromium: passes Google's bot check (proven),
+     works in every spawn context (Tauri-spawned sidecars have no
+     DISPLAY — headed there dies instantly and poisons the session). */
+  const opts = { viewport: { width: 1280, height: 800 }, headless: true,
     args: ['--disable-blink-features=AutomationControlled', '--no-first-run'] };
-  let ctx;
-  try { ctx = await chromium.launchPersistentContext(profileDir, { ...opts, headless: false }); }
-  catch { ctx = await chromium.launchPersistentContext(profileDir, { ...opts, headless: true }); }
+  const ctx = await chromium.launchPersistentContext(profileDir, opts);
   const page = ctx.pages()[0] || await ctx.newPage();
   if (!page.url() || page.url() === 'about:blank') {
     await page.goto('https://www.google.com', { timeout: 25000 }).catch(() => {});

@@ -13,7 +13,9 @@ const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.
   google: 'https://www.google.com', news: 'https://www.bbc.co.uk/news',
   youtube: 'https://www.youtube.com', github: 'https://github.com', wikipedia: 'https://en.wikipedia.org' };
 function siteFor(target) {
-  const t = target.replace(/\s+(website|site|webpage|page)\s*$/, '').trim();
+  const t = target.replace(/\s+(website|site|webpage|page)\s*$/, '')
+    .replace(/\s+(properly|please|for me)\s*$/, '')
+    .replace(/\s+dot\s+/g, '.').replace(/\sdot\s/g, '.').trim();
   if (SITES[t]) return SITES[t];
   if (/^bb?c\b/.test(t) || /bbc/.test(t)) return 'https://www.bbc.co.uk/news';
   return null;
@@ -36,8 +38,9 @@ export function decideTool(query) {
     let target = m[1].replace(/\s+please\s*$/, '').trim();
     const known = siteFor(target);
     if (known) return { tool: 'browser_open', args: { url: known } };
-    if (/^[\w-]+(\.[\w-]+)+/.test(target) || /^https?:/.test(target)) {
-      return { tool: 'browser_open', args: { url: /^https?:/.test(target) ? target : 'https://' + target } };
+    const spoken = target.replace(/\s+dot\s+/g, '.').replace(/\s+(properly|please)\s*$/, '').trim();
+    if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(spoken) || /^https?:/.test(spoken)) {
+      return { tool: 'browser_open', args: { url: /^https?:/.test(spoken) ? spoken : 'https://www.' + spoken.replace(/^www\./, '') } };
     }
     if (target.length > 2) return { tool: 'web_search', args: { query: target } };
   }

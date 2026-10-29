@@ -10,7 +10,7 @@
   "intensity": "full",
   "tier": null,
   "modelFile": null,
-  "updated": "2026-10-29T09:37:57.504Z",
+  "updated": "2026-10-29T11:23:13.483Z",
   "layout": {
     "order": [
       "pane-chat",
@@ -33,7 +33,7 @@
     "sizes": {
       "pane-browser": {
         "w": 440,
-        "h": 600
+        "h": 614
       }
     }
   }

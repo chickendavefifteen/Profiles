@@ -7,7 +7,7 @@ const headed = process.env.QA_HEADED === '1';
 const results = [];
 function check(name, cond) { results.push([name, !!cond]); console.log((cond ? 'ok' : 'FAIL') + ' - ' + name); }
 /* deterministic starting state: Profile A, no saved layout/bin */
-await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: 'A' }) }).catch(() => {});
+await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: 'C' }) }).catch(() => {});
 await fetch('http://localhost:1420/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reset: true }) }).catch(() => {});
 const browser = await firefox.launch({ headless: !headed });
 const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
@@ -87,10 +87,10 @@ check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.inputValu
 check('api base resolves sidecar origin', await page.evaluate(() => typeof apiUrl === 'function' && apiUrl('/api/health').startsWith('http') || true));
 // typing: fresh Google home, click the search box in the picture, type
 await page.evaluate(async () => { await fetch('http://localhost:1420/api/browser/home', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); });
-await page.waitForTimeout(2500);
+await page.waitForTimeout(4500);
 {
   const box = await page.locator('#browserImg').boundingBox();
-  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.55);
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.47);
 }
 await page.waitForTimeout(700);
 await page.keyboard.type('bbc news', { delay: 30 });
@@ -110,7 +110,7 @@ check('thinking clears when the answer lands', await page.locator('#thinkingBubb
 // go to bc news website (typo phrasing) drives the browser
 await page.fill('#ask', 'go to bc news website');
 await page.click('#askForm .btn');
-await page.waitForTimeout(9000);
+await page.waitForTimeout(14000);
 check('go to bc news website -> BBC in browser', /bbc/i.test(await page.inputValue('#urlInput')));
 check('chat has pin + close like browser', await page.locator('#pane-chat .pinbtn').count() === 1 && await page.locator('#pane-chat .closebtn').count() === 1);
 check('zero page errors', errors.length === 0);
