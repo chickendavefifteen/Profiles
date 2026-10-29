@@ -108,18 +108,20 @@ main{display:block}
 .note{font-size:.82rem;color:var(--muted);line-height:1.7;border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
 /* ============ per-mode themes: same skeleton, different weather ============ */
 body{--track:color-mix(in srgb,var(--ink) 12%,transparent)}
-body[data-mode="lifeful"]{--bg:#101022;--card:#181830;--ink:#f0efff;--muted:#9d9bd0;--line:#2c2c52;
+body[data-mode="Vibes"],body[data-mode="lifeful"]{--bg:#101022;--card:#181830;--ink:#f0efff;--muted:#9d9bd0;--line:#2c2c52;
   --accent:#ff3ea5;--accent2:#22d3ee;--fs:1}
 body[data-mode="chill"]{--bg:#211a20;--card:#2b232b;--ink:#f7ecdd;--muted:#cdb098;--line:#453649;
   --accent:#f2a35e;--accent2:#d95f7b;--fs:1.05}
-body[data-mode="focus"]{--bg:#15181d;--card:#1c2129;--ink:#e8ecf1;--muted:#8b95a5;--line:#2c3440;
+body[data-mode="FOCUSMAX"],body[data-mode="focus"]{--bg:#15181d;--card:#1c2129;--ink:#e8ecf1;--muted:#8b95a5;--line:#2c3440;
   --accent:#2dd4bf;--accent2:#2dd4bf;--fs:1}
-body[data-mode="lite"]{--bg:#f4f7fb;--card:#ffffff;--ink:#101828;--muted:#5b6b82;--line:#d7dfea;
-  --accent:#155eef;--accent2:#0e9384;--fs:1.15}
-body[data-mode="lite"] .askrow input,body[data-mode="lite"] .panel,body[data-mode="lite"] .card{min-height:64px}
+body[data-mode="babylite"],body[data-mode="lite"]{--bg:#eaf4ff;--card:#ffffff;--ink:#0f1e3a;--muted:#5b7aa5;--line:#c9deff;
+  --accent:#7cc4ff;--accent2:#a8dcff;--fs:1.15}
+body[data-mode="babylite"] .askrow input,body[data-mode="lite"] .askrow input,body[data-mode="babylite"] .panel,body[data-mode="lite"] .panel,body[data-mode="babylite"] .card,body[data-mode="lite"] .card{min-height:64px}
 /* low-sensory: softer dark — warm charcoal, nothing pure, nothing loud */
 body[data-mode="calm"]{--bg:#1f201e;--card:#272825;--ink:#d9d6ca;--muted:#99968a;--line:#383936;
   --accent:#93ac8d;--accent2:#7e9a90;--fs:1.08}
+body[data-mode="xMAX"]{--bg:#0e0a1f;--card:#1a1233;--ink:#f2ecff;--muted:#a99fd1;--line:#372a63;
+  --accent:#8b5cf6;--accent2:#22d3ee;--fs:1}
 /* governor freeze: motion actually stops, not just themed */
 body.gov-freeze *,body.gov-freeze *::before,body.gov-freeze *::after{animation:none!important;transition:none!important}
 /* reduced-motion respected always */
@@ -162,10 +164,11 @@ body.gov-freeze *,body.gov-freeze *::before,body.gov-freeze *::after{animation:n
 .ppp i:nth-child(3){color:var(--front);position:relative;z-index:1}
 .wordmark .rest{color:var(--front)}
 /* logo colourway follows the mode (signed off A2-A8 family, 2026-10-28) */
-body[data-mode="lifeful"]{--deck1:#ff3ea5;--deck2:#22d3ee;--front:#f0efff}
+body[data-mode="Vibes"],body[data-mode="lifeful"]{--deck1:#ff3ea5;--deck2:#22d3ee;--front:#f0efff}
 body[data-mode="chill"]{--deck1:#f2a35e;--deck2:#d95f7b;--front:#f7ead9}
-body[data-mode="focus"]{--deck1:#2dd4bf;--deck2:#38bdf8;--front:#eef6ff}
-body[data-mode="lite"]{--deck1:#155eef;--deck2:#8ea6ff;--front:#ffffff}
+body[data-mode="FOCUSMAX"],body[data-mode="focus"]{--deck1:#2dd4bf;--deck2:#38bdf8;--front:#eef6ff}
+body[data-mode="babylite"],body[data-mode="lite"]{--deck1:#7cc4ff;--deck2:#a8dcff;--front:#ffffff}
+body[data-mode="xMAX"]{--deck1:#8b5cf6;--deck2:#22d3ee;--front:#f2ecff}
 body[data-mode="calm"]{--deck1:#7e9a90;--deck2:#99968a;--front:#e9e6da}
 body[data-slotx="1"]{--deck1:#8b5cf6;--deck2:#22d3ee;--front:#f5f3ff}
 .avatarCircle{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
@@ -218,27 +221,45 @@ body[data-detail="sleek"] #stages,body[data-detail="sleek"] .log{display:none}
  transform:scale(0);animation:rippleGo .7s var(--ease) forwards}
 @keyframes rippleGo{to{transform:scale(3);opacity:0}}
 /* personalities: same tiles, different weather AND physics */
-body[data-mode="lifeful"] .pane{transition:transform .35s cubic-bezier(.34,1.4,.64,1),box-shadow .35s ease,background-color .45s ease,border-color .45s ease}
-body[data-mode="lifeful"] .pane:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.35)}
-body[data-mode="lifeful"] .dot{animation:dotDrift 5s ease-in-out infinite}
+body[data-mode="Vibes"] .pane,body[data-mode="lifeful"] .pane{transition:transform .35s cubic-bezier(.34,1.4,.64,1),box-shadow .35s ease,background-color .45s ease,border-color .45s ease}
+body[data-mode="Vibes"] .pane:hover,body[data-mode="lifeful"] .pane:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.35)}
+body[data-mode="Vibes"] .dot,body[data-mode="lifeful"] .dot{animation:dotDrift 5s ease-in-out infinite}
 @keyframes dotDrift{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(1.18)}}
-body[data-mode="lifeful"] .bubble{animation:popIn .38s cubic-bezier(.34,1.56,.64,1)}
+body[data-mode="Vibes"] .bubble,body[data-mode="lifeful"] .bubble{animation:popIn .38s cubic-bezier(.34,1.56,.64,1)}
 @keyframes popIn{from{opacity:0;transform:translateY(8px) scale(.97)}}
 body[data-mode="chill"] *{transition-duration:.9s!important}
 body[data-mode="chill"]{color-scheme:dark} /* surfaces still drift slowly, text already flipped */
 body[data-mode="chill"] .dot{animation:breathe 6s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12);opacity:1}}
 body[data-mode="chill"] .pane{box-shadow:0 4px 24px rgba(0,0,0,.18)}
-body[data-mode="focus"] *{transition-duration:.12s!important;transition-timing-function:linear!important}
-body[data-mode="focus"] .pane,body[data-mode="focus"] .bubble,body[data-mode="focus"] .card{border-radius:8px}
-body[data-mode="lite"] *{animation:none!important;transition-duration:.01s!important}
-body[data-mode="lite"] .pane,body[data-mode="lite"] .card{box-shadow:none}
+body[data-mode="FOCUSMAX"] *,body[data-mode="focus"] *{transition-duration:.12s!important;transition-timing-function:linear!important}
+body[data-mode="FOCUSMAX"] .pane,body[data-mode="focus"] .pane,body[data-mode="FOCUSMAX"] .bubble,body[data-mode="focus"] .bubble,body[data-mode="FOCUSMAX"] .card,body[data-mode="focus"] .card{border-radius:8px}
+body[data-mode="babylite"] *,body[data-mode="lite"] *{animation:none!important;transition-duration:.01s!important}
+body[data-mode="babylite"] .pane,body[data-mode="lite"] .pane,body[data-mode="babylite"] .card,body[data-mode="lite"] .card{box-shadow:none}
 body[data-intensity="soft"] .pane:hover{transform:none}
 body[data-intensity="overdrive"] .bubble{animation-duration:.5s}
-body[data-intensity="chaos"][data-mode="lifeful"] .dot{animation:dotDrift 1.6s linear infinite}
-body[data-intensity="chaos"][data-mode="lifeful"] .brand{animation:hueDrift 9s linear infinite}
+body[data-intensity="chaos"][data-mode="Vibes"] .dot,body[data-intensity="chaos"][data-mode="lifeful"] .dot{animation:dotDrift 1.6s linear infinite}
+body[data-intensity="chaos"][data-mode="Vibes"] .brand,body[data-intensity="chaos"][data-mode="lifeful"] .brand{animation:hueDrift 9s linear infinite}
 @keyframes hueDrift{to{filter:hue-rotate(360deg)}}
 body.gov-freeze .pane:hover{transform:none;box-shadow:none}
+/* ============ Adaptive switcher + gentle segways (2026-10-29 modes lane) ============ */
+.adaptiveWrap{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);
+  background:var(--card);border:1px solid var(--line);border-radius:99px;padding:7px 14px 7px 10px;min-height:38px;white-space:nowrap}
+.adaptiveWrap input{width:20px;height:20px;accent-color:var(--accent)}
+.adaptiveWrap.on{color:var(--ink);border-color:var(--accent)}
+.pills button[data-profile="xMAX"]{border-style:double;border-width:3px}
+.pills button[data-profile="xMAX"][hidden]{display:none}
+.pills button[data-profile="calm"]{border-style:dashed}
+body[data-mode="xMAX"] .pane{transition:transform .28s cubic-bezier(.34,1.4,.64,1),box-shadow .28s ease,background-color .6s ease,border-color .6s ease}
+body[data-mode="xMAX"] .pane:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(139,92,246,.35)}
+body[data-mode="xMAX"] .dot{animation:dotDrift 3.2s ease-in-out infinite}
+body[data-mode="xMAX"] .bubble{animation:popIn .3s cubic-bezier(.34,1.56,.64,1)}
+body[data-mode="calm"] .pane,body[data-mode="calm"] .bubble,body[data-mode="calm"] .card{border-radius:14px}
+/* gentle segway: colour-grade cross-fade, never a harsh jump */
+body.segwaying,body.segwaying .pane,body.segwaying .card,body.segwaying .panel,body.segwaying .chatlog,
+body.segwaying .askrow input{transition:background-color .6s ease,border-color .6s ease,color .6s ease,box-shadow .6s ease!important}
+body.segwaying .bubble{animation:segwayIn .6s ease}
+@keyframes segwayIn{from{opacity:.25}to{opacity:1}}
 /* ============ v3 canvas: panes you align, chat first ============ */
 .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 .viewbtns{display:flex;gap:4px;margin-left:auto}
@@ -291,7 +312,7 @@ body.kids .advancedBlock{display:none}
 </style>
 </head>
 
-<body data-mode="lifeful">
+<body data-mode="Vibes">
 <a class="sr" href="#ask">Skip to ask</a>
 <div class="wrap">
   <header class="top">
@@ -320,12 +341,14 @@ body.kids .advancedBlock{display:none}
   </header>
 
   <div class="controls">
-    <div class="pills" role="group" aria-label="Profiles" style="margin:0">
-      <button data-profile="lite" aria-pressed="false"><span class="k">1</span>Lite</button>
-      <button data-profile="chill" aria-pressed="false"><span class="k">2</span>Chill</button>
-      <button data-profile="focus" aria-pressed="false"><span class="k">3</span>Focus</button>
-      <button data-profile="lifeful" aria-pressed="true"><span class="k">4</span>Vibes</button>
-      <button data-profile="calm" aria-pressed="false"><span class="k">5</span>Low-Sensory</button>
+    <label class="adaptiveWrap" id="adaptiveWrap" title="Adaptive: segway between modes automatically (idle → chill, focus → FOCUSMAX, swapping → Vibes, strain → babylite). calm only by hand."><input type="checkbox" id="adaptiveToggle"> Adaptive</label>
+    <div class="pills" role="group" aria-label="Modes" style="margin:0">
+      <button data-profile="babylite" data-legacy="lite" aria-pressed="false" title="babylite — soft + simple (key 1). Auto-downshift when strained."><span class="k">1</span>babylite</button>
+      <button data-profile="chill" aria-pressed="false" title="chill — warm and slow (key 2). For AFK/rest."><span class="k">2</span>chill</button>
+      <button data-profile="FOCUSMAX" data-legacy="focus" aria-pressed="false" title="FOCUSMAX — mono-task (key 3)."><span class="k">3</span>FOCUSMAX</button>
+      <button data-profile="Vibes" data-legacy="lifeful" aria-pressed="true" title="Vibes — full energy (key 4)."><span class="k">4</span>Vibes</button>
+      <button data-profile="calm" data-legacy="low-sensory" aria-pressed="false" title="calm — sensory panic button (key 5). Zero motion."><span class="k">5</span>calm</button>
+      <button data-profile="xMAX" aria-pressed="false" hidden title="xMAX — Vibes + FOCUSMAX hybrid, heavy parallelism (key 6). Profile X only."><span class="k">6</span>xMAX</button>
     </div>
   </div>
 

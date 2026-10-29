@@ -1,0 +1,52 @@
+{
+  "name": "FOCUSMAX",
+  "version": 1,
+  "description": "FOCUSMAX \u2014 uppercase mono-task. One objective, distractions held, terse agent.",
+  "ui": {
+    "density": "compact",
+    "font_scale": 1.0,
+    "target_min_px": 44,
+    "palette": "neutral-dim",
+    "animation_level": 1
+  },
+  "sensory_budget": {
+    "max_animation": 0.3,
+    "flash_hz": 0,
+    "max_simultaneous": 1
+  },
+  "input": {
+    "modes": [
+      "keyboard",
+      "pointer"
+    ],
+    "keybinds": {
+      "capture": "c",
+      "complete-task": "e"
+    },
+    "big_targets": false,
+    "voice": false
+  },
+  "notifications": {
+    "allow": [],
+    "quiet_hours": null,
+    "break_through": [
+      "alarms"
+    ]
+  },
+  "agent": {
+    "verbosity": "terse",
+    "proactivity": 0,
+    "parallelism": 1,
+    "autonomy": "act-with-checkpoint",
+    "rest_reminders": true,
+    "cadence_s": 600
+  },
+  "widgets": [
+    "tasks",
+    "notes",
+    "calendar"
+  ],
+  "routing": {
+    "preferred_model": null
+  }
+}

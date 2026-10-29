@@ -76,7 +76,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
     && html.includes('id="pane-doc"') && html.includes('id="pane-setup"') && html.includes('id="pane-activity"'), 'frontend: canvas panes chat/agent/browser/doc/setup/activity');
   ok(html.includes('data-view="split"') && html.includes('data-view="canvas"'), 'frontend: panes align split or full canvas');
   ok(html.includes('id="askForm"') && html.includes('id="ask"'), 'frontend: blank screen + search bar');
-  ok(html.includes('data-profile="lifeful"') && html.includes('data-profile="calm"'), 'frontend: 5 profile pills incl. lifeful + calm');
+  ok(html.includes('data-profile="babylite"') && html.includes('data-profile="Vibes"') && html.includes('data-profile="FOCUSMAX"') && html.includes('data-profile="calm"') && html.includes('data-profile="xMAX"') && html.includes('data-profile="chill"'), 'frontend: 6 mode pills incl. babylite + chill + FOCUSMAX + Vibes + calm + xMAX');
   ok(html.includes('id="agentLog"') && html.includes('id="stages"'), 'frontend: TUI agent panel with stage strip');
   ok(js.includes('speech') && js.includes('"full"') && js.includes('"sparse"') && js.includes('"quiet"'), 'frontend: agent verbosity follows the mode');
   ok(!js.includes('showPane("pane-agent")'), 'frontend: agent detail stays out of the way when you ask');
@@ -214,10 +214,10 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(js4.includes('layoutCommand') && js4.includes('PANE_WORDS'), 'canvas: agent can move/focus panes on ask');
   ok(!readFileSync(join(root,'src','index.html'),'utf8').includes('aria-label="Canvas layout"'), 'canvas: no clunky Chat/Split/Canvas toggle anymore');
   const html4 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
-  ok(html4.includes('dotDrift') && html4.includes('breathe') && html4.includes('hueDrift'), 'feel: lifeful drift, chill breathe, chaos hue - personalities differ');
+  ok(html4.includes('dotDrift') && html4.includes('breathe') && html4.includes('hueDrift'), 'feel: Vibes drift, chill breathe, chaos hue - personalities differ');
   ok(html4.includes('id="intensitySel"') && html4.includes('overdrive'), 'feel: overdrive/chaos nested per profile');
-  ok(html4.includes('body[data-mode="lite"] *{animation:none'), 'feel: lite kills animation for weak hardware');
-  ok(js4.includes('rippleFx'), 'feel: lifeful ripples on ask');
+  ok(html4.includes('body[data-mode="lite"] *{animation:none'), 'feel: babylite/lite kills animation for weak hardware');
+  ok(js4.includes('rippleFx'), 'feel: Vibes/xMAX ripples on ask');
   const js5 = readFileSync(join(root, 'src', 'main.js'), 'utf8');
   const html5 = readFileSync(join(root, 'src', 'index.html'), 'utf8');
   ok(!html5.includes('data-home="browse"'), 'front door: extra option cards removed — chat/browser/doc only');
@@ -330,6 +330,55 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('max-width:1480px'), 'scale: canvas ~25% wider for big screens');
   const man2 = JSON.parse(readFileSync(join(root, 'agent', 'models.json'), 'utf8'));
   ok(!!man2['researched2026-10-28-v2'], 'research: v2 verdicts on Bolt E4B / Minitron-2B recorded');
+}
+
+// 11. Modes nomenclature + Adaptive switcher (2026-10-29 overnight spec, worker-2).
+{
+  const modes = await import('../engine/modes.mjs');
+  ok(modes.MODE_ORDER.join(',') === 'babylite,chill,FOCUSMAX,Vibes,calm,xMAX', 'modes: 6 canonical modes in order');
+  ok(modes.canonicalMode('lite') === 'babylite' && modes.canonicalMode('focus') === 'FOCUSMAX'
+    && modes.canonicalMode('lifeful') === 'Vibes' && modes.canonicalMode('low-sensory') === 'calm'
+    && modes.canonicalMode('xmax') === 'xMAX', 'modes: legacy IDs resolve to canonical');
+  ok(modes.canonicalMode('FOCUSMAX') === 'FOCUSMAX' && modes.canonicalMode('Vibes') === 'Vibes', 'modes: canonical IDs stable');
+  ok(modes.HOTKEY_TO_MODE['1'] === 'babylite' && modes.HOTKEY_TO_MODE['6'] === 'xMAX', 'modes: hotkeys 1-6 map to modes');
+  ok(modes.HOTKEY_TO_SLOT.a === 'A' && modes.HOTKEY_TO_SLOT.c === 'C' && modes.HOTKEY_TO_SLOT.x === 'X', 'modes: hotkeys a/b/c/x map to slots');
+  ok(modes.isModeVisible('xMAX', { profileXOn: false }) === false && modes.isModeVisible('xMAX', { profileXOn: true }) === true, 'modes: xMAX visible only when Profile X is ON');
+  ok(modes.isModeVisible('Vibes', {}) === true && modes.isModeVisible('calm', {}) === true, 'modes: base modes always visible');
+  const idle = modes.decideAdaptive({ idleSec: 120, current: 'Vibes' });
+  ok(idle && idle.to === 'chill', 'adaptive: AFK/idle segways to chill');
+  const foc = modes.decideAdaptive({ focusedSinglePane: true, current: 'Vibes' });
+  ok(foc && foc.to === 'FOCUSMAX', 'adaptive: sustained focus segways to FOCUSMAX');
+  const swap = modes.decideAdaptive({ swapRate: 7, current: 'FOCUSMAX' });
+  ok(swap && swap.to === 'Vibes', 'adaptive: task swapping segways to Vibes');
+  const press = modes.decideAdaptive({ cpuLoad: 0.95, current: 'Vibes' });
+  ok(press && press.to === 'babylite', 'adaptive: resource pressure downshifts to babylite');
+  ok(modes.decideAdaptive({ idleSec: 500, current: 'calm' }) === null, 'adaptive: never pulls out of calm automatically');
+  ok(modes.decideAdaptive({ focusedSinglePane: true, current: 'calm' }) === null, 'adaptive: calm is sticky for focus too');
+  for (const f of ['babylite.json', 'FOCUSMAX.json', 'Vibes.json', 'xmax.json']) {
+    const pack = JSON.parse(readFileSync(join(root, 'packs', f), 'utf8'));
+    const v = validatePack(pack);
+    ok(v.ok, `pack validates (new nomenclature): ${f}`, JSON.stringify(v.errors));
+  }
+  for (const f of ['babylite', 'FOCUSMAX', 'Vibes', 'xmax']) {
+    const a = readFileSync(join(root, 'packs/' + f + '.json'), 'utf8');
+    const b = readFileSync(join(root, 'src/vendor-packs/' + f + '.json'), 'utf8');
+    ok(a === b, 'vendor: src/vendor-packs/' + f + '.json matches packs/');
+  }
+  const htmlM = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const jsM = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(htmlM.includes('id="adaptiveToggle"') && htmlM.includes('Adaptive'), 'adaptive: toggle left of profile options');
+  ok(htmlM.includes('segwaying') && htmlM.includes('segwayIn'), 'adaptive: gentle color-grade cross-fade segways, no harsh jumps');
+  ok(htmlM.includes('body[data-mode="babylite"]') && htmlM.includes('#7cc4ff'), 'modes: babylite soft baby-blue accent');
+  ok(htmlM.includes('body[data-mode="xMAX"]') && htmlM.includes('data-profile="xMAX"'), 'modes: xMAX theme + pill, Profile X gated');
+  ok(htmlM.includes('calm · sensory panic button') || htmlM.includes('sensory panic button'), 'modes: calm is the sensory panic button');
+  ok(jsM.includes('canonicalMode') && jsM.includes('decideAdaptiveLocal'), 'adaptive: canonical resolver + local trigger engine');
+  ok(jsM.includes('"6":"xMAX"') && jsM.includes('slotMap'), 'hotkeys: 1-6 modes + a/b/c/x slots');
+  ok(jsM.includes('updateXmaxVisibility') && jsM.includes('profileXOn'), 'modes: xMAX hidden unless Profile X is ON');
+  ok(jsM.includes('state.adaptive') && jsM.includes('adaptiveTick'), 'adaptive: poll loop with idle/focus/swap/pressure context');
+  ok(toolsForMode('babylite').some(t => t.id === 'file-task'), 'tools: babylite has live tools');
+  ok(toolsForMode('FOCUSMAX').some(t => t.id === 'write-script'), 'tools: FOCUSMAX keeps power tools');
+  ok(liveToolsForMode('xMAX').length >= liveToolsForMode('calm').length, 'tools: xMAX gets at least as much as calm');
+  ok(toolsForMode('lifeful').some(t => t.id === 'file-task'), 'tools: legacy lifeful alias still resolves');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
