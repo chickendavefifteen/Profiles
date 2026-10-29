@@ -201,6 +201,15 @@ function fitBrowserView(){
   var want=Math.max(160, Math.round(ph-used-28));
   var cur=parseInt(view.style.height||"0", 10);
   if(Math.abs(want-cur)>2) view.style.height=want+"px";
+  /* belt and braces: HTML width/height attributes are honored even where
+     CSS sizing misbehaves — set them to the same measured pixels */
+  var fr=$("browserFrame");
+  if(fr){
+    var vw=Math.round(view.getBoundingClientRect().width);
+    var vh=Math.round(view.getBoundingClientRect().height);
+    if(vw>50) fr.setAttribute("width", String(vw));
+    if(vh>50) fr.setAttribute("height", String(vh));
+  }
 }
 if(window.ResizeObserver){
   new ResizeObserver(function(){ fitBrowserView(); }).observe(document.body);
