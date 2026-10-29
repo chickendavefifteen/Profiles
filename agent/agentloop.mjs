@@ -46,20 +46,35 @@ export async function runTool(slot, decision) {
   switch (decision.tool) {
     case 'browser_open': {
       const out = await viewGo(slot, decision.args.url);
+      if (!out.ok) {
+        return { tool: decision.tool, ok: false, observation: `Browser could not snapshot (${out.error || 'unavailable'}) — opening ${out.url || decision.args.url} directly in the Browser pane instead.`,
+          ui: { showPane: 'pane-browser', browser: out } };
+      }
       return { tool: decision.tool, ok: out.ok, observation: `Browser opened ${out.url} — “${out.title}”. It is showing in the Browser pane.`,
         ui: { showPane: 'pane-browser', browser: out } };
     }
     case 'browser_current': {
       const out = await viewCurrent(slot);
+      if (!out.ok) {
+        return { tool: decision.tool, ok: false, observation: `Browser snapshot unavailable (${out.error || 'unavailable'}) — the Browser pane shows the page directly.`,
+          ui: { showPane: 'pane-browser', browser: out } };
+      }
       return { tool: decision.tool, ok: true, observation: `Browser is on ${out.url} — “${out.title}”.`, ui: { showPane: 'pane-browser', browser: out } };
     }
     case 'browser_read': {
       const out = await viewRead(slot);
-      return { tool: decision.tool, ok: true, observation: `Page “${out.title}” (${out.url}):\n${out.text.slice(0, 1200)}`, pageText: out.text };
+      if (!out.ok) {
+        return { tool: decision.tool, ok: false, observation: `Could not read the page (${out.error || 'unavailable'}) — open it in the Browser pane and I will try again.` };
+      }
+      return { tool: decision.tool, ok: true, observation: `Page “${out.title}” (${out.url}):\n${String(out.text || '').slice(0, 1200)}`, pageText: out.text };
     }
     case 'web_search': {
       const out = await webSearch(slot, decision.args.query);
-      const lines = out.results.map((r, i) => `${i + 1}. ${r.title} — ${r.snippet} (${r.href})`).join('\n');
+      if (!out.ok) {
+        return { tool: decision.tool, ok: false, observation: `Web search “${decision.args.query}” could not run (${out.error || 'unavailable'}) — try opening a site directly (“open bbc news”).`,
+          ui: { showPane: 'pane-browser' }, results: [] };
+      }
+      const lines = (out.results || []).map((r, i) => `${i + 1}. ${r.title} — ${r.snippet} (${r.href})`).join('\n');
       return { tool: decision.tool, ok: true, observation: `Web search “${decision.args.query}”:\n${lines || 'no results came back'}`,
         ui: { showPane: 'pane-browser' }, results: out.results };
     }

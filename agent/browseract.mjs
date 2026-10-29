@@ -43,11 +43,13 @@ export async function runPrepared(token) {
   const shotDir = join(p.staging, 'browser');
   await mkdir(shotDir, { recursive: true });
   const results = [];
-  const browser = await playwright.firefox.launch({ headless: true });
+  let browser;
+  try { browser = await playwright.firefox.launch({ headless: true }); }
+  catch (e) { return { ok: false, error: 'browser launch failed: ' + String(e.message || e).slice(0, 160) }; }
   try {
     const page = await browser.newPage();
     for (const a of job.actions) {
-      if (a.type === 'goto') { await page.goto(a.url || job.url, { timeout: 20000 }); results.push({ type: 'goto', url: page.url() }); }
+      if (a.type === 'goto') { await page.goto(a.url || job.url, { timeout: 15000, waitUntil: 'domcontentloaded' }); results.push({ type: 'goto', url: page.url() }); }
       else if (a.type === 'title') results.push({ type: 'title', title: await page.title() });
       else if (a.type === 'text') {
         const sel = a.selector || 'body';
@@ -71,71 +73,140 @@ export { ALLOWED as BROWSER_ACTIONS };
    clicking the screenshot (their click IS the consent); agent-drive
    above stays token-gated because the agent initiates it. */
 const sessions = new Map();
+function normViewUrl(url) {
+  const u = String(url || '').trim();
+  if (/^https?:\/\//i.test(u)) return u;
+  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return 'https://' + u;
+  if (!u) return 'https://www.google.com';
+  return 'https://www.google.com/search?q=' + encodeURIComponent(u);
+}
 async function ensureSession(slot) {
-  if (sessions.has(slot)) return sessions.get(slot);
-  const playwright = await import('playwright');
-  const browser = await playwright.firefox.launch({ headless: true });
+  const live = sessions.get(slot);
+  if (live) {
+    try {
+      if (live.page.isClosed && live.page.isClosed()) { try { await live.browser.close().catch(() => {}); } catch {} sessions.delete(slot); }
+      else return live;
+    } catch { try { sessions.delete(slot); } catch {} }
+  }
+  let playwright;
+  try { playwright = await import('playwright'); }
+  catch (e) { throw new Error('playwright not installed (npm i -D playwright)'); }
+  let browser;
+  try { browser = await playwright.firefox.launch({ headless: true }); }
+  catch (e) { throw new Error('browser launch failed: ' + String(e.message || e).slice(0, 160)); }
   const page = await browser.newPage({ viewport: { width: 1100, height: 750 } });
-  await page.goto('https://www.google.com', { timeout: 25000 }).catch(() => {});
+  await page.goto('https://www.google.com', { timeout: 15000 }).catch(() => {});
   const sess = { browser, page };
   sessions.set(slot, sess);
   return sess;
 }
 async function snap(slot) {
-  const { page } = await ensureSession(slot);
-  const p = slotPaths(slot);
-  const dir = join(p.staging, 'browser');
-  await mkdir(dir, { recursive: true });
-  const file = `view-${slot}.png`;
-  await page.screenshot({ path: join(dir, file) });
-  return { ok: true, title: await page.title().catch(() => ''), url: page.url(), shot: file };
+  let sess;
+  try { sess = await ensureSession(slot); }
+  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
+  const { page } = sess;
+  try {
+    const p = slotPaths(slot);
+    const dir = join(p.staging, 'browser');
+    await mkdir(dir, { recursive: true });
+    const file = `view-${slot}.png`;
+    await page.screenshot({ path: join(dir, file), timeout: 10000 });
+    let title = '', url = '';
+    try { title = await page.title(); } catch {}
+    try { url = page.url(); } catch {}
+    return { ok: true, title, url, shot: file };
+  } catch (e) {
+    try { sessions.delete(slot); } catch {}
+    return { ok: false, error: 'snapshot failed: ' + String(e.message || e).slice(0, 160) };
+  }
 }
 export async function viewGo(slot, url) {
-  const { page } = await ensureSession(slot);
-  const u = /^https?:\/\//i.test(url || '') ? url : 'https://' + (url || 'www.google.com');
-  await page.goto(u, { timeout: 25000 }).catch(async () => { await page.goto('https://www.google.com').catch(() => {}); });
+  const u = normViewUrl(url);
+  let sess;
+  try { sess = await ensureSession(slot); }
+  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200), url: u }; }
+  const { page } = sess;
+  try {
+    await page.goto(u, { timeout: 15000, waitUntil: 'domcontentloaded' });
+  } catch (e) {
+    try { await page.goto('https://www.google.com', { timeout: 15000 }).catch(() => {}); } catch {}
+    const s = await snap(slot);
+    if (!s.ok) return { ok: false, error: 'navigation failed: ' + String(e.message || e).slice(0, 160), url: u };
+    s.note = 'fell back to home';
+    return s;
+  }
   return snap(slot);
 }
 export async function viewHome(slot) { return viewGo(slot, 'https://www.google.com'); }
 export async function viewClick(slot, fx, fy) {
-  const { page } = await ensureSession(slot);
-  const vp = page.viewportSize() || { width: 1100, height: 750 };
-  await page.mouse.click(Math.max(0, Math.min(1, fx)) * vp.width, Math.max(0, Math.min(1, fy)) * vp.height);
-  await page.waitForTimeout(900);
+  let sess;
+  try { sess = await ensureSession(slot); }
+  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
+  try {
+    const { page } = sess;
+    const vp = page.viewportSize() || { width: 1100, height: 750 };
+    const cx = Math.max(0, Math.min(1, Number(fx) || 0)) * vp.width;
+    const cy = Math.max(0, Math.min(1, Number(fy) || 0)) * vp.height;
+    await page.mouse.click(cx, cy);
+    await page.waitForTimeout(900);
+  } catch (e) { return { ok: false, error: 'click failed: ' + String(e.message || e).slice(0, 160) }; }
   return snap(slot);
 }
 export async function viewType(slot, text, enter) {
-  const { page } = await ensureSession(slot);
-  await page.keyboard.type(String(text || '').slice(0, 300), { delay: 12 });
-  if (enter) await page.keyboard.press('Enter');
-  await page.waitForTimeout(900);
+  let sess;
+  try { sess = await ensureSession(slot); }
+  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
+  try {
+    const { page } = sess;
+    await page.keyboard.type(String(text || '').slice(0, 300), { delay: 12 });
+    if (enter) await page.keyboard.press('Enter');
+    await page.waitForTimeout(900);
+  } catch (e) { return { ok: false, error: 'typing failed: ' + String(e.message || e).slice(0, 160) }; }
   return snap(slot);
 }
 export async function viewBack(slot) {
-  const { page } = await ensureSession(slot);
-  await page.goBack({ timeout: 12000 }).catch(() => {});
-  await page.waitForTimeout(700);
+  let sess;
+  try { sess = await ensureSession(slot); }
+  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
+  try {
+    const { page } = sess;
+    await page.goBack({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(700);
+  } catch (e) { return { ok: false, error: 'back failed: ' + String(e.message || e).slice(0, 160) }; }
   return snap(slot);
 }
 
 export async function viewCurrent(slot) { return snap(slot); }
 export async function viewRead(slot) {
-  const { page } = await ensureSession(slot);
-  const text = await page.locator('body').innerText({ timeout: 8000 }).catch(() => '');
-  return { ok: true, title: await page.title().catch(() => ''), url: page.url(), text: String(text).slice(0, 4000) };
+  let sess;
+  try { sess = await ensureSession(slot); }
+  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
+  try {
+    const { page } = sess;
+    const text = await page.locator('body').innerText({ timeout: 8000 }).catch(() => '');
+    let title = '', url = '';
+    try { title = await page.title(); } catch {}
+    try { url = page.url(); } catch {}
+    return { ok: true, title, url, text: String(text).slice(0, 4000) };
+  } catch (e) { return { ok: false, error: 'read failed: ' + String(e.message || e).slice(0, 160) }; }
 }
 /** Web search through the integrated browser (DDG html results). */
 export async function webSearch(slot, query) {
-  const { page } = await ensureSession(slot);
-  await page.goto('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), { timeout: 25000 });
-  const results = await page.evaluate(() => {
-    const out = [];
-    document.querySelectorAll('.result').forEach((r) => {
-      const a = r.querySelector('.result__a');
-      const sn = r.querySelector('.result__snippet');
-      if (a) out.push({ title: a.textContent.trim(), href: a.href, snippet: sn ? sn.textContent.trim() : '' });
-    });
-    return out.slice(0, 6);
-  }).catch(() => []);
-  return { ok: true, query, results };
+  let sess;
+  try { sess = await ensureSession(slot); }
+  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200), query, results: [] }; }
+  try {
+    const { page } = sess;
+    await page.goto('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), { timeout: 15000 });
+    const results = await page.evaluate(() => {
+      const out = [];
+      document.querySelectorAll('.result').forEach((r) => {
+        const a = r.querySelector('.result__a');
+        const sn = r.querySelector('.result__snippet');
+        if (a) out.push({ title: a.textContent.trim(), href: a.href, snippet: sn ? sn.textContent.trim() : '' });
+      });
+      return out.slice(0, 6);
+    }).catch(() => []);
+    return { ok: true, query, results };
+  } catch (e) { return { ok: false, error: 'search failed: ' + String(e.message || e).slice(0, 160), query, results: [] }; }
 }
