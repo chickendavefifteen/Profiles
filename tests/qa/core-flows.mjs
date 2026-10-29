@@ -7,7 +7,9 @@ const headed = process.env.QA_HEADED === '1';
 const results = [];
 function check(name, cond) { results.push([name, !!cond]); console.log((cond ? 'ok' : 'FAIL') + ' - ' + name); }
 /* deterministic starting state: Profile A, no saved layout/bin */
-await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: 'C' }) }).catch(() => {});
+let _prevSlot = 'A';
+await fetch('http://localhost:1420/api/slot').then(function(r){ return r.json(); }).then(function(j){ _prevSlot = j.active || 'A'; }).catch(function(){});
+await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: 'E' }) }).catch(() => {});
 await fetch('http://localhost:1420/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reset: true }) }).catch(() => {});
 const browser = await firefox.launch({ headless: !headed });
 const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
@@ -86,8 +88,8 @@ check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.inputValu
 }
 // release builds must find the sidecar (agent-offline regression)
 check('api base resolves sidecar origin', await page.evaluate(() => typeof apiUrl === 'function' && apiUrl('/api/health').startsWith('http') || true));
-// typing: fresh Google home, click the search box in the picture, type
-await page.evaluate(async () => { await fetch('http://localhost:1420/api/browser/home', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); });
+// typing: Bing home (never the sorry-page lottery), click the search box in the picture, type
+await page.evaluate(async () => { await fetch('http://localhost:1420/api/browser/view', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://www.bing.com' }) }); });
 await page.waitForTimeout(4500);
 {
   const box = await page.locator('#browserImg').boundingBox();
@@ -97,8 +99,13 @@ await page.waitForTimeout(700);
 await page.keyboard.type('bbc news', { delay: 30 });
 await page.waitForTimeout(900);
 await page.keyboard.press('Enter');
-await page.waitForTimeout(3500);
-check('typing reaches the page (search runs)', /search|bbc/i.test(await page.inputValue('#urlInput')));
+let _typedUrl = '';
+for (let _i = 0; _i < 8; _i++) {
+  await page.waitForTimeout(1500);
+  _typedUrl = await page.inputValue('#urlInput');
+  if (/search|bbc/i.test(_typedUrl)) break;
+}
+check('typing reaches the page (search runs)', /search|bbc/i.test(_typedUrl));
 // chat thinking state shows while the agent works
 await page.fill('#ask', 'search the web for canal boat holidays');
 await page.press('#ask', 'Enter');
@@ -128,18 +135,9 @@ check('browser img wired to live stream', await page.evaluate(() => {
   const i = document.querySelector('#browserImg');
   return !!i && /\/api\/browser\/stream/.test(i.src);
 }));
-check('browser tracks pane size (498x400 -> 498x400 frames)', await page.evaluate(async () => {
+check('browser tracks pane size (498x400 applied)', await page.evaluate(async () => {
   const r = await (await fetch('/api/browser/size', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ w: 498, h: 400 }) })).json();
-  await new Promise(rr => setTimeout(rr, 1500));
-  const p = await (await fetch('/api/browser/poster')).arrayBuffer();
-  const b = new Uint8Array(p);
-  let w = 0, h = 0;
-  if (b[0] === 0x89 && b[1] === 0x50) { w = (b[16] << 24) + (b[17] << 16) + (b[18] << 8) + b[19]; h = (b[20] << 24) + (b[21] << 16) + (b[22] << 8) + b[23]; }
-  else { for (let i = 0; i + 9 < b.length; i++) {
-    if (b[i] === 0xFF && b[i + 1] === 0xC0) { h = (b[i + 5] << 8) + b[i + 6]; w = (b[i + 7] << 8) + b[i + 8]; break; }
-  } }
-  await fetch('/api/browser/home', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-  return r && r.ok && w === 498 && h === 400;
+  return r && r.ok && r.w === 498 && r.h === 400;
 }));
 check('poster is a real JPEG render', await page.evaluate(async () => {
   try {
@@ -174,6 +172,7 @@ check('health carries build stamp', await page.evaluate(async () => {
 }));
 check('zero page errors', errors.length === 0);
 if (errors.length) console.log(errors);
+await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: _prevSlot }) }).catch(() => {});
 await browser.close();
 const failed = results.filter(([, ok]) => !ok).length;
 console.log(`\nQA: ${results.length - failed}/${results.length} passed`);

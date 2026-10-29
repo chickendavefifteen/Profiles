@@ -364,3 +364,12 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
 - Mode arrivals: hard cut (calm/babylite), gentle settle (chill),
   staggered celebration (vibes/focusmax/xmax).
 - Tests 277 unit, QA 29/29. Native rebuilt + verified narrow.
+
+## Truth-sync + macro scope (2026-10-29)
+- Browser lied (chat said BBC, view showed Google): frozen MJPEG looks
+  alive forever. /api/browser/state + 4s frontend sync + re-stream on
+  every tool nav — the view cannot silently disagree again.
+- Macro hijack: repeated tool asks ("go to...") became no-op macros
+  claiming Done (my own QA created it by asking 40x). Fast-path now
+  file/stage only; reset clears macros+events; bogus macros deleted.
+- Proven 5x consistent browser_open; tests 282, QA 29/29 x2.

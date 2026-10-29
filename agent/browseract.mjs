@@ -347,7 +347,33 @@ export async function webSearch(slot, query) {
   try { sess = await ensureSession(slot); }
   catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200), query, results: [] }; }
   const { page } = sess;
-  /* Pass 1: DuckDuckGo html (light, bot-tolerant). */
+  const extractBing = () => page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('#b_results .b_algo').forEach((li) => {
+      const h = li.querySelector('h2');
+      const a = li.querySelector('h2 a');
+      if (!a || !h) return;
+      let href = a.href || '';
+      try {
+        const m = href.match(/[?&]u=a1([A-Za-z0-9_-]+)/);
+        if (m) href = atob(m[1].replace(/-/g, '+').replace(/_/g, '/'));
+      } catch {}
+      const cap = li.querySelector('.b_caption');
+      out.push({ title: (h.textContent || '').trim(), href,
+        snippet: ((cap && cap.textContent) || '').trim().slice(0, 300) });
+    });
+    return out.slice(0, 6);
+  }).catch(() => []);
+  /* Pass 1: Bing (renders headless, no wall as of 2026-10-29). Google
+     scraping is retired: it sorry-pages automated browsers, and one
+     rate-limited IP poisons the whole visible session. */
+  try {
+    await page.goto('https://www.bing.com/search?q=' + encodeURIComponent(query), { timeout: 25000 });
+    await page.waitForTimeout(1200).catch(() => {});
+    const results = (await extractBing()).filter((r) => r.title && /^https?:\/\//.test(r.href));
+    if (results.length) return { ok: true, query, results, via: 'bing', pageUrl: page.url() };
+  } catch {}
+  /* Pass 2: DuckDuckGo html (often challenged; cheap to try). */
   try {
     await page.goto('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), { timeout: 15000 });
     const results = await page.evaluate(() => {
@@ -361,22 +387,6 @@ export async function webSearch(slot, query) {
     }).catch(() => []);
     if (results.length) return { ok: true, query, results, via: 'duckduckgo' };
   } catch {}
-  /* Pass 2: Google in the real persistent session (bot-proof here).
-     A search that returns nothing is a failure of the tool, never of
-     the user — so we never report "no results", we show the page. */
-  try {
-    await page.goto('https://www.google.com/search?q=' + encodeURIComponent(query), { timeout: 25000 });
-    await dismissConsent(page);
-    await page.waitForTimeout(1200).catch(() => {});
-    const results = await page.evaluate(() => {
-      const out = [];
-      document.querySelectorAll('div.yuHEv, div.g').forEach((g) => {
-        const a = g.querySelector('a[href^="http"]:not([href*="google."])');
-        const h = g.querySelector('h3');
-        if (a && h) out.push({ title: h.textContent.trim(), href: a.href, snippet: (g.querySelector('[data-sncf], .VwiC3b') || {}).textContent?.trim?.() || '' });
-      });
-      return out.slice(0, 6);
-    }).catch(() => []);
-    return { ok: true, query, results, via: 'google', pageUrl: page.url() };
-  } catch (e) { return { ok: false, error: 'search failed: ' + String(e.message || e).slice(0, 160), query, results: [] }; }
+  return { ok: true, query, results: [], via: 'none',
+    note: 'both search backends came back empty — the page is showing Bing for the query; read it there or try different words' };
 }

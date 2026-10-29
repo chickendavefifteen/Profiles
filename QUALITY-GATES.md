@@ -44,6 +44,10 @@ browser pane loads Google clean (consent auto-rejected).
   instant first frame; response headers go out BEFORE frame prep.
 - Firefox fetch() does not stream multipart bodies to readers — assert
   the contract (img wired to stream URL + poster decodes), not the quirk.
+- Google sorry-pages + DDG challenges automated browsers (2026-10-29: my own
+  QA hammering got our IP flagged — sorry page IN the user session). Search
+  runs on Bing now; Google is never scraped. QA search steps are few and
+  Bing-targeted; the shared-IP budget is real.
 - Headless virtual-time screenshots hang forever on infinite streams —
   use Playwright screenshots for visual proof, never chromium --screenshot.
 - Google bot-blocks headless Firefox -> persistent HEADED Chromium

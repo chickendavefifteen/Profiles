@@ -14,11 +14,14 @@ const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.
   'investing': 'https://www.investing.com/', 'investing dot com': 'https://www.investing.com/',
   google: 'https://www.google.com', news: 'https://www.bbc.co.uk/news',
   youtube: 'https://www.youtube.com', github: 'https://github.com', wikipedia: 'https://en.wikipedia.org' };
+const GOOGLE_TLD = { germany: 'de', france: 'fr', spain: 'es', italy: 'it', uk: 'co.uk', japan: 'co.jp', canada: 'ca', australia: 'com.au', brazil: 'com.br', india: 'co.in', netherlands: 'nl', ireland: 'ie', sweden: 'se' };
 function siteFor(target) {
   const t = target.replace(/\s+(website|site|webpage|page)\s*$/, '')
     .replace(/\s+(properly|please|for me)\s*$/, '')
     .replace(/\s+dot\s+/g, '.').replace(/\sdot\s/g, '.').trim();
   if (SITES[t]) return SITES[t];
+  const gm = t.match(/^google\s+([a-z]+)$/);
+  if (gm && GOOGLE_TLD[gm[1]]) return 'https://www.google.' + GOOGLE_TLD[gm[1]] + '/';
   if (/^bb?c\b/.test(t) || /bbc/.test(t)) return 'https://www.bbc.co.uk/news';
   return null;
 }

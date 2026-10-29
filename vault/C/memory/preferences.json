@@ -3,7 +3,19 @@
   "macroCandidates": [
     {
       "phrase": "hi r u agentic now",
-      "count": 33
+      "count": 74
+    },
+    {
+      "phrase": "search the web for canal boat holidays",
+      "count": 3
+    },
+    {
+      "phrase": "go to bc news website",
+      "count": 3
+    },
+    {
+      "phrase": "bbc news",
+      "count": 3
     }
   ],
   "linkedGroups": [
@@ -12,24 +24,24 @@
         "pane-browser",
         "pane-chat"
       ],
-      "count": 8
+      "count": 25
     },
     {
       "panes": [
         "pane-chat",
         "pane-doc"
       ],
-      "count": 4
+      "count": 10
     },
     {
       "panes": [
         "pane-browser",
         "pane-doc"
       ],
-      "count": 4
+      "count": 10
     }
   ],
   "lastDismissal": null,
-  "events": 45,
-  "derivedAt": "2026-10-29T14:17:51.306Z"
+  "events": 109,
+  "derivedAt": "2026-10-29T18:12:15.956Z"
 }
