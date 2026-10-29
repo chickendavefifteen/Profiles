@@ -387,32 +387,45 @@ function tick(q){
   if(line) logLine(line);
 }
 
-/* ---- real sidecar: always on, chat-first ---- */
+/* ---- real sidecar: always on, chat-first ----
+   Smooth by design: one in-flight ask at a time (abort + replace),
+   30s timeout, busy lock on Go, tool results paint instantly. */
+var askCtrl=null, askBusy=false;
 function runReal(q){
   state.runCount++;
+  if(askCtrl){ try{ askCtrl.abort(); }catch(e){} }
+  askCtrl=(typeof AbortController!=="undefined") ? new AbortController() : null;
+  var askTimer=setTimeout(function(){ if(askCtrl){ try{ askCtrl.abort(); }catch(e){} } }, 30000);
+  askBusy=true;
+  var goBtn=$("askGo"); if(goBtn) goBtn.disabled=true;
   $("agentStatus").classList.add("working");
-  $("agentStatusText").textContent="working on “"+q+"” — lite agent · "+MODES[state.mode].label;
+  $("agentStatusText").textContent="working on \u201c"+q+"\u201d — lite agent \u00b7 "+MODES[state.mode].label;
   paintStages(-1);
-  logLine("→ “"+q+"” · "+MODES[state.mode].label+" · lite agent");
+  logLine("\u2192 \u201c"+q+"\u201d \u00b7 "+MODES[state.mode].label+" \u00b7 lite agent");
   fetch(apiUrl("/api/ask"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({query:q,mode:state.mode,device:"desktop"})})
+    body:JSON.stringify({query:q,mode:state.mode,device:"desktop"}),signal:askCtrl?askCtrl.signal:undefined})
   .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
   .then(function(res){
-    var i=0, tickMs=MODES[state.mode].motion===0?700:320;
+    clearTimeout(askTimer);
+    askBusy=false; if(goBtn) goBtn.disabled=false;
+    if(!res || !res.events){ throw new Error("bad agent reply"); }
+    var i=0, tickMs=MODES[state.mode].motion===0?500:220;
+    if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
     (function next(){
       if(i>=res.events.length){
         paintStages(99);
         $("agentStatus").classList.remove("working");
-        $("agentStatusText").textContent="done ✓ — answer in chat, detail here";
-        bubble(res.chat || res.result, "agent");
+        $("agentStatusText").textContent="done \u2713 — answer in chat, detail here";
+        bubble(res.chat || res.result || "Done.", "agent");
         if(res.ui && res.ui.showPane){
           showPaneEl(res.ui.showPane, true);
-          setTimeout(function(){ browserCall("/api/browser/view", {}); }, 600);
+          if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded || !$("browserImg").src) browserCall("/api/browser/view", {}); }, 600);
+          else { try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
         }
         if(res.setup){ renderSetup(res.setup, res.capabilities); showPane("pane-setup"); }
-        if(res.staged){ bubble("Staged “"+res.staged.title+"” — see the Document pane.", "sys"); loadStaged(); }
-        if(res.macroCreated){ bubble("You have asked that 3 times, so I scripted it: “"+res.macroCreated.id+"” is now a one-tap macro below the chat — instant, no thinking loop. Delete its file in vault/macros/ any time to unlearn.", "sys"); loadMacros(); }
-        stream("run #"+state.runCount+" ✓ “"+q+"” — "+res.pick.tier+" · "+res.intent.kind);
+        if(res.staged){ bubble("Staged \u201c"+res.staged.title+"\u201d — see the Document pane.", "sys"); loadStaged(); }
+        if(res.macroCreated){ bubble("You have asked that 3 times, so I scripted it: \u201c"+res.macroCreated.id+"\u201d is now a one-tap macro below the chat — instant, no thinking loop. Delete its file in vault/macros/ any time to unlearn.", "sys"); loadMacros(); }
+        try{ stream("run #"+state.runCount+" \u2713 \u201c"+q+"\u201d — "+res.pick.tier+" \u00b7 "+res.intent.kind); }catch(e){}
         return;
       }
       var ev=res.events[i++];
@@ -422,6 +435,15 @@ function runReal(q){
     })();
   })
   .catch(function(err){
+    clearTimeout(askTimer);
+    askBusy=false; if(goBtn) goBtn.disabled=false;
+    if(err && err.name==="AbortError"){
+      $("agentStatus").classList.remove("working");
+      $("agentStatusText").textContent="that took too long — try a shorter ask";
+      bubble("That took too long (30s) so I stopped it — nothing was filed twice. Try a shorter ask, or “open browser on bbc news” for a quick tool check.", "agent");
+      logLine("! ask timed out after 30s — aborted cleanly");
+      return;
+    }
     $("agentStatus").classList.remove("working");
     logLine("! sidecar unreachable ("+err.message+") — labelled simulation instead");
     startRun(q);
@@ -706,21 +728,65 @@ function loadStaged(){
 }
 $("stageRefresh").addEventListener("click", loadStaged);
 
-/* ---- browser pane: a real browser, driven by your clicks ---- */
-var browserLoaded=false;
-function browserShow(out){
-  if(!out || !out.ok) { $("browserStatus").textContent="Could not load — try Go again."; return; }
-  $("browserImg").src=apiUrl("/api/browser/shot/"+out.shot)+"?t="+Date.now();
+/* ---- browser pane: a real browser, driven by your clicks ----
+   Reliable by design: normalised URLs, timeout + abort, busy-state lock,
+   screenshot-first with an inline iframe fallback so the pane never dies. */
+var browserLoaded=false, browserBusy=false, browserCtrl=null;
+function normUrl(u){
+  u=String(u||"").trim();
+  if(!u) return "https://www.google.com";
+  if(/^https?:\/\//i.test(u)) return u;
+  if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return "https://"+u;
+  return "https://www.google.com/search?q="+encodeURIComponent(u);
+}
+function browserShow(out, fallbackUrl){
+  browserBusy=false;
+  var go=$("browserGo"); if(go) go.disabled=false;
+  if(!out || !out.ok) {
+    var why=(out && (out.error||out.message)) || "could not load";
+    $("browserStatus").textContent="Could not load ("+String(why).slice(0,120)+") — showing the page directly instead.";
+    browserFallback(fallbackUrl || $("urlInput").value.trim());
+    return;
+  }
+  var frame=$("browserFrame"); if(frame){ frame.style.display="none"; frame.removeAttribute("src"); }
+  var img=$("browserImg"); img.style.display="block";
+  img.src=apiUrl("/api/browser/shot/"+out.shot)+"?t="+Date.now();
   $("browserHint").style.display="none";
-  $("urlInput").value=out.url||$("urlInput").value;
-  $("browserStatus").textContent=(out.title?("“"+out.title+"” · "):"")+ "live — click the picture to interact";
+  if(out.url) $("urlInput").value=out.url;
+  $("browserStatus").textContent=(out.title?("\u201c"+out.title+"\u201d \u00b7 "):"")+ "live — click the picture to interact";
+  browserLoaded=true;
+}
+function browserFallback(url){
+  var u=normUrl(url);
+  var frame=$("browserFrame"), img=$("browserImg");
+  if(frame){ frame.src=u; frame.style.display="block"; }
+  if(img) img.style.display="none";
+  $("browserHint").style.display="none";
+  $("urlInput").value=u;
+  $("browserStatus").textContent+=" (direct view)";
   browserLoaded=true;
 }
 function browserCall(path, body){
-  $("browserStatus").textContent="working…";
-  fetch(apiUrl(path),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body||{})})
-    .then(function(r){ return r.json(); }).then(browserShow)
-    .catch(function(){ $("browserStatus").textContent="Browser unreachable — is npm start running?"; });
+  if(browserBusy && browserCtrl){ try{ browserCtrl.abort(); }catch(e){} }
+  browserBusy=true;
+  var go=$("browserGo"); if(go) go.disabled=true;
+  $("browserStatus").textContent="Loading …";
+  if(browserCtrl){ try{ browserCtrl.abort(); }catch(e){} }
+  browserCtrl=(typeof AbortController!=="undefined") ? new AbortController() : null;
+  var timer=setTimeout(function(){ if(browserCtrl){ try{ browserCtrl.abort(); }catch(e){} } }, 20000);
+  var payload=body||{};
+  if(payload.url) payload.url=normUrl(payload.url);
+  var wantUrl=payload.url || $("urlInput").value.trim();
+  fetch(apiUrl(path),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload),signal:browserCtrl?browserCtrl.signal:undefined})
+    .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(function(out){ clearTimeout(timer); browserShow(out, wantUrl); })
+    .catch(function(err){
+      clearTimeout(timer);
+      if(err && err.name==="AbortError"){ $("browserStatus").textContent="That took too long — showing the page directly instead."; }
+      else { $("browserStatus").textContent="Browser sidecar unreachable — showing the page directly."; }
+      browserBusy=false; if(go) go.disabled=false;
+      browserFallback(wantUrl);
+    });
 }
 $("urlForm").addEventListener("submit", function(e){
   e.preventDefault();
@@ -728,13 +794,16 @@ $("urlForm").addEventListener("submit", function(e){
 });
 $("browserHome").addEventListener("click", function(){ browserCall("/api/browser/home", {}); });
 $("browserBack").addEventListener("click", function(){ browserCall("/api/browser/back", {}); });
+if($("browserReload")) $("browserReload").addEventListener("click", function(){ browserCall("/api/browser/view", {}); });
 $("browserImg").addEventListener("click", function(e){
   var r=$("browserImg").getBoundingClientRect();
-  browserCall("/api/browser/click", {fx:(e.clientX-r.left)/r.width, fy:(e.clientY-r.top)/r.height});
+  if(!r.width) return;
+  browserCall("/api/browser/click", {fx:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), fy:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))});
 });
 $("typeForm").addEventListener("submit", function(e){
   e.preventDefault();
   var t=$("typeInput").value; $("typeInput").value="";
+  if(!t.trim()) return;
   browserCall("/api/browser/type", {text:t, enter:true});
 });
 if($("openExternal")) $("openExternal").addEventListener("click", function(){
@@ -742,6 +811,7 @@ if($("openExternal")) $("openExternal").addEventListener("click", function(){
   if(u && !/^https?:\/\//i.test(u)) u="https://"+u;
   if(u) window.open(u, "_blank");
 });
+
 
 /* ---- voice: talk -> it listens; answers spoken back in a natural voice ---- */
 function pickVoice(){
@@ -979,14 +1049,16 @@ function bootPacks(){
   });
 }
 
-/* ---- front door: Browse / Search-Ask / Work arrange the canvas ---- */
+/* ---- front door: Browse / Search-Ask / Work arrange the canvas ----
+   Unified + minimalist: browser, agent chat and notes/sketch share one
+   canvas; Video/Activity live on only if the user re-opens them. */
 var HOME_LAYOUTS={
-  browse:{order:["pane-chat","pane-browser","pane-notes","pane-agent","pane-video","pane-doc","pane-activity","pane-setup"],
+  browse:{order:["pane-chat","pane-browser","pane-notes","pane-doc","pane-agent","pane-video","pane-activity","pane-setup"],
     show:["pane-browser","pane-chat"], msg:"Browse — web front and centre, chat alongside for questions. Everything else is a tab away."},
   ask:{order:["pane-chat","pane-agent","pane-browser","pane-doc","pane-notes","pane-video","pane-activity","pane-setup"],
     show:["pane-chat","pane-agent"], msg:"Search / Ask — ask box front and centre, agent receipts beside it (Detailed) or hidden (Sleek, in the Agent header)."},
   work:{order:["pane-chat","pane-doc","pane-notes","pane-browser","pane-agent","pane-video","pane-activity","pane-setup"],
-    show:["pane-doc","pane-notes","pane-browser","pane-chat"], msg:"Work — staged documents + notes + your usual apps (Docs, Word, Slides) in the browser pane. Agent drafts land in Document, export when happy."}
+    show:["pane-doc","pane-notes","pane-browser","pane-chat"], msg:"Work — staged documents + notes/sketch + your usual apps (Docs, Word, Slides) in the browser pane. Agent drafts land in Document, export when happy."}
 };
 function goHome(kind){
   var h=HOME_LAYOUTS[kind]; if(!h) return;
@@ -1055,11 +1127,11 @@ function reorganise(){
       PANES.forEach(function(id){ if(order.indexOf(id)<0) order.push(id); });
       why="based on what you actually use together (learned locally: "+groups.map(function(g){ return g.panes.map(function(id){ return PANE_LABELS[id]; }).join(" + "); }).join("; ")+")";
     } else {
-      order=["pane-chat","pane-video","pane-browser","pane-doc","pane-notes","pane-agent","pane-activity","pane-setup"];
+      order=["pane-chat","pane-browser","pane-doc","pane-notes","pane-agent","pane-activity","pane-setup","pane-video"];
       why="best practice: chat first, content you are consuming next, your notes beside it, agent receipts after";
     }
     state.layout.order=order;
-    state.layout.hidden=state.layout.hidden.filter(function(id){ return ["pane-video","pane-notes"].indexOf(id)>=0 ? false : true; });
+    state.layout.hidden=state.layout.hidden.filter(function(id){ return id==="pane-notes" ? false : true; });
     /* reveal the linked set, keep the rest a tab away */
     var keep=order.slice(0,5);
     state.layout.hidden=PANES.filter(function(id){ return keep.indexOf(id)<0; });
@@ -1083,7 +1155,121 @@ if($("notesArea")){
 }
 function loadNotes(){
   fetch(apiUrl("/api/notes")).then(function(r){ return r.json(); }).then(function(res){ if($("notesArea")) $("notesArea").value=res.text||""; }).catch(function(){});
+  loadSketch();
 }
+
+/* ---- sketch: native paint pass-through, out of the box ----
+   Minimal + persistent: ink + size, undo, clear, Export PNG.
+   Strokes persist per profile on this device (localStorage) so a
+   reload keeps the drawing; Export downloads it for documents. */
+var sketchStrokes=[], sketchDrawing=false, sketchLast=null, sketchTimer=null;
+function sketchKey(){ return "profilesSketch_"+(state.slot||"A"); }
+function sketchCtx(){
+  var c=$("sketchCanvas"); if(!c) return null;
+  return c.getContext("2d");
+}
+function sketchSetupCanvas(){
+  var c=$("sketchCanvas"); if(!c || c._setup) return;
+  c._setup=true;
+  var ratio=1;
+  try{ ratio=Math.min(2, window.devicePixelRatio||1); }catch(e){}
+  var w=c.width, h=c.height;
+  c.width=w*ratio; c.height=h*ratio;
+  c.style.aspectRatio=w+"/"+h;
+  var ctx=c.getContext("2d"); ctx.scale(ratio, ratio);
+  ctx.lineCap="round"; ctx.lineJoin="round";
+  redrawSketch();
+}
+function sketchPos(e){
+  var c=$("sketchCanvas"), r=c.getBoundingClientRect();
+  var x=(e.clientX-r.left)*(c.width/(window.devicePixelRatio>1?Math.min(2,window.devicePixelRatio||1):1))/r.width;
+  var y=(e.clientY-r.top)*(c.height/(window.devicePixelRatio>1?Math.min(2,window.devicePixelRatio||1):1))/r.height;
+  return {x:x, y:y};
+}
+function redrawSketch(){
+  var c=$("sketchCanvas"), ctx=sketchCtx(); if(!c||!ctx) return;
+  var ratio=1; try{ ratio=Math.min(2, window.devicePixelRatio||1); }catch(e){}
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.restore();
+  ctx.save(); try{ ctx.scale(ratio,ratio); }catch(e){}
+  var cssW=c.width/ratio, cssH=c.height/ratio;
+  ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,cssW,cssH);
+  sketchStrokes.forEach(function(s){
+    ctx.strokeStyle=s.color||"#155eef"; ctx.lineWidth=s.size||3;
+    ctx.beginPath();
+    s.pts.forEach(function(pt,idx){ if(idx===0) ctx.moveTo(pt.x,pt.y); else ctx.lineTo(pt.x,pt.y); });
+    if(s.pts.length===1){ ctx.lineTo(s.pts[0].x+0.5, s.pts[0].y+0.5); }
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+function persistSketch(){
+  clearTimeout(sketchTimer);
+  sketchTimer=setTimeout(function(){
+    try{ localStorage.setItem(sketchKey(), JSON.stringify(sketchStrokes.slice(-400))); }catch(e){}
+    var l=$("sketchLine"); if(l) l.textContent="Sketch saved on this device · "+now()+" · Export downloads it for documents.";
+  }, 500);
+}
+function loadSketch(){
+  sketchSetupCanvas();
+  try{
+    var raw=localStorage.getItem(sketchKey());
+    sketchStrokes=raw?JSON.parse(raw):[];
+    if(!Array.isArray(sketchStrokes)) sketchStrokes=[];
+  }catch(e){ sketchStrokes=[]; }
+  redrawSketch();
+}
+(function initSketch(){
+  var c=null;
+  function bind(){
+    c=$("sketchCanvas"); if(!c){ setTimeout(bind, 500); return; }
+    sketchSetupCanvas(); loadSketch();
+    var color=$("sketchColor"), size=$("sketchSize");
+    function cur(){ return {color:color?color.value:"#155eef", size:size?Number(size.value):3}; }
+    c.addEventListener("pointerdown", function(e){
+      e.preventDefault();
+      try{ c.setPointerCapture(e.pointerId); }catch(err){}
+      sketchDrawing=true;
+      var p=sketchPos(e), s=cur();
+      sketchLast={color:s.color, size:s.size, pts:[p]};
+      sketchStrokes.push(sketchLast);
+      redrawSketch();
+    });
+    c.addEventListener("pointermove", function(e){
+      if(!sketchDrawing || !sketchLast) return;
+      e.preventDefault();
+      sketchLast.pts.push(sketchPos(e));
+      redrawSketch();
+    });
+    function endStroke(){ if(sketchDrawing){ sketchDrawing=false; sketchLast=null; persistSketch(); } }
+    c.addEventListener("pointerup", endStroke);
+    c.addEventListener("pointercancel", endStroke);
+    c.addEventListener("pointerleave", endStroke);
+    if($("sketchUndo")) $("sketchUndo").addEventListener("click", function(){
+      sketchStrokes.pop(); redrawSketch(); persistSketch();
+    });
+    if($("sketchClear")) $("sketchClear").addEventListener("click", function(){
+      if(!sketchStrokes.length) return;
+      sketchStrokes=[]; redrawSketch(); persistSketch();
+      var l=$("sketchLine"); if(l) l.textContent="Sketch cleared.";
+    });
+    if($("sketchSave")) $("sketchSave").addEventListener("click", function(){
+      try{
+        var url=c.toDataURL("image/png");
+        var a=document.createElement("a");
+        a.href=url; a.download="profiles-sketch-"+(state.slot||"A")+".png";
+        document.body.appendChild(a); a.click(); a.remove();
+        var l2=$("sketchLine"); if(l2) l2.textContent="Exported PNG — attach it to any document.";
+      }catch(e){
+        var l3=$("sketchLine"); if(l3) l3.textContent="Export failed in this browser — screenshot the canvas instead.";
+      }
+    });
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
+})();
+
 
 /* ---- video pane ---- */
 if($("videoForm")) $("videoForm").addEventListener("submit", function(e){

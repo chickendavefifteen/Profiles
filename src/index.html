@@ -275,6 +275,14 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
 .urlrow{display:flex;gap:8px;margin-bottom:10px}
 .urlrow input{flex:1;font:inherit;font-size:.88rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
 .browserframe{width:100%;height:46vh;border:1px solid var(--line);border-radius:10px;background:#fff}
+/* unified canvas: browser, notes/sketch and chat share one quiet rhythm */
+#browserView{background:#fff}
+#browserImg{background:#fff}
+#browserFrame{background:#fff}
+#browserStatus:empty{display:none}
+#sketchCanvas{display:block;background:#fff}
+.sketchbar .sbtn{min-height:36px;padding:6px 14px}
+.panebody .urlrow:last-child{margin-bottom:0}
 .step{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);font-size:.88rem}
 .step:last-child{border-bottom:none}
 .step .n{flex:none;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:.74rem;color:var(--muted)}
@@ -343,8 +351,6 @@ body.kids .advancedBlock{display:none}
     <div class="addMore">
       <button type="button" data-add="pane-agent">Agent detail</button>
       <button type="button" data-add="pane-notes">Notes</button>
-      <button type="button" data-add="pane-video">Video</button>
-      <button type="button" data-add="pane-activity">Activity</button>
       <button type="button" data-add="pane-setup">Setup</button>
     </div>
   </div>
@@ -364,7 +370,7 @@ body.kids .advancedBlock{display:none}
         <button class="iconbtn" id="micBtn" type="button" title="Voice in (browser speech)" aria-pressed="false">🎙</button>
         <span class="small" id="voiceLine" style="align-self:center"></span>
         <button class="iconbtn" id="speakBtn" type="button" title="Read answers aloud" aria-pressed="false">🔊</button>
-        <button class="btn" type="submit">Go</button>
+        <button class="btn" id="askGo" type="submit">Go</button>
       </form>
     </section>
 
@@ -383,12 +389,14 @@ body.kids .advancedBlock{display:none}
         <form class="urlrow" id="urlForm">
           <button class="sbtn ghost" id="browserHome" type="button" title="Home (Google)">⌂</button>
           <button class="sbtn ghost" id="browserBack" type="button" title="Back">←</button>
-          <input id="urlInput" type="text" value="https://www.google.com" aria-label="Web address">
-          <button class="sbtn" type="submit">Go</button>
+          <button class="sbtn ghost" id="browserReload" type="button" title="Reload this page">⟳</button>
+          <input id="urlInput" type="text" value="https://www.google.com" aria-label="Web address" inputmode="url" autocomplete="off" spellcheck="false">
+          <button class="sbtn" id="browserGo" type="submit">Go</button>
           <button class="sbtn ghost" id="openExternal" type="button" title="Open this page in my real browser">↗</button>
         </form>
         <div id="browserView" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;min-height:200px">
           <img id="browserImg" alt="Live browser view — click to interact" style="width:100%;display:block;cursor:pointer">
+          <iframe id="browserFrame" title="Browser fallback view" style="width:100%;height:46vh;border:0;display:none;background:#fff"></iframe>
           <p class="small" id="browserHint" style="padding:10px 12px">Loading Google… this is a real browser — click anything in the picture.</p>
         </div>
         <form class="urlrow" id="typeForm" style="margin-top:10px">
@@ -488,10 +496,20 @@ body.kids .advancedBlock{display:none}
     </section>
 
     <section class="pane" id="pane-notes" aria-label="Notes">
-      <div class="panehead">📝 Notes <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">📝 Notes + sketch <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
-        <textarea id="notesArea" rows="12" style="width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:12px" placeholder="Notes for THIS profile only — saved locally as you type…" aria-label="Profile notes"></textarea>
+        <textarea id="notesArea" rows="8" style="width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:12px" placeholder="Notes for THIS profile only — saved locally as you type…" aria-label="Profile notes"></textarea>
         <p class="small" id="notesLine">Saved to this profile's own notes. Linked automatically when you watch + note + ask (the agent notices co-use, locally).</p>
+        <h3 style="font-size:.9rem;margin:14px 0 6px">✏️ Sketch — draw right here</h3>
+        <div class="sketchbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <label class="small">Ink <input id="sketchColor" type="color" value="#155eef" aria-label="Sketch ink colour" style="width:40px;height:32px;padding:0;border:1px solid var(--line);border-radius:8px;background:none"></label>
+          <label class="small">Size <input id="sketchSize" type="range" min="1" max="24" value="3" aria-label="Brush size" style="width:90px;vertical-align:middle"></label>
+          <button class="sbtn ghost" id="sketchUndo" type="button" title="Undo last stroke">Undo</button>
+          <button class="sbtn ghost" id="sketchClear" type="button" title="Clear the sketch">Clear</button>
+          <button class="sbtn" id="sketchSave" type="button" title="Download sketch as PNG">Export PNG</button>
+        </div>
+        <canvas id="sketchCanvas" width="640" height="260" style="width:100%;height:auto;touch-action:none;cursor:crosshair;border:1.5px solid var(--line);border-radius:10px;background:#fff" aria-label="Sketch canvas — draw with mouse or touch"></canvas>
+        <p class="small" id="sketchLine">Sketch saves on this device as you draw; Export downloads it for documents.</p>
       </div>
     </section>
     <section class="pane" id="pane-video" aria-label="Video">
