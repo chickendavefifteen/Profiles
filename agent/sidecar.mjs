@@ -174,7 +174,8 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
       }
       events.push({ stage: 'act', text: `act ! cloud opted in but unavailable (${cAns.reason}) — local brain instead, labelled`, at: at() });
     }
-    const modelAns = caps.modelsPresent.length ? await localBrainAnswer(query, mode) : { ok: false, reason: 'no local model downloaded yet' };
+    const { piBrainAnswer } = await import('./pibrain.mjs');
+    const modelAns = caps.modelsPresent.length ? await localBrainAnswer(query, mode) : await piBrainAnswer(query, slotId, slot);
     events.push({ stage: 'act', text: modelAns.ok ? `act ✓ local model thinking (${modelAns.model})` : 'act ✓ lite brain answering from live status (deterministic)', at: at() });
     let answer;
     if (/agentic|what can you do|who are you/i.test(query)) {
@@ -209,7 +210,8 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
     advance(ledger, t.id, { nextStep: 'review staged work', device });
     events.push({ stage: 'act', text: `act ✓ filed → tasks/ledger.json (${t.id})`, at: at() });
     if (intent.kind === 'question') {
-      const ans = await localBrainAnswer(query, mode);
+      const { piBrainAnswer: pba } = await import('./pibrain.mjs');
+      const ans = caps.modelsPresent.length ? await localBrainAnswer(query, mode) : await pba(query, (await paths()).slot, slot);
       if (ans.ok) { result = ans.text + '\n— answered by your local model (' + ans.model + '), nothing left this machine.';
         events.push({ stage: 'act', text: `act ✓ local model answered (${ans.model})`, at: at() }); }
       else result = `Lite brain (always on): I filed your question. The local model is not wired yet (${ans.reason}) - say "help me get a better agent plugged in" and I will walk it through, or ask "draft …" to stage a document.`;
