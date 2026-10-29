@@ -354,3 +354,13 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
   (button 60s, theme 5min), FOCUSMAX lure pulse.
 - Router: reply/repeat/say/tell-me stay chat. QA submits with Enter.
 - Tests 270 unit, QA 28/28 headless+headed. Native rebuilt + verified.
+
+## Chrome v2 + staggered invites (2026-10-29)
+- Header: cog removed; trash top-right; sessions (stacked folders) with
+  named saves grouped by "project:" prefix + safe restore.
+- Adaptive toggle sits in the mode row with matching pill styling.
+- Invites staggered (calm 30s, babylite 45s, vibes 60s, focus 75s) +
+  learned pill-glow from dwell patterns (30min cap, silence-aware).
+- Mode arrivals: hard cut (calm/babylite), gentle settle (chill),
+  staggered celebration (vibes/focusmax/xmax).
+- Tests 277 unit, QA 29/29. Native rebuilt + verified narrow.

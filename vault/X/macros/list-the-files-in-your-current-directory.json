@@ -1,6 +1,0 @@
-{
-  "id": "list-the-files-in-your-current-directory",
-  "phrase": "List the files in your current directory and tell me which profile vault you are in. One short paragraph.",
-  "created": "2026-10-28T19:10:52.539Z",
-  "note": "Deterministic macro - runs the same steps every time, no LLM loop. Delete this file to unlearn."
-}

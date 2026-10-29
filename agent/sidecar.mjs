@@ -75,7 +75,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
     const evs = await loadEvents();
     const prefs = computePreferences(evs);
     await savePreferences(prefs);
-    const cand = ['stage-doc','stage-slides','file-task','write-script'].includes(intent.kind) ? prefs.macroCandidates.find((c) => c.phrase === norm(query)) : null;
+    const cand = ['stage-doc','stage-slides','file-task'].includes(intent.kind) ? prefs.macroCandidates.find((c) => c.phrase === norm(query)) : null;
     var macro = null;
     if (cand) macro = await ensureMacro(cand.phrase, query);
     if (macro && cand.count > 3) {
@@ -294,7 +294,13 @@ export async function handleAgent(req, res, prefix = '/api') {
       let b = ''; for await (const c of req) b += c;
       const patch = JSON.parse(b || '{}');
       const cfg = await loadConfig();
-      if (patch.reset === true) { await makeSnapshot('before reset'); const fresh = { ...structuredClone(DEFAULT_CONFIG), brain: cfg.brain, tier: cfg.tier, modelFile: cfg.modelFile }; await saveConfig(fresh); json(res, 200, { ok: true, reset: true, slot: await activeSlot(), profile: fresh }); return true; }
+      if (patch.reset === true) { await makeSnapshot('before reset');
+        try {
+          const { readdir, rm } = await import('node:fs/promises');
+          const pp = slotPaths(await activeSlot());
+          for (const f of (await readdir(pp.macros).catch(() => []))) { try { await rm(join(pp.macros, f)); } catch {} }
+          try { await rm(pp.events, { force: true }); } catch {}
+        } catch {} const fresh = { ...structuredClone(DEFAULT_CONFIG), brain: cfg.brain, tier: cfg.tier, modelFile: cfg.modelFile }; await saveConfig(fresh); json(res, 200, { ok: true, reset: true, slot: await activeSlot(), profile: fresh }); return true; }
       if (patch.slot && typeof patch.slot === 'object') Object.assign(cfg, patch.slot);
       await saveConfig(cfg); json(res, 200, { slot: await activeSlot(), profile: cfg }); return true;
     }
@@ -479,6 +485,13 @@ export async function handleAgent(req, res, prefix = '/api') {
       const buf = Buffer.from(html);
       res.writeHead(200, { 'content-type': 'text/html', 'content-length': buf.length });
       res.end(buf);
+      return true;
+    }
+    if (path === '/browser/state' && req.method === 'GET') {
+      try {
+        const { page } = await (await import('./browseract.mjs')).ensureSession((await paths()).slot);
+        json(res, 200, { ok: true, url: page.url(), title: await page.title().catch(() => '') });
+      } catch (e) { json(res, 200, { ok: false, error: String(e && e.message || e).slice(0, 120) }); }
       return true;
     }
     if (path === '/browser/stop' && req.method === 'POST') {

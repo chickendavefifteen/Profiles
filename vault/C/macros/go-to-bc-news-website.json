@@ -1,6 +1,0 @@
-{
-  "id": "go-to-bc-news-website",
-  "phrase": "go to bc news website",
-  "created": "2026-10-29T09:13:19.776Z",
-  "note": "Deterministic macro - runs the same steps every time, no LLM loop. Delete this file to unlearn."
-}

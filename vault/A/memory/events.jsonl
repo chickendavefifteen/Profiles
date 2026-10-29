@@ -464,3 +464,16 @@
 {"at":"2026-10-29T13:54:56.988Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"chill"}
 {"at":"2026-10-29T13:55:16.992Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"chill"}
 {"at":"2026-10-29T13:55:36.996Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"chill"}
+{"at":"2026-10-29T14:07:39.912Z","type":"ask","query":"bbc newz","mode":"Vibes"}
+{"at":"2026-10-29T14:07:44.356Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:07:45.337Z","type":"ask","query":"open bbc news","mode":"Vibes"}
+{"at":"2026-10-29T14:08:04.360Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:08:24.365Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:08:44.368Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:09:04.373Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:09:24.376Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:09:44.380Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:10:04.384Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:10:24.388Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:10:44.394Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T14:11:04.396Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}

@@ -63,10 +63,10 @@ main{display:block}
 .pills button[data-profile="Vibes"]{--pill:#ff3ea5}
 .pills button[data-profile="calm"]{--pill:#e8a04c}
 .pills button[data-profile="xMAX"]{--pill:#8b5cf6}
-.pills button{border-color:color-mix(in srgb,var(--pill) 42%,var(--line));
- box-shadow:1.5px 1.5px 0 0 color-mix(in srgb,var(--pill) 28%,transparent),3px 3px 0 0 color-mix(in srgb,var(--pill) 13%,transparent)}
-.pills button[aria-pressed="true"]{color:var(--ink);border-color:var(--pill);
- box-shadow:0 0 0 1px var(--pill),2.5px 2.5px 0 0 var(--pill);
+.pills button{border-color:color-mix(in srgb,var(--pill) 55%,var(--line));border-width:1.5px;
+ box-shadow:2px 2px 0 0 color-mix(in srgb,var(--pill) 65%,var(--card)),4px 4px 0 0 color-mix(in srgb,var(--pill) 30%,var(--card))}
+.pills button[aria-pressed="true"]{color:var(--ink);border-color:var(--pill);border-width:2px;
+ box-shadow:0 0 0 1px var(--pill),2.5px 2.5px 0 0 var(--pill),5px 5px 0 0 color-mix(in srgb,var(--pill) 35%,transparent);
  background:color-mix(in srgb,var(--pill) 14%,var(--card))}
 .pills button .k{color:var(--pill);opacity:1;font-size:.72rem;margin-right:5px}
 .pills button[data-profile="FOCUSMAX"]{text-transform:uppercase;letter-spacing:.08em;font-weight:800}
@@ -176,7 +176,8 @@ body.gov-freeze *,body.gov-freeze *::before,body.gov-freeze *::after{animation:n
 .slotgap{flex:none;width:34px}
 #slotX{font-weight:800;border:2px solid var(--ink);background:var(--ink);color:var(--bg);letter-spacing:.04em}
 .slotbtns button[aria-pressed="true"]{font-weight:700}
-.slotbtns button,.panetabs button{box-shadow:1px 1px 0 0 color-mix(in srgb,var(--line) 70%,transparent),2px 2px 0 0 color-mix(in srgb,var(--line) 35%,transparent)}
+.slotbtns button,.panetabs button,.pills .adaptiveWrap{box-shadow:2px 2px 0 0 var(--line),4px 4px 0 0 color-mix(in srgb,var(--line) 40%,transparent)}
+.slotbtns button[aria-pressed="true"]{box-shadow:0 0 0 1.5px var(--accent),2.5px 2.5px 0 0 var(--accent)}
 .minbtn,.closebtn{font:inherit;font-size:.8rem;color:var(--muted);background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;min-width:34px;min-height:34px}
 .minbtn:hover,.closebtn:hover{color:var(--ink);border-color:var(--accent)}
 .pane.minimised .panebody,.pane.minimised .chatlog,.pane.minimised .log,.pane.minimised .stages,.pane.minimised .status,
@@ -212,6 +213,7 @@ body[data-slotx="1"]{--deck1:#8b5cf6;--deck2:#22d3ee;--front:#f5f3ff}
  border-radius:50%;width:42px;height:42px;cursor:pointer;flex:none;display:inline-flex;align-items:center;justify-content:center;position:relative}
 .headbtn:hover{color:var(--ink);border-color:var(--accent)}
 .headbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#sessBtn svg{fill:unset;stroke:none}
 #trashCount{position:absolute;top:-4px;right:-4px;background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;
  border-radius:99px;padding:2px 7px}
 #trashPop,#sessPop{position:fixed;right:22px;top:150px;z-index:40;width:min(360px,90vw);max-height:55vh;overflow:hidden auto;
@@ -426,8 +428,9 @@ body.kids .advancedBlock{display:none!important}
       <span class="slotgap" aria-hidden="true"></span>
       <button id="slotX" aria-pressed="false" type="button" hidden title="Profile X — full-access power profile (opt-in)">X</button>
     </div>
+      <span style="flex:1" aria-hidden="true"></span>
       <button id="trashBtn" type="button" title="Recently closed" aria-label="Recently closed panes" class="headbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span id="trashCount" hidden></span></button>
-      <button id="sessBtn" type="button" title="Past sessions — save, name and restore" aria-label="Past sessions" class="headbtn"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></button>
+      <button id="sessBtn" type="button" title="Past sessions — save, name and restore" aria-label="Past sessions" class="headbtn"><svg viewBox="0 0 24 24"><path d="M2 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" fill="var(--deck2)" opacity=".55" stroke="none"/><path d="M4 10a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="var(--deck1)" opacity=".8" stroke="none"/><path d="M6 12a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" fill="var(--front)" opacity=".95" stroke="none"/></svg></button>
   </header>
 
   <div class="controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">

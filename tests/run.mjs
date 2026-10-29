@@ -250,6 +250,10 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!html6.includes('id="customiseBtn"'), 'chrome: header cog removed — menu lives in the brand mark');
   ok(html6.includes('id="trashBtn"') && html6.includes('class="headbtn"'), 'chrome: trash sits top-right in the header');
   ok(html6.includes('id="sessBtn"') && html6.includes('id="sessPop"'), 'sessions: stacked-folders button + popup in header');
+  ok(html6.includes('flex:1') && html6.indexOf('id="sessBtn"') > html6.indexOf('id="slotX"'), 'chrome: trash+sessions far right, away from profiles');
+  ok(html6.includes('fill="var(--deck1)"') && html6.includes('fill="var(--front)"'), 'sessions: 3 overlapping coloured folders');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('lastBrowserUrl'), 'browser: session-truth sync heals stale views');
+  ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/state'"), 'sidecar: lightweight truth endpoint');
   ok(html6.includes('id="sessSave"') && readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('sessGroup'), 'sessions: named saves grouped by project');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('lastLearnedInvite'), 'invites: learned pill-glow at most every 30min, silence-aware');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('}, 45000)') && readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('}, 75000)'), 'invites: staggered cadences, never all at once');
@@ -343,6 +347,8 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'agent', 'system.mjs'), 'utf8').includes('ramUsedPct'), 'system: live RAM/CPU usage for the busy nudge');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/size'), 'browser: pane-size tracking reported to the session');
   ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/poster'"), 'sidecar: still poster behind the live stream');
+  const scm = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(scm.includes("['stage-doc','stage-slides','file-task']"), 'macros: fast-path only for file/stage actions, never tools');
   const al2 = await import('../agent/agentloop.mjs');
   ok(al2.decideTool('bbc news')?.tool === 'browser_open', 'tools: bare "bbc news" opens');
   ok(al2.decideTool('sky news')?.tool === 'browser_open', 'tools: bare "sky news" opens');

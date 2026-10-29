@@ -643,7 +643,7 @@ function runReal(q, isRetry){
     askBusy=false; if(goBtn) goBtn.disabled=false;
     if(!res || !res.events){ throw new Error("bad agent reply"); }
     var i=0, tickMs=MODES[state.mode].motion===0?500:220;
-    if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
+    if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); setTimeout(function(){ browserLive(); }, 700); }catch(e){} }
     (function next(){
       if(i>=res.events.length){
         paintStages(99);
@@ -653,7 +653,7 @@ function runReal(q, isRetry){
         if(res.ui && res.ui.showPane){
           showPaneEl(res.ui.showPane, true);
           if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded || !$("browserImg").src) browserCall("/api/browser/view", {}); }, 600);
-          else { try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
+          else { try{ browserShow(res.ui.browser, res.ui.browser.url); setTimeout(function(){ browserLive(); }, 700); }catch(e){} }
         }
         if(res.setup){ renderSetup(res.setup, res.capabilities); showPane("pane-setup"); }
         if(res.staged){ bubble("Staged \u201c"+res.staged.title+"\u201d — see the Document pane.", "sys"); loadStaged(); }
@@ -1082,11 +1082,23 @@ function normUrl(u){
   if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return "https://"+u;
   return "https://www.google.com/search?q="+encodeURIComponent(u);
 }
+var lastBrowserUrl="";
 function browserShow(out){
   if(!out || !out.ok) { browserHungry(); return; }
-  if(out.url) $("urlInput").value=out.url;
+  if(out.url){ $("urlInput").value=out.url; lastBrowserUrl=out.url; }
   browserLoaded=true;
 }
+setInterval(function(){
+  if(document.visibilityState!=="visible" || !paneVisible("pane-browser")) return;
+  fetch(apiUrl("/api/browser/state")).then(function(r){ return r.json(); }).then(function(st){
+    if(!st || !st.ok || !st.url) return;
+    if(st.url!==lastBrowserUrl){
+      lastBrowserUrl=st.url;
+      $("urlInput").value=st.url;
+      browserLive();
+    }
+  }).catch(function(){});
+}, 4000);
 /* Live view: MJPEG stream straight into the pane — the page, not a still. */
 var browserObj=null;
 var streamFails=0;
