@@ -10,7 +10,7 @@
   "intensity": "full",
   "tier": null,
   "modelFile": null,
-  "updated": "2026-10-29T11:27:51.884Z",
+  "updated": "2026-10-29T13:47:45.893Z",
   "layout": {
     "order": null,
     "hidden": [
@@ -21,7 +21,8 @@
       "pane-activity",
       "pane-setup"
     ],
-    "maxed": null
+    "maxed": null,
+    "sizes": null
   },
   "closedPanes": [
     {

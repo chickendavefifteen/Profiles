@@ -247,7 +247,14 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!html6.includes('data-min='), 'window manners: minimise removed while behaviour is rethought');
   ok(js6.includes('renderTrash') && js6.includes('Recently closed'), 'window manners: closed panes recoverable with titles');
   ok(html6.includes('id="brandMenu"') && html6.includes('data-menu="setup"'), 'brand: Profiles logo opens a simple menu');
-  ok(!html6.includes('🎛 Customise</button>') && html6.includes('⚙</button>'), 'brand: customise is a cog icon');
+  ok(!html6.includes('id="customiseBtn"'), 'chrome: header cog removed — menu lives in the brand mark');
+  ok(html6.includes('id="trashBtn"') && html6.includes('class="headbtn"'), 'chrome: trash sits top-right in the header');
+  ok(html6.includes('id="sessBtn"') && html6.includes('id="sessPop"'), 'sessions: stacked-folders button + popup in header');
+  ok(html6.includes('id="sessSave"') && readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('sessGroup'), 'sessions: named saves grouped by project');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('lastLearnedInvite'), 'invites: learned pill-glow at most every 30min, silence-aware');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('}, 45000)') && readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('}, 75000)'), 'invites: staggered cadences, never all at once');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('mode-cut') && readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('arrivePop'), 'arrival: hard cut / settle / celebration per mode');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('adaptiveWrap pilllike') || readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('pilllike'), 'modes: adaptive sits in the row, same styling');
   ok(!html6.includes('id="meterText"'), 'meter: chip removed entirely, budget implied');
   ok(!js6.includes('sim+(m.sim===1?" lane"'), 'meter: lanes no longer quantified in the chip');
   ok(js6.includes('window.open(b.dataset.app'), 'work: apps open in the real browser, Profiles stays the layer');

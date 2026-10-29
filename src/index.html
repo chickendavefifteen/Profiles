@@ -72,6 +72,15 @@ main{display:block}
 .pills button[data-profile="FOCUSMAX"]{text-transform:uppercase;letter-spacing:.08em;font-weight:800}
 @keyframes inviteJiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-2.5deg)}50%{transform:rotate(2deg)}75%{transform:rotate(-1deg)}}
 .pills button.invite{animation:inviteJiggle 2.5s ease}
+/* mode-switch arrivals: hard cut (calm/babylite), gentle settle (chill), celebration (the rest) */
+body.mode-cut *,body.mode-cut *::before,body.mode-cut *::after{transition:none!important;animation:none!important}
+body.mode-settle .canvas{animation:settleIn 1.2s cubic-bezier(.22,1,.36,1)}
+@keyframes settleIn{from{opacity:.25;transform:scale(.995)}}
+.pane.celebrate{animation:arrivePop .6s cubic-bezier(.34,1.4,.64,1)}
+@keyframes arrivePop{0%{transform:translateY(10px) scale(.985);opacity:.6}60%{transform:translateY(-2px) scale(1.002)}100%{transform:none;opacity:1}}
+#panetabs.shimmer,.panetabs.shimmer{animation:tabShimmer .9s ease}
+@keyframes tabShimmer{0%{filter:brightness(1)}30%{filter:brightness(1.35)}100%{filter:brightness(1)}}
+body.gov-freeze .pane.celebrate,body.gov-freeze .panetabs.shimmer{animation:none}
 @keyframes lurePulse{0%,100%{box-shadow:1.5px 1.5px 0 0 var(--pill)}40%{box-shadow:0 0 0 3px var(--pill),0 0 18px var(--pill)}60%{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--pill)}}
 .pills button.lure{animation:lurePulse 2s ease}
 body.gov-freeze .pills button.invite,body.gov-freeze .pills button.lure{animation:none}
@@ -199,13 +208,19 @@ body[data-slotx="1"]{--deck1:#8b5cf6;--deck2:#22d3ee;--front:#f5f3ff}
 .cogbtn{margin-left:auto;font:inherit;font-size:1.08rem;color:var(--muted);background:var(--card);border:1px solid var(--line);
  border-radius:50%;width:42px;height:42px;cursor:pointer;flex:none}
 .cogbtn:hover{color:var(--ink);border-color:var(--accent)}
-#trashBtn{position:fixed;right:22px;bottom:22px;z-index:40;font-size:1.05rem;width:52px;height:52px;border-radius:50%;
- background:var(--card);border:1.5px solid var(--line);cursor:pointer;box-shadow:0 10px 28px rgba(0,0,0,.3)}
-#trashBtn:hover{border-color:var(--accent)}
+.headbtn{margin-left:0;font:inherit;color:var(--muted);background:var(--card);border:1px solid var(--line);
+ border-radius:50%;width:42px;height:42px;cursor:pointer;flex:none;display:inline-flex;align-items:center;justify-content:center;position:relative}
+.headbtn:hover{color:var(--ink);border-color:var(--accent)}
+.headbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #trashCount{position:absolute;top:-4px;right:-4px;background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;
  border-radius:99px;padding:2px 7px}
-#trashPop{position:fixed;right:22px;bottom:86px;z-index:40;width:min(360px,90vw);max-height:55vh;overflow:hidden auto;
+#trashPop,#sessPop{position:fixed;right:22px;top:150px;z-index:40;width:min(360px,90vw);max-height:55vh;overflow:hidden auto;
  background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 22px 54px rgba(0,0,0,.4)}
+#trashPop h3,#sessPop h3{margin:0 0 8px;font-size:.92rem}
+#sessList button{display:flex;width:100%;text-align:left;gap:8px;font:inherit;font-size:.84rem;color:var(--ink);
+ background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:7px;cursor:pointer;min-height:44px}
+#sessList button:hover{border-color:var(--accent)}
+#sessList .sessgroup{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:10px 0 6px}
 #trashPop h3{margin:0 0 8px;font-size:.92rem}
 #trashList button{display:flex;width:100%;text-align:left;gap:8px;font:inherit;font-size:.84rem;color:var(--ink);
  background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:7px;cursor:pointer;min-height:44px}
@@ -264,6 +279,10 @@ body[data-intensity="chaos"][data-mode="Vibes"] .brand,body[data-intensity="chao
 @keyframes hueDrift{to{filter:hue-rotate(360deg)}}
 body.gov-freeze .pane:hover{transform:none;box-shadow:none}
 /* ============ Adaptive switcher + gentle segways (2026-10-29 modes lane) ============ */
+.pills .adaptiveWrap{display:inline-flex;align-items:center;gap:7px;font-size:.82rem;color:var(--muted);background:var(--card);
+ border:1px solid var(--line);border-radius:99px;padding:8px 15px;cursor:pointer;min-height:40px;
+ box-shadow:1.5px 1.5px 0 0 color-mix(in srgb,var(--line) 70%,transparent),3px 3px 0 0 color-mix(in srgb,var(--line) 35%,transparent)}
+.pills .adaptiveWrap input{width:18px;height:18px;accent-color:var(--accent);margin:0}
 .adaptiveWrap{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);
   background:var(--card);border:1px solid var(--line);border-radius:99px;padding:7px 14px 7px 10px;min-height:38px;white-space:nowrap}
 .adaptiveWrap input{width:20px;height:20px;accent-color:var(--accent)}
@@ -334,6 +353,7 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
 .browserframe{width:100%;height:46vh;border:1px solid var(--line);border-radius:10px;background:#fff}
 /* unified canvas: browser, notes/sketch and chat share one quiet rhythm */
 #browserView{background:#fff}
+#browserImg{-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
 #browserImg{background:#fff}
 #browserFrame{background:#fff}
 #browserStatus:empty{display:none}
@@ -406,12 +426,13 @@ body.kids .advancedBlock{display:none!important}
       <span class="slotgap" aria-hidden="true"></span>
       <button id="slotX" aria-pressed="false" type="button" hidden title="Profile X — full-access power profile (opt-in)">X</button>
     </div>
-      <button id="customiseBtn" type="button" title="Settings + customise" aria-label="Settings" class="cogbtn">⚙</button>
+      <button id="trashBtn" type="button" title="Recently closed" aria-label="Recently closed panes" class="headbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span id="trashCount" hidden></span></button>
+      <button id="sessBtn" type="button" title="Past sessions — save, name and restore" aria-label="Past sessions" class="headbtn"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></button>
   </header>
 
   <div class="controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <label class="adaptiveWrap" id="adaptiveWrap" title="Adaptive: segway between modes automatically (idle → chill, focus → FOCUSMAX, swapping → Vibes, strain → babylite). calm only by hand."><input type="checkbox" id="adaptiveToggle"> Adaptive</label>
     <div class="pills" role="group" aria-label="Modes" style="margin:0">
+      <label class="adaptiveWrap pilllike" id="adaptiveWrap" title="Adaptive: segway between modes automatically (idle → chill, focus → FOCUSMAX, swapping → Vibes, strain → babylite). calm only by hand."><input type="checkbox" id="adaptiveToggle"><span>Adaptive</span></label>
       <button data-profile="babylite" data-legacy="lite" aria-pressed="false" title="babylite — soft + simple (key 1). Auto-downshift when strained."><span class="k">1</span>babylite</button>
       <button data-profile="chill" aria-pressed="false" title="chill — warm and slow (key 2). For AFK/rest."><span class="k">2</span>chill</button>
       <button data-profile="FOCUSMAX" data-legacy="focus" aria-pressed="false" title="FOCUSMAX — mono-task (key 3)."><span class="k">3</span>FOCUSMAX</button>
@@ -440,7 +461,16 @@ body.kids .advancedBlock{display:none!important}
       <button type="button" data-add="pane-setup">Setup</button>
     </div>
   </div>
-  <button id="trashBtn" type="button" title="Recently closed" aria-label="Recently closed panes">🗑<span id="trashCount" hidden></span></button>
+  <button id="trashBtnOld" type="button" hidden></button>
+  <div id="sessPop" hidden>
+    <h3>Past sessions</h3>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="sessName" type="text" placeholder="Name this moment… (optional: project: name)" aria-label="Session name" style="flex:1;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-height:44px">
+      <button class="sbtn" id="sessSave" type="button">Save</button>
+    </div>
+    <div id="sessList"></div>
+    <p class="small">Snapshots group by the bit before “:” — e.g. “allotment: spring plan”. Restoring never deletes: a safety copy is taken first.</p>
+  </div>
   <div id="trashPop" hidden>
     <h3>Recently closed</h3>
     <div id="trashList"></div>
@@ -474,7 +504,7 @@ body.kids .advancedBlock{display:none!important}
         
       </form>
       <div id="browserView" style="flex:1;overflow:hidden;background:#fff;margin:10px 12px 12px;border-radius:10px;min-height:120px;position:relative">
-        <img id="browserImg" alt="Live page loading…" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;cursor:text;background:#fff">
+        <img id="browserImg" draggable="false" alt="Live page loading…" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;cursor:text;background:#fff">
       </div>
     </section>
 

@@ -152,6 +152,22 @@ check('poster is a real JPEG render', await page.evaluate(async () => {
   } catch { return false; }
 }));
 // build stamp present so stale windows can detect themselves
+// deterministic click loop: frontend mapping -> /mouse -> live session -> render
+await page.fill('#urlInput', 'http://localhost:1420/api/test/click-target');
+await page.press('#urlInput', 'Enter');
+await page.waitForTimeout(4500);
+{
+  const box = await page.locator('#browserImg').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+await page.waitForTimeout(3000);
+check('click loop flips test page (frontend->session->render)', await page.evaluate(async () => {
+  const v = await (await fetch('/api/browser/view', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
+  return v && v.title === 'HIT';
+}));
+await page.fill('#urlInput', 'https://www.google.com');
+await page.press('#urlInput', 'Enter');
+await page.waitForTimeout(4000);
 check('health carries build stamp', await page.evaluate(async () => {
   const h = await (await fetch('/api/health')).json();
   return !!(h && h.build);

@@ -299,7 +299,12 @@ export async function handleAgent(req, res, prefix = '/api') {
       await saveConfig(cfg); json(res, 200, { slot: await activeSlot(), profile: cfg }); return true;
     }
     if (path === '/snapshots' && req.method === 'GET') { json(res, 200, { snapshots: await listSnapshots() }); return true; }
-    if (path === '/snapshots' && req.method === 'POST') { json(res, 200, await makeSnapshot('manual')); return true; }
+    if (path === '/snapshots' && req.method === 'POST') {
+      let sb = ''; for await (const cc of req) sb += cc;
+      let label = 'manual';
+      try { const jb = JSON.parse(sb || '{}'); if (jb.label) label = String(jb.label).slice(0, 80); } catch {}
+      json(res, 200, await makeSnapshot(label)); return true;
+    }
     const snapRestore = path.match(/^\/snapshots\/([\w-]+)\/restore$/);
     if (snapRestore && req.method === 'POST') { json(res, 200, await restoreSnapshot(snapRestore[1])); return true; }
     if (path === '/setup/plan' && req.method === 'GET') { const caps = await capabilities(); json(res, 200, { plan: setupPlan(caps, await loadConfig()), capabilities: caps }); return true; }
@@ -460,6 +465,21 @@ export async function handleAgent(req, res, prefix = '/api') {
       const body = JSON.parse(b || '{}');
       const { viewSize } = await import('./browseract.mjs');
       json(res, 200, await viewSize((await paths()).slot, body.w, body.h)); return true;
+    }
+    /* Deterministic click target for QA: a full-viewport button. Clicking
+       anywhere in the frame flips the title — proves the whole loop
+       (frontend mapping -> /mouse -> live session -> render) with zero
+       dependence on any external site's layout. */
+    if (path === '/test/click-target' && req.method === 'GET') {
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>CLICKTEST-READY</title>
+        <style>html,body{margin:0;height:100%}#hit{position:fixed;inset:0;width:100%;height:100%;font-size:64px;cursor:pointer}
+        #echo{position:fixed;left:12px;bottom:12px;font:32px system-ui}</style></head><body>
+        <button id="hit" onclick="document.title='HIT';document.getElementById('echo').textContent='HIT-'+Date.now()">TAP ANYWHERE</button>
+        <div id="echo"></div></body></html>`;
+      const buf = Buffer.from(html);
+      res.writeHead(200, { 'content-type': 'text/html', 'content-length': buf.length });
+      res.end(buf);
+      return true;
     }
     if (path === '/browser/stop' && req.method === 'POST') {
       try { const { stopScreencast } = await import('./browseract.mjs'); await stopScreencast((await paths()).slot); } catch {}

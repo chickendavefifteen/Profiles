@@ -18,7 +18,9 @@
     "qa:gates:strict": "node tests/qa/overnight-gates.mjs --strict",
     "preflight": "node scripts/preflight.mjs --port 1420",
     "gates": "npm test && node scripts/preflight.mjs --port 1420 && node tests/qa/core-flows.mjs",
-    "app:build": "cargo build --manifest-path src-tauri/Cargo.toml"
+    "app:build": "cargo build --manifest-path src-tauri/Cargo.toml",
+    "verify": "node scripts/verify-build.mjs --port 1420",
+    "verify:quick": "node scripts/verify-build.mjs --port 1420 --skip-qa"
   },
   "license": "UNLICENSED",
   "devDependencies": {

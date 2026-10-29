@@ -187,7 +187,7 @@ document.querySelectorAll("[data-min]").forEach(function(b){
   });
 });
 function showPaneEl(id, silent){
-  if(id==="pane-browser") setTimeout(reportBrowserSize, 400);
+  if(id==="pane-browser"){ setTimeout(reportBrowserSize, 400); setTimeout(function(){ browserLive(); }, 600); }
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
   if(state.layout.maxed && state.layout.maxed!==id) state.layout.maxed=null;
   applyLayout();
@@ -224,7 +224,7 @@ document.addEventListener("pointerdown", function(e){
 document.querySelectorAll("[data-focus]").forEach(function(b){
   b.addEventListener("click", function(){ toggleMax(b.dataset.focus); });
 });
-$("customiseBtn").addEventListener("click", function(){ focusPane("pane-setup"); });
+/* customise lives in the brand menu now (no header cog) */
 $("brandMenuBtn").addEventListener("click", function(){
   var m=$("brandMenu"), open=m.hidden;
   m.hidden=!open;
@@ -510,6 +510,20 @@ function setMode(mode, why, opts){
   }
   var segway=opts&&opts.segway;
   if(segway){ document.body.classList.add("segwaying"); }
+  if(invitesAllowed() || mode==="calm" || mode==="babylite" || mode==="chill"){
+    var still=(mode==="calm"||mode==="babylite");
+    document.body.classList.toggle("mode-cut", still);
+    document.body.classList.toggle("mode-settle", mode==="chill");
+    if(!still && mode!=="chill"){
+      var vis=(state.layout.order||PANES).filter(paneVisible);
+      vis.forEach(function(id, i){
+        var el=$(id); if(!el) return;
+        setTimeout(function(){ el.classList.add("celebrate"); setTimeout(function(){ el.classList.remove("celebrate"); }, 650); }, i*90);
+      });
+      var tabs=$("paneTabs"); if(tabs){ tabs.classList.add("shimmer"); setTimeout(function(){ tabs.classList.remove("shimmer"); }, 900); }
+    }
+    if(still || mode==="chill") setTimeout(function(){ document.body.classList.remove("mode-cut"); document.body.classList.remove("mode-settle"); }, 1300);
+  }
   state.mode=mode;
   var m=MODES[mode];
   document.body.dataset.mode=mode;
@@ -980,6 +994,61 @@ function loadSnaps(){
   }).catch(function(){});
 }
 
+/* ---- past sessions: named saves grouped by project, restore safely ---- */
+function sessGroup(label){
+  var i=(label||"").indexOf(":");
+  return i>0 ? label.slice(0,i).trim() : "moments";
+}
+function renderSessions(list){
+  var box=$("sessList"); if(!box) return;
+  box.textContent="";
+  if(!list.length){
+    var p=document.createElement("p"); p.className="small";
+    p.textContent="No saved sessions yet — name this moment above and tap Save.";
+    box.appendChild(p); return;
+  }
+  var groups={};
+  list.forEach(function(sn){ var g=sessGroup(sn.label||""); (groups[g]=groups[g]||[]).push(sn); });
+  Object.keys(groups).sort().forEach(function(g){
+    var h=document.createElement("div"); h.className="sessgroup"; h.textContent=g;
+    box.appendChild(h);
+    groups[g].forEach(function(sn){
+      var b=document.createElement("button"); b.type="button";
+      b.textContent=(sn.label||sn.id)+" · "+String(sn.id).slice(5,16).replace("T"," ");
+      b.title="Restore (a safety copy of now is taken first)";
+      b.addEventListener("click", function(){
+        fetch(apiUrl("/api/snapshots/"+sn.id+"/restore"),{method:"POST"}).then(function(r){ return r.json(); }).then(function(){
+          bubble("Restored “"+(sn.label||sn.id)+"”.", "agent");
+          loadConfig(); loadSnaps(); renderSessions([]);
+          $("sessPop").hidden=true;
+        });
+      });
+      box.appendChild(b);
+    });
+  });
+}
+function loadSessions(){
+  fetch(apiUrl("/api/snapshots")).then(function(r){ return r.json(); }).then(function(res){
+    renderSessions(res.snapshots||[]);
+  }).catch(function(){});
+}
+if($("sessBtn")) $("sessBtn").addEventListener("click", function(){
+  var pop=$("sessPop"), open=pop.hidden;
+  document.querySelectorAll("#trashPop").forEach(function(p){ p.hidden=true; });
+  pop.hidden=!open;
+  if(open) loadSessions();
+});
+if($("sessSave")) $("sessSave").addEventListener("click", function(){
+  var name=$("nameInput") ? $("nameInput").value : "";
+  var label=($("sessName").value||"").trim() || ("moment "+new Date().toLocaleString());
+  fetch(apiUrl("/api/snapshots"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({label:label})})
+    .then(function(r){ return r.json(); }).then(function(){
+      $("sessName").value="";
+      bubble("Saved “"+label+"” — find it here any time, grouped and restorable.", "sys");
+      loadSessions();
+    });
+});
+
 /* ---- staged docs ---- */
 function loadStaged(){
   fetch(apiUrl("/api/stage")).then(function(r){ return r.json(); }).then(function(res){
@@ -1046,8 +1115,12 @@ function browserHungry(){
   }, 400);
 }
 setInterval(function(){
-  if(browserLoaded && (!$("browserImg") || !$("browserImg").src || $("browserImg").src==="")) browserLive();
+  var img=$("browserImg"); if(!img) return;
+  if(!img.src || img.src==="" || /\/api\/browser\/poster/.test(img.src)) browserLive();
 }, 3000);
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState==="visible" && paneVisible("pane-browser")) browserLive();
+});
 /* Cold boot shows the last good frame instantly (poster), then the live
    stream takes over — the pane is never a white void while handshaking. */
 setTimeout(function(){
@@ -1080,21 +1153,31 @@ function paneFrac(e){
   var r=$("browserImg").getBoundingClientRect();
   return {fx:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), fy:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))};
 }
+var mouseFails=0;
+function mousePost(body){
+  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify(body)}).then(function(r){ return r.json(); }).then(function(out){
+    if(out && out.ok){ mouseFails=0; return; }
+    throw new Error((out && out.error) || "click rejected");
+  }).catch(function(err){
+    mouseFails++;
+    /* failures speak up (once) instead of dying silent — then quiet again */
+    if(mouseFails===2) bubble("That click did not land ("+String(err.message||err).slice(0,100)+"). The page view may be stale — it re-syncs by itself, or tap Go.", "sys");
+  });
+}
+$("browserImg").addEventListener("dragstart", function(e){ e.preventDefault(); });
 $("browserImg").addEventListener("click", function(e){
   var f=paneFrac(e); browserFocus=true;
-  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({kind:"click", fx:f.fx, fy:f.fy})}).catch(function(){});
+  mousePost({kind:"click", fx:f.fx, fy:f.fy});
 });
 $("browserImg").addEventListener("mousemove", function(e){
   if(e.buttons!==1) return; /* hold-drag pans exactly like a real browser */
   var f=paneFrac(e);
-  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({kind:"move", fx:f.fx, fy:f.fy})}).catch(function(){});
+  mousePost({kind:"move", fx:f.fx, fy:f.fy});
 });
 $("browserImg").addEventListener("wheel", function(e){
   e.preventDefault();
-  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({kind:"wheel", fy:e.deltaY})}).catch(function(){});
+  mousePost({kind:"wheel", fy:e.deltaY});
 }, {passive:false});
 document.addEventListener("keydown", function(e){
   if(!browserFocus || !paneVisible("pane-browser")) return;
@@ -1212,7 +1295,7 @@ setInterval(function(){
     ? "babylite — soft + simple (your machine is working hard right now: lighter is kinder)"
     : "babylite — soft + simple (key 1)";
   setTimeout(function(){ b.classList.remove("invite"); }, 2600);
-}, 30000);
+}, 45000);
 /* machine-busy poll (feeds the babylite nudge, nothing else) */
 setInterval(function(){
   fetch(apiUrl("/api/capabilities")).then(function(r){ return r.json(); }).then(function(c){
@@ -1247,13 +1330,32 @@ setInterval(function(){
     document.body.style.removeProperty("--front"); document.body.style.removeProperty("--accent");
   }
 }, 60000);
-/* FOCUSMAX pulses once a minute to get your attention, then locks crispy */
+/* Learned invites: even without Adaptive on, quiet polling steers a gentle
+   glow toward the mode you actually settle into — never a popup, never a
+   sound, at most once every half hour, and silence (24h) kills them all. */
+var lastLearnedInvite=0;
+setInterval(function(){
+  if(!invitesAllowed()) return;
+  if(Date.now()-lastLearnedInvite < 30*60*1000) return;
+  try{ if(Number(localStorage.getItem("profilesSuggestSilenceUntil")||0) > Date.now()) return; }catch(e){}
+  fetch(apiUrl("/api/preferences?current="+encodeURIComponent(state.mode))).then(function(r){ return r.json(); }).then(function(res){
+    var sug=res && res.suggestion;
+    if(!sug || !sug.to || sug.to===state.mode) return;
+    var btn=pillFor(sug.to==="lifeful"?"Vibes":sug.to==="low-sensory"?"calm":sug.to);
+    if(!btn || btn.hidden) return;
+    lastLearnedInvite=Date.now();
+    btn.classList.add("invite");
+    setTimeout(function(){ btn.classList.remove("invite"); }, 4000);
+    stream("learned invite → "+sug.to+" (pill glow only, from your dwell patterns)");
+  }).catch(function(){});
+}, 60000);
+/* FOCUSMAX pulses to get your attention, then locks crispy */
 setInterval(function(){
   var btn=pillFor("FOCUSMAX"); if(!btn) return;
   if(!invitesAllowed() || state.mode==="FOCUSMAX") return;
   btn.classList.add("lure");
   setTimeout(function(){ btn.classList.remove("lure"); }, 2100);
-}, 60000);
+}, 75000);
 
 /* ---- macros: repeated asks become one-tap deterministic scripts ---- */
 function loadMacros(){

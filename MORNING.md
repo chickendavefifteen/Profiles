@@ -341,3 +341,16 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
   rect; frames render at exact pane size (verified 498x400); clicks stay 1:1.
 - Native window rebuilt + verified: Reasoning/pin in chat, live Google
   fitted in the Browser frame. QA 28/28, unit 262.
+
+## Simplification + personalities (2026-10-29)
+- Clicks fixed at the root: ensureSession was not exported, so every page
+  click died (silently). One-word fix, verified {"ok":true} live.
+- No Go buttons (Enter submits); icon-only + menu/tabs/paneheads
+  (monochrome SVG, tooltips kept); Adwaita Sans semibold; logo 50% larger.
+- Themes: calm deep warm dark, chill night plum, babylite soft blue/pink.
+  Stacked pills/tabs/slots; per-mode pill colours retained; FOCUSMAX caps.
+- Invites (all stilled in calm/babylite): Calm... breathing dots (30s),
+  babylite jiggle (+busy nudge from live RAM/CPU), Vibes 5-scheme rotation
+  (button 60s, theme 5min), FOCUSMAX lure pulse.
+- Router: reply/repeat/say/tell-me stay chat. QA submits with Enter.
+- Tests 270 unit, QA 28/28 headless+headed. Native rebuilt + verified.
