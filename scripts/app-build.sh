@@ -7,3 +7,4 @@ SHA=$(git rev-parse --short HEAD 2>/dev/null || echo nogit)
 printf '{"build":"%s","at":"%s"}\n' "$SHA" "$(date -u +%FT%TZ)" > src/bundle.json
 cargo build --manifest-path src-tauri/Cargo.toml
 echo "bundled UI: $(cat src/bundle.json)"
+git rev-parse HEAD > src-tauri/target/debug/profiles.srcsha 2>/dev/null || true

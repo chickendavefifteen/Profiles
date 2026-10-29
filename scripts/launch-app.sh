@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# The ONLY way to (re)launch the desktop app: fresh bundle, verified match,
+# old instance dead, new PID confirmed. Never hand-launch.
+set -e
+cd "$(dirname "$0")/.."
+bash scripts/app-build.sh >/dev/null
+STAMP=$(git rev-parse HEAD)
+BUILT=$(cat src-tauri/target/debug/profiles.srcsha 2>/dev/null || echo none)
+if [ "$STAMP" != "$BUILT" ]; then echo "bundle mismatch: $BUILT vs $STAMP"; exit 1; fi
+echo "bundle matches HEAD ($STAMP)"
+pkill -x profiles 2>/dev/null || true
+sleep 2
+export WEBKIT_DISABLE_DMABUF_RENDERER=1 WAYLAND_DISPLAY=wayland-1
+setsid nohup ./src-tauri/target/debug/profiles > /tmp/profiles-app.log 2>&1 < /dev/null &
+sleep 3
+NEWPID=$(pgrep -x profiles | head -1)
+[ -n "$NEWPID" ] || { echo "app did not start"; exit 1; }
+echo "app running pid=$NEWPID"
