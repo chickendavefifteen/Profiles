@@ -335,3 +335,9 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
   (build-match, model present, live render) gating every future claim.
 - Proof: unit 261/261, QA 27/27 headless AND headed, wire-decoded live
   frames read by eye, native window relaunched on desktop 2.
+
+## Browser fits the window (2026-10-29)
+- /api/browser/size + ResizeObserver: session viewport tracks the live pane
+  rect; frames render at exact pane size (verified 498x400); clicks stay 1:1.
+- Native window rebuilt + verified: Reasoning/pin in chat, live Google
+  fitted in the Browser frame. QA 28/28, unit 262.

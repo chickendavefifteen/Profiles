@@ -13,7 +13,7 @@ const browser = await firefox.launch({ headless: !headed });
 const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
-await page.goto(base + '?mode=lifeful', { waitUntil: 'networkidle' });
+await page.goto(base + '?mode=lifeful', { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(2600);
 check('default canvas: chat visible', await page.isVisible('#pane-chat'));
 check('default canvas: browser visible', await page.isVisible('#pane-browser'));
@@ -23,7 +23,7 @@ check('no Browse/Search/Work cards', (await page.locator('.homeopts').count()) =
 check('pill reads Vibes', /Vibes/.test(await page.textContent('.pills')));
 // chat answers in chat
 await page.fill('#ask', 'hi r u agentic now');
-await page.click('#askForm .btn');
+await page.press('#ask', 'Enter');
 await page.waitForTimeout(3500);
 check('chat answer bubble appears', /lite-agentic|agentic/i.test(await page.textContent('#chatLog')));
 // browser actually browses
@@ -55,7 +55,7 @@ await page.waitForTimeout(1600);
 check('doc RECOVERS from trash', await page.isVisible('#pane-doc'));
 // agent tool hooks: ask -> browser actually opens BBC
 await page.fill('#ask', 'open a brower on bbc news');
-await page.click('#askForm .btn');
+await page.press('#ask', 'Enter');
 await page.waitForTimeout(9000);
 check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.inputValue('#urlInput')));
 // resize: pin browser, drag its left edge — chat must ADAPT, not be underlapped
@@ -101,7 +101,7 @@ await page.waitForTimeout(3500);
 check('typing reaches the page (search runs)', /search|bbc/i.test(await page.inputValue('#urlInput')));
 // chat thinking state shows while the agent works
 await page.fill('#ask', 'search the web for canal boat holidays');
-await page.click('#askForm .btn');
+await page.press('#ask', 'Enter');
 /* thinking shows while working; a macro may legitimately beat the poll */
 let sawThinking = true;
 try { await page.waitForSelector('#thinkingBubble', { timeout: 1200 }); } catch { sawThinking = /canal|holidays|macro/i.test(await page.textContent('#chatLog')); }
@@ -110,13 +110,13 @@ await page.waitForTimeout(12000);
 check('thinking clears when the answer lands', await page.locator('#thinkingBubble').count() === 0);
 // go to bc news website (typo phrasing) drives the browser
 await page.fill('#ask', 'go to bc news website');
-await page.click('#askForm .btn');
+await page.press('#ask', 'Enter');
 await page.waitForTimeout(14000);
 check('go to bc news website -> BBC in browser', /bbc/i.test(await page.inputValue('#urlInput')));
 check('chat has pin + close like browser', await page.locator('#pane-chat .pinbtn').count() === 1 && await page.locator('#pane-chat .closebtn').count() === 1);
 // Dave's failures, pinned: bare "bbc news" must act (never fake-fallback)
 await page.fill('#ask', 'bbc news');
-await page.click('#askForm .btn');
+await page.press('#ask', 'Enter');
 await page.waitForTimeout(9000);
 check('bare "bbc news" opens BBC (no fake fallback)', /bbc/i.test(await page.inputValue('#urlInput')) && !(await page.textContent('#chatLog')).includes('warming up'));
 // stream endpoint serves real JPEG frames

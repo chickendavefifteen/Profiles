@@ -48,7 +48,12 @@ export async function capabilities() {
   try { await run('llama-cli', ['--version'], { timeout: 4000 }); llama = true; } catch {}
   const recommended = vramMB >= 12000 || ramGB >= 32 ? 'pc-standard'
     : ramGB >= 8 ? 'mobile-beefy' : ramGB >= 4 ? 'mobile-lite' : 'bundled-tiny';
-  return { platform: process.platform, arch: process.arch, cpus: os.cpus().length, ramGB, gpu, vramMB,
+  const freeMem = os.freemem();
+  const ramUsedPct = Math.round((1 - freeMem / Math.max(1, os.totalmem())) * 100);
+  const load1 = os.loadavg()[0] || 0;
+  const cpuCount = os.cpus().length;
+  const cpuBusy = load1 > cpuCount * 0.8;
+  return { platform: process.platform, arch: process.arch, cpus: cpuCount, ramGB, ramUsedPct, load1: Math.round(load1 * 10) / 10, busy: ramUsedPct >= 80 || cpuBusy, gpu, vramMB,
     llamaCpp: llama, modelsPresent: modelFiles, recommendedTier: recommended,
     deviceClass: vramMB >= 12000 ? 'beast-pc' : ramGB >= 16 ? 'pc' : ramGB >= 6 ? 'phone-or-small-laptop' : 'tiny-laptop' };
 }

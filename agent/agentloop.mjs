@@ -57,7 +57,7 @@ export function decideTool(query) {
   const bare = low.replace(/\s+(please|properly|for me)\s*$/g, '').trim();
   if (bare && !/^(hi|hey|hello|yo|thanks|thank you|ok|okay|yes|no|bye)\b/.test(bare)
       && !/\?\s*$/.test(bare) && !/^(what|why|how|when|who|can|could|do|does|is|are|will|would|should|am)\b/.test(bare)
-      && !/^(draft|write|make|create|file|save|log|add|send|delete|remind|schedule|help me get)/.test(bare)) {
+      && !/^(draft|write|make|create|file|save|log|add|send|delete|remind|schedule|help me get|reply|repeat|say |echo|tell me)/.test(bare)) {
     const known = siteFor(bare);
     if (known) return { tool: 'browser_open', args: { url: known } };
     if (/^[a-z0-9][a-z0-9 .'-]{1,60}$/.test(bare) && bare.split(/\s+/).length <= 6) {

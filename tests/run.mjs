@@ -92,7 +92,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(js.includes('packs/') && js.includes('fetchPack'), 'frontend: wired to packs/*.json with vendored fallback');
   ok(js.includes('gov-freeze'), 'frontend: JS enforces still mode');
   ok(!html.includes('<script>') || !html.match(/<script>[\s\S]*function setMode/), 'frontend: no inline app script (Tauri CSP + cacheable main.js)');
-  ok(html.includes('[data-mode="calm"]') && html.includes('#1f201e'), 'frontend: low-sensory is a softer dark');
+  ok(html.includes('[data-mode="calm"]') && html.includes('#14100d'), 'frontend: calm is the deep warm dark mode');
 }
 
 // 7. One run command: npm start serves the app.
@@ -286,8 +286,8 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(scorch.includes("action: 'orchestrate'"), 'orchestration: wired into ask path with parent acceptance');
   const defc = readFileSync(join(root, 'agent', 'system.mjs'), 'utf8');
   ok(defc.includes("buddy: 'person'"), 'brand: human silhouette is the default avatar everywhere');
-  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('body[data-mode="calm"]{--deck1:#7e9a90'), 'brand: logo colourway follows the 5 modes (signed-off A-family)');
-  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('--deck1:#f2a35e'), 'brand: chill sunset, focus lagoon decks');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('body[data-mode="calm"]{--deck1:#e8a04c'), 'brand: calm amber, chill plum, babylite rose decks');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('--deck1:#b78ae0'), 'brand: chill night-plum deck');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('state.urlMode'), 'boot: ?mode= deep link beats saved profile mode');
   ok(existsSync(join(root, 'agent', 'browseract.mjs')), 'P4: browser-act module exists');
   const ba = await import('../agent/browseract.mjs');
@@ -319,13 +319,21 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(al.decideTool('open browser')?.args.url.includes('google'), 'tools: open browser homes to Google');
   ok(al.decideTool('draft a letter about rent') === null, 'tools: no hijacking doc asks');
   ok(al.AGENT_TOOLS.length >= 4 && typeof al.mcpCallTool === 'function', 'tools: registry + MCP call hook');
-  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('data-add="pane-browser"'), 'plus: Browse option in add menu');
-  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('Search / Ask — Chat'), 'plus: Search/Ask option is the chat agent');
-  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('Read / Write — Documents'), 'plus: Read/Write option is documents');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('data-add="pane-browser"') && readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('aria-label="Browse"'), 'plus: Browse is a silhouette icon');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('aria-label="Search / Ask"'), 'plus: Search/Ask is a silhouette icon');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('aria-label="Read / Write"'), 'plus: Read/Write is a silhouette icon');
   ok(!readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('"+ Pane"') || true, 'plus: label check soft');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('add.textContent="+"'), 'plus: just a bold plus now');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('max-width:1480px'), 'scale: canvas ~25% wider for big screens');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('updatePill'), 'frontend: stale windows offer Reload on new builds');
+  ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="askGo"'), 'simplicity: no Go buttons, Enter submits');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="calmDots"'), 'calm: breathing dots invite');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('inviteJiggle') || readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('inviteJiggle'), 'babylite: playful jiggle invite');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('VIBES_FULL'), 'vibes: pre-planned rotating schemes');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('invitesAllowed'), 'invites: stillness respected in calm/babylite');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('PANE_ICONS'), 'panes: icon-only tabs and headers');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('Adwaita Sans'), 'type: Adwaita Sans semibold base');
+  ok(readFileSync(join(root, 'agent', 'system.mjs'), 'utf8').includes('ramUsedPct'), 'system: live RAM/CPU usage for the busy nudge');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/size'), 'browser: pane-size tracking reported to the session');
   ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/poster'"), 'sidecar: still poster behind the live stream');
   const al2 = await import('../agent/agentloop.mjs');
@@ -398,7 +406,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   const jsM = readFileSync(join(root, 'src', 'main.js'), 'utf8');
   ok(htmlM.includes('id="adaptiveToggle"') && htmlM.includes('Adaptive'), 'adaptive: toggle left of profile options');
   ok(htmlM.includes('segwaying') && htmlM.includes('segwayIn'), 'adaptive: gentle color-grade cross-fade segways, no harsh jumps');
-  ok(htmlM.includes('body[data-mode="babylite"]') && htmlM.includes('#7cc4ff'), 'modes: babylite soft baby-blue accent');
+  ok(htmlM.includes('body[data-mode="babylite"]') && htmlM.includes('#dbe6f5'), 'modes: babylite soft blue/pink, no glare');
   ok(htmlM.includes('body[data-mode="xMAX"]') && htmlM.includes('data-profile="xMAX"'), 'modes: xMAX theme + pill, Profile X gated');
   ok(htmlM.includes('calm · sensory panic button') || htmlM.includes('sensory panic button'), 'modes: calm is the sensory panic button');
   ok(jsM.includes('canonicalMode') && jsM.includes('decideAdaptiveLocal'), 'adaptive: canonical resolver + local trigger engine');

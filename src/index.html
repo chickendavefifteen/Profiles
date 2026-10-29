@@ -13,7 +13,7 @@
 :root{--ease:cubic-bezier(.22,1,.36,1);--radius:14px}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,Roboto,sans-serif;
+body{margin:0;min-height:100vh;font-family:"Adwaita Sans","Noto Sans",system-ui,"Segoe UI",Roboto,sans-serif;font-weight:500;
   background:var(--bg);color:var(--ink);font-size:calc(19.5px * var(--fs,1));
   transition:background-color .45s ease} /* ink is NOT transitioned: text must stay readable mid-swap */
 ::selection{background:var(--accent);color:#fff}
@@ -56,8 +56,25 @@ main{display:block}
 .pills button{font:inherit;font-size:.82rem;color:var(--muted);background:var(--card);
   border:1px solid var(--line);border-radius:99px;padding:8px 15px;cursor:pointer;min-height:40px;
   transition:border-color .3s ease,color .3s ease,background-color .45s ease}
-.pills button[aria-pressed="true"]{color:var(--ink);border-color:var(--accent)}
-.pills button .k{opacity:.55;font-size:.72rem;margin-right:5px}
+.pills button{--pill:#888}
+.pills button[data-profile="babylite"]{--pill:#7fb3e8}
+.pills button[data-profile="chill"]{--pill:#b78ae0}
+.pills button[data-profile="FOCUSMAX"]{--pill:#2dd4bf}
+.pills button[data-profile="Vibes"]{--pill:#ff3ea5}
+.pills button[data-profile="calm"]{--pill:#e8a04c}
+.pills button[data-profile="xMAX"]{--pill:#8b5cf6}
+.pills button{border-color:color-mix(in srgb,var(--pill) 42%,var(--line));
+ box-shadow:1.5px 1.5px 0 0 color-mix(in srgb,var(--pill) 28%,transparent),3px 3px 0 0 color-mix(in srgb,var(--pill) 13%,transparent)}
+.pills button[aria-pressed="true"]{color:var(--ink);border-color:var(--pill);
+ box-shadow:0 0 0 1px var(--pill),2.5px 2.5px 0 0 var(--pill);
+ background:color-mix(in srgb,var(--pill) 14%,var(--card))}
+.pills button .k{color:var(--pill);opacity:1;font-size:.72rem;margin-right:5px}
+.pills button[data-profile="FOCUSMAX"]{text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+@keyframes inviteJiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-2.5deg)}50%{transform:rotate(2deg)}75%{transform:rotate(-1deg)}}
+.pills button.invite{animation:inviteJiggle 2.5s ease}
+@keyframes lurePulse{0%,100%{box-shadow:1.5px 1.5px 0 0 var(--pill)}40%{box-shadow:0 0 0 3px var(--pill),0 0 18px var(--pill)}60%{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--pill)}}
+.pills button.lure{animation:lurePulse 2s ease}
+body.gov-freeze .pills button.invite,body.gov-freeze .pills button.lure{animation:none}
 .fineprint{text-align:center;color:var(--muted);font-size:.78rem;line-height:1.7}
 /* ============ agent: pi-TUI style, verbosity follows the mode ============ */
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:6px 0;
@@ -110,16 +127,16 @@ main{display:block}
 body{--track:color-mix(in srgb,var(--ink) 12%,transparent)}
 body[data-mode="Vibes"],body[data-mode="lifeful"]{--bg:#101022;--card:#181830;--ink:#f0efff;--muted:#9d9bd0;--line:#2c2c52;
   --accent:#ff3ea5;--accent2:#22d3ee;--fs:1}
-body[data-mode="chill"]{--bg:#211a20;--card:#2b232b;--ink:#f7ecdd;--muted:#cdb098;--line:#453649;
-  --accent:#f2a35e;--accent2:#d95f7b;--fs:1.05}
+body[data-mode="chill"]{--bg:#16121f;--card:#201a2e;--ink:#ece4f8;--muted:#a89cc6;--line:#352a4c;
+  --accent:#b78ae0;--accent2:#7f6fc4;--fs:1.05}
 body[data-mode="FOCUSMAX"],body[data-mode="focus"]{--bg:#15181d;--card:#1c2129;--ink:#e8ecf1;--muted:#8b95a5;--line:#2c3440;
   --accent:#2dd4bf;--accent2:#2dd4bf;--fs:1}
-body[data-mode="babylite"],body[data-mode="lite"]{--bg:#eaf4ff;--card:#ffffff;--ink:#0f1e3a;--muted:#5b7aa5;--line:#c9deff;
-  --accent:#7cc4ff;--accent2:#a8dcff;--fs:1.15}
+body[data-mode="babylite"],body[data-mode="lite"]{--bg:#dbe6f5;--card:#eef3fa;--ink:#22344d;--muted:#6d86a8;--line:#b9cfe8;
+  --accent:#d973a8;--accent2:#7fb3e8;--fs:1.12}
 body[data-mode="babylite"] .askrow input,body[data-mode="lite"] .askrow input,body[data-mode="babylite"] .panel,body[data-mode="lite"] .panel,body[data-mode="babylite"] .card,body[data-mode="lite"] .card{min-height:64px}
 /* low-sensory: softer dark — warm charcoal, nothing pure, nothing loud */
-body[data-mode="calm"]{--bg:#1f201e;--card:#272825;--ink:#d9d6ca;--muted:#99968a;--line:#383936;
-  --accent:#93ac8d;--accent2:#7e9a90;--fs:1.08}
+body[data-mode="calm"]{--bg:#14100d;--card:#1f1813;--ink:#f0e4d3;--muted:#b39d84;--line:#3a2d22;
+  --accent:#e8a04c;--accent2:#c96f4a;--fs:1.08}
 body[data-mode="xMAX"]{--bg:#0e0a1f;--card:#1a1233;--ink:#f2ecff;--muted:#a99fd1;--line:#372a63;
   --accent:#8b5cf6;--accent2:#22d3ee;--fs:1}
 /* governor freeze: motion actually stops, not just themed */
@@ -133,9 +150,12 @@ body.gov-freeze *,body.gov-freeze *::before,body.gov-freeze *::after{animation:n
 .brand{font:inherit;color:var(--ink);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:9px}
 #addMenu{position:absolute;z-index:35;background:var(--card);border:1px solid var(--line);border-radius:14px;
  padding:8px;min-width:260px;box-shadow:0 22px 54px rgba(0,0,0,.4)}
-#addMenu>button{display:block;width:100%;text-align:left;font:inherit;font-size:1rem;font-weight:650;color:var(--ink);
- background:none;border:none;border-radius:10px;padding:13px 14px;cursor:pointer;min-height:52px}
-#addMenu>button:hover{background:var(--bg)}
+#addMenu .addMain{display:flex;gap:10px;padding:4px 2px 8px}
+#addMenu .addMain button{flex:1;font:inherit;color:var(--muted);background:var(--bg);border:1.5px solid var(--line);
+
+ border-radius:14px;cursor:pointer;min-height:64px;display:flex;align-items:center;justify-content:center}
+#addMenu .addMain button:hover{color:var(--ink);border-color:var(--accent)}
+#addMenu .addMain svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #addMenu .addMore{border-top:1px solid var(--line);margin-top:6px;padding-top:6px;display:flex;flex-wrap:wrap;gap:4px}
 #addMenu .addMore button{font:inherit;font-size:.8rem;color:var(--muted);background:none;border:1px solid var(--line);
  border-radius:99px;padding:6px 12px;cursor:pointer;min-height:36px}
@@ -147,6 +167,7 @@ body.gov-freeze *,body.gov-freeze *::before,body.gov-freeze *::after{animation:n
 .slotgap{flex:none;width:34px}
 #slotX{font-weight:800;border:2px solid var(--ink);background:var(--ink);color:var(--bg);letter-spacing:.04em}
 .slotbtns button[aria-pressed="true"]{font-weight:700}
+.slotbtns button,.panetabs button{box-shadow:1px 1px 0 0 color-mix(in srgb,var(--line) 70%,transparent),2px 2px 0 0 color-mix(in srgb,var(--line) 35%,transparent)}
 .minbtn,.closebtn{font:inherit;font-size:.8rem;color:var(--muted);background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;min-width:34px;min-height:34px}
 .minbtn:hover,.closebtn:hover{color:var(--ink);border-color:var(--accent)}
 .pane.minimised .panebody,.pane.minimised .chatlog,.pane.minimised .log,.pane.minimised .stages,.pane.minimised .status,
@@ -155,25 +176,25 @@ body.gov-freeze *,body.gov-freeze *::before,body.gov-freeze *::after{animation:n
 .brandwrap{display:flex;align-items:center;gap:11px}
 .avatarBtn{background:none;border:none;cursor:pointer;padding:3px;border-radius:50%;flex:none}
 .avatarBtn:hover .avatarCircle{box-shadow:inset 0 0 0 2px var(--bg),0 0 0 2px var(--accent)}
-.wordmark{display:flex;align-items:baseline;font-weight:800;letter-spacing:-.02em;
- font-family:"SF Pro Display",-apple-system,BlinkMacSystemFont,Inter,"Segoe UI",Roboto,sans-serif;font-size:1.5rem;line-height:1}
-.ppp{position:relative;display:inline-block;font-weight:900}
+.wordmark{display:flex;align-items:baseline;font-weight:800;letter-spacing:-.02em;font-family:"Adwaita Sans","Noto Sans",system-ui,sans-serif;
+ font-family:"SF Pro Display",-apple-system,BlinkMacSystemFont,Inter,"Segoe UI",Roboto,sans-serif;font-size:2.25rem;line-height:1}
+.ppp{position:relative;display:inline-block;font-weight:900;font-size:1.5em}
 .ppp i{font-style:normal}
 .ppp i:nth-child(1){color:var(--deck1);position:absolute;left:-.14em;bottom:-.085em;opacity:.72;z-index:0}
 .ppp i:nth-child(2){color:var(--deck2);position:absolute;left:-.07em;bottom:-.042em;opacity:.95;z-index:0}
 .ppp i:nth-child(3){color:var(--front);position:relative;z-index:1}
-.wordmark .rest{color:var(--front)}
+.wordmark .rest{color:var(--front);font-size:1.26em}
 /* logo colourway follows the mode (signed off A2-A8 family, 2026-10-28) */
 body[data-mode="Vibes"],body[data-mode="lifeful"]{--deck1:#ff3ea5;--deck2:#22d3ee;--front:#f0efff}
-body[data-mode="chill"]{--deck1:#f2a35e;--deck2:#d95f7b;--front:#f7ead9}
+body[data-mode="chill"]{--deck1:#b78ae0;--deck2:#7f6fc4;--front:#ece4f8}
 body[data-mode="FOCUSMAX"],body[data-mode="focus"]{--deck1:#2dd4bf;--deck2:#38bdf8;--front:#eef6ff}
-body[data-mode="babylite"],body[data-mode="lite"]{--deck1:#7cc4ff;--deck2:#a8dcff;--front:#ffffff}
+body[data-mode="babylite"],body[data-mode="lite"]{--deck1:#d973a8;--deck2:#7fb3e8;--front:#22344d}
 body[data-mode="xMAX"]{--deck1:#8b5cf6;--deck2:#22d3ee;--front:#f2ecff}
-body[data-mode="calm"]{--deck1:#7e9a90;--deck2:#99968a;--front:#e9e6da}
+body[data-mode="calm"]{--deck1:#e8a04c;--deck2:#c96f4a;--front:#f0e4d3}
 body[data-slotx="1"]{--deck1:#8b5cf6;--deck2:#22d3ee;--front:#f5f3ff}
-.avatarCircle{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+.avatarCircle{width:44px;height:44px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
  background:conic-gradient(from 210deg,var(--deck1,#ff3ea5),var(--deck2,#22d3ee),var(--deck1,#ff3ea5));box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--bg) 55%,transparent)}
-.avatarCircle svg{width:19px;height:19px;fill:color-mix(in srgb,var(--bg) 78%,#000);opacity:.9}
+.avatarCircle svg{width:28px;height:28px;fill:color-mix(in srgb,var(--bg) 78%,#000);opacity:.9}
 
 .cogbtn{margin-left:auto;font:inherit;font-size:1.08rem;color:var(--muted);background:var(--card);border:1px solid var(--line);
  border-radius:50%;width:42px;height:42px;cursor:pointer;flex:none}
@@ -274,6 +295,8 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
  transition:background-color .45s ease,border-color .45s ease;min-height:200px}
 .pane.on{display:block;animation:pageIn .3s var(--ease)}
 .panehead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:.84rem;font-weight:600}
+.paneicon{display:inline-flex;color:var(--muted);margin-right:2px}
+.paneicon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .pinbtn{margin-left:auto;font:inherit;font-size:.8rem;background:none;border:1px solid transparent;border-radius:8px;cursor:pointer;min-height:34px;min-width:38px;opacity:.65}
 .pinbtn:hover{opacity:1;border-color:var(--line)}
 .pane.unpinned{outline:2px solid var(--accent);box-shadow:0 18px 44px rgba(0,0,0,.4);z-index:5;touch-action:none;min-width:280px;min-height:180px}
@@ -386,14 +409,14 @@ body.kids .advancedBlock{display:none!important}
       <button id="customiseBtn" type="button" title="Settings + customise" aria-label="Settings" class="cogbtn">⚙</button>
   </header>
 
-  <div class="controls">
+  <div class="controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <label class="adaptiveWrap" id="adaptiveWrap" title="Adaptive: segway between modes automatically (idle → chill, focus → FOCUSMAX, swapping → Vibes, strain → babylite). calm only by hand."><input type="checkbox" id="adaptiveToggle"> Adaptive</label>
     <div class="pills" role="group" aria-label="Modes" style="margin:0">
       <button data-profile="babylite" data-legacy="lite" aria-pressed="false" title="babylite — soft + simple (key 1). Auto-downshift when strained."><span class="k">1</span>babylite</button>
       <button data-profile="chill" aria-pressed="false" title="chill — warm and slow (key 2). For AFK/rest."><span class="k">2</span>chill</button>
       <button data-profile="FOCUSMAX" data-legacy="focus" aria-pressed="false" title="FOCUSMAX — mono-task (key 3)."><span class="k">3</span>FOCUSMAX</button>
       <button data-profile="Vibes" data-legacy="lifeful" aria-pressed="true" title="Vibes — full energy (key 4)."><span class="k">4</span>Vibes</button>
-      <button data-profile="calm" data-legacy="low-sensory" aria-pressed="false" title="calm — sensory panic button (key 5). Zero motion."><span class="k">5</span>calm</button>
+      <button data-profile="calm" data-legacy="low-sensory" aria-pressed="false" title="calm — sensory panic button (key 5). Zero motion."><span class="k">5</span>Calm<span id="calmDots" aria-hidden="true"></span></button>
       <button data-profile="xMAX" aria-pressed="false" hidden title="xMAX — Vibes + FOCUSMAX hybrid, heavy parallelism (key 6). Profile X only."><span class="k">6</span>xMAX</button>
     </div>
   </div>
@@ -406,9 +429,11 @@ body.kids .advancedBlock{display:none!important}
 
   <nav class="panetabs" id="paneTabs" aria-label="Open panes, like browser tabs"></nav>
   <div id="addMenu" hidden>
-    <button type="button" data-add="pane-browser">🌐 Browse</button>
-    <button type="button" data-add="pane-chat">🔍 Search / Ask — Chat</button>
-    <button type="button" data-add="pane-doc">📝 Read / Write — Documents</button>
+    <div class="addMain">
+    <button type="button" data-add="pane-browser" title="Browse" aria-label="Browse"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.8" ry="8.5"/><path d="M3.5 12h17"/></svg></button>
+    <button type="button" data-add="pane-chat" title="Search / Ask" aria-label="Search / Ask"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="4"/><path d="M8 17l-3 4v-4"/></svg></button>
+    <button type="button" data-add="pane-doc" title="Read / Write" aria-label="Read / Write"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></svg></button>
+    </div>
     <div class="addMore">
       <button type="button" data-add="pane-agent">Agent detail</button>
       <button type="button" data-add="pane-notes">Notes</button>
@@ -423,17 +448,17 @@ body.kids .advancedBlock{display:none!important}
   </div>
   <main class="canvas" id="canvas">
     <section class="pane on" id="pane-chat" aria-label="Chat">
-      <div class="panehead">💬 Chat <span class="small" id="brainBadge">lite agent: checking…</span><button class="detailToggle" id="chatDetailToggle" type="button" title="Show or hide agent reasoning">Reasoning</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-chat" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Chat" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="4"/><path d="M8 17l-3 4v-4"/></svg></span><span class="small" id="brainBadge">lite agent: checking…</span><button class="detailToggle" id="chatDetailToggle" type="button" title="Show or hide agent reasoning">Reasoning</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-chat" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="chatlog" id="chatLog" aria-live="polite"></div>
       <div class="chips" id="macroChips"></div>
       <form class="askrow" id="askForm" style="padding:0 16px 16px;margin:0">
         <input id="ask" type="text" autocomplete="off" placeholder="Ask, search, or tell me to do something…" aria-label="Ask Profiles">
-        <button class="btn" id="askGo" type="submit">Go</button>
+        
       </form>
     </section>
 
     <section class="pane on" id="pane-agent" aria-label="Agent detail">
-      <div class="panehead">🤖 Agent — detail <button class="detailToggle" id="detailToggle" type="button" title="Sleek hides reasoning and tool calls; Detailed shows everything">Detailed</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-agent" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Agent detail" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></span><button class="detailToggle" id="detailToggle" type="button" title="Sleek hides reasoning and tool calls; Detailed shows everything">Detailed</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-agent" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="status" id="agentStatus" style="border-bottom:1px solid var(--line)"><span class="pulse" aria-hidden="true"></span><span id="agentStatusText">idle — the lite agent is always on</span></div>
       <div class="stages" id="stages" aria-hidden="true">
         <span data-stage="sense">sense</span><span data-stage="plan">plan</span><span data-stage="act">act</span><span data-stage="verify">verify</span><span data-stage="remember">remember</span>
@@ -442,11 +467,11 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-browser" aria-label="Browser">
-      <div class="panehead">🌐 Browser <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Browser" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.8" ry="8.5"/><path d="M3.5 12h17"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <form class="urlrow" id="urlForm" style="padding:10px 12px 0;margin:0">
         <button class="sbtn ghost" id="browserBack" type="button" title="Back" style="min-height:44px">←</button>
         <input id="urlInput" type="text" value="https://www.google.com" aria-label="Web address">
-        <button class="sbtn" type="submit" style="min-height:44px">Go</button>
+        
       </form>
       <div id="browserView" style="flex:1;overflow:hidden;background:#fff;margin:10px 12px 12px;border-radius:10px;min-height:120px;position:relative">
         <img id="browserImg" alt="Live page loading…" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;cursor:text;background:#fff">
@@ -454,7 +479,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-doc" aria-label="Documents and staging">
-      <div class="panehead">📄 Document / Stage <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-doc" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Documents" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-doc" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <p class="costline">Work apps:</p>
         <div class="chips" style="padding:0 0 10px">
@@ -470,7 +495,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-setup" aria-label="Setup and my Profiles">
-      <div class="panehead">🧭 Setup — no menus, just steps <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-setup" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Setup" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="17" r="2"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-setup" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <div id="setupSteps"><p class="small">Ask “help me get a better agent plugged in” and the steps appear here. Deterministic scripts, nothing runs without your tap.</p></div>
         <h3 style="font-size:.9rem;margin:16px 0 6px">About you (this profile)</h3>
@@ -555,7 +580,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-notes" aria-label="Notes">
-      <div class="panehead">📝 Notes + sketch <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Notes" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <textarea id="notesArea" rows="8" style="width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:12px" placeholder="Notes for THIS profile only — saved locally as you type…" aria-label="Profile notes"></textarea>
         <p class="small" id="notesLine">Saved to this profile's own notes. Linked automatically when you watch + note + ask (the agent notices co-use, locally).</p>
@@ -572,7 +597,7 @@ body.kids .advancedBlock{display:none!important}
       </div>
     </section>
     <section class="pane" id="pane-video" aria-label="Video">
-      <div class="panehead">🎬 Video <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-video" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Video" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-video" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <form class="urlrow" id="videoForm">
           <input id="videoInput" type="text" placeholder="YouTube link or .mp4 URL…" aria-label="Video address">
@@ -582,7 +607,7 @@ body.kids .advancedBlock{display:none!important}
       </div>
     </section>
     <section class="pane" id="pane-activity" aria-label="Activity">
-      <div class="panehead">📜 Activity + ledger <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-activity" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Activity" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-activity" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <ul class="stream" id="stream"></ul>
         <h3 style="font-size:.9rem;margin:14px 0 6px">Task ledger · checkpoints</h3>

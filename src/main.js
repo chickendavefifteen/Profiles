@@ -71,7 +71,15 @@ var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, m
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
 var PANES=["pane-chat","pane-agent","pane-browser","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"];
-var PANE_LABELS={"pane-chat":"💬 Chat","pane-agent":"🤖 Agent","pane-browser":"🌐 Browser","pane-doc":"📄 Document","pane-notes":"📝 Notes","pane-video":"🎬 Video","pane-setup":"🧭 Setup","pane-activity":"📜 Activity"};
+var PANE_LABELS={"pane-chat":"Chat","pane-agent":"Agent detail","pane-browser":"Browser","pane-doc":"Document","pane-notes":"Notes","pane-video":"Video","pane-setup":"Setup","pane-activity":"Activity"};
+var PANE_ICONS={"pane-chat":'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="4"/><path d="M8 17l-3 4v-4"/></svg>',
+"pane-agent":'<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>',
+"pane-browser":'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.8" ry="8.5"/><path d="M3.5 12h17"/></svg>',
+"pane-doc":'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></svg>',
+"pane-notes":'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+"pane-video":'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg>',
+"pane-setup":'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="17" r="2"/></svg>',
+"pane-activity":'<svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>'};
 function paneVisible(id){ return state.layout.hidden.indexOf(id)<0; }
 var MAX_PER_PAGE=8;
 function visibleCount(){ return PANES.filter(paneVisible).length; }
@@ -102,8 +110,8 @@ function renderPaneTabs(){
   bar.textContent="";
   (state.layout.order||PANES).forEach(function(id){
     if(!paneVisible(id)) return;
-    var b=document.createElement("button"); b.type="button";
-    var lab=document.createElement("span"); lab.textContent=PANE_LABELS[id];
+    var b=document.createElement("button"); b.type="button"; b.title=PANE_LABELS[id]; b.setAttribute("aria-label",PANE_LABELS[id]);
+    var lab=document.createElement("span"); lab.className="paneicon"; lab.innerHTML=PANE_ICONS[id]||PANE_LABELS[id];
     var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Close pane (reopen any time)";
     x.addEventListener("click", function(ev){ ev.stopPropagation(); hidePane(id); });
     b.appendChild(lab); b.appendChild(x);
@@ -1168,6 +1176,84 @@ $("autoToggle").addEventListener("change", function(e){
   state.auto=e.target.checked;
   stream("auto profile "+(state.auto?"ON — learned suggestions apply, announced":"OFF — learned suggestions only"));
 });
+
+/* ---- invite engine: pills breathe, jiggle and lure — unless stillness rules ----
+   Calm and babylite modes mean stillness: no invite animations at all there.
+   Everywhere else the pills gently remind you they exist. */
+function invitesAllowed(){
+  if(state.mode==="calm" || state.mode==="babylite") return false;
+  if(document.body.classList.contains("gov-freeze")) return false;
+  try{ if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return false; }catch(e){}
+  return true;
+}
+function pillFor(profile){
+  return document.querySelector('.pills button[data-profile="'+profile+'"]');
+}
+/* Calm... breathes: every 30s the dots cycle none -> . -> .. -> ... over ~3s */
+setInterval(function(){
+  var dots=$("calmDots"); if(!dots) return;
+  if(!invitesAllowed() || state.mode==="calm"){ dots.textContent=""; return; }
+  var steps=["", ".", "..", "..."], i=0;
+  dots.textContent="";
+  var t=setInterval(function(){
+    i++;
+    if(i>=steps.length){ clearInterval(t); return; }
+    if(!invitesAllowed()){ clearInterval(t); dots.textContent=""; return; }
+    dots.textContent=steps[i];
+  }, 750);
+}, 30000);
+/* babylite jiggles playfully when you are not on it (nor calm) — and means
+   it extra when the machine is busy (RAM/CPU over 80%). */
+setInterval(function(){
+  var b=pillFor("babylite"); if(!b) return;
+  if(!invitesAllowed() || state.mode==="babylite"){ b.classList.remove("invite"); return; }
+  b.classList.add("invite");
+  b.title = state.busy
+    ? "babylite — soft + simple (your machine is working hard right now: lighter is kinder)"
+    : "babylite — soft + simple (key 1)";
+  setTimeout(function(){ b.classList.remove("invite"); }, 2600);
+}, 30000);
+/* machine-busy poll (feeds the babylite nudge, nothing else) */
+setInterval(function(){
+  fetch(apiUrl("/api/capabilities")).then(function(r){ return r.json(); }).then(function(c){
+    state.busy = !!(c && c.busy);
+  }).catch(function(){});
+}, 60000);
+/* Vibes rotates through 5 pre-planned vibrant schemes: the button every
+   60s, the whole theme every 5 minutes while you live in it. */
+var VIBES_BTN=[["#ff3ea5","#22d3ee"],["#22d3ee","#ff3ea5"],["#a78bfa","#22d3ee"],["#fb7185","#fbbf24"],["#34d399","#22d3ee"]];
+var VIBES_FULL=[["#ff3ea5","#22d3ee","#f0efff"],["#22d3ee","#a78bfa","#f0efff"],["#f472b6","#fb923c","#fff7ed"],["#fb7185","#fbbf24","#fffbeb"],["#34d399","#22d3ee","#ecfdf5"]];
+var vibesIdx=0, vibesMinCount=0;
+setInterval(function(){
+  var btn=pillFor("Vibes"); if(!btn) return;
+  if(!invitesAllowed()) return;
+  vibesIdx=(vibesIdx+1)%VIBES_BTN.length;
+  btn.style.setProperty("--pill", VIBES_BTN[vibesIdx][0]);
+  btn.style.setProperty("box-shadow", "0 0 0 1px "+VIBES_BTN[vibesIdx][0]+", 2.5px 2.5px 0 0 "+VIBES_BTN[vibesIdx][1]);
+  if(state.mode==="Vibes"){
+    vibesMinCount++;
+    if(vibesMinCount>=5){
+      vibesMinCount=0;
+      var f=VIBES_FULL[vibesIdx%VIBES_FULL.length];
+      document.body.style.setProperty("--deck1", f[0]);
+      document.body.style.setProperty("--deck2", f[1]);
+      document.body.style.setProperty("--front", f[2]);
+      document.body.style.setProperty("--accent", f[0]);
+      stream("vibes rotated to a new vibrant scheme");
+    }
+  } else {
+    vibesMinCount=0;
+    document.body.style.removeProperty("--deck1"); document.body.style.removeProperty("--deck2");
+    document.body.style.removeProperty("--front"); document.body.style.removeProperty("--accent");
+  }
+}, 60000);
+/* FOCUSMAX pulses once a minute to get your attention, then locks crispy */
+setInterval(function(){
+  var btn=pillFor("FOCUSMAX"); if(!btn) return;
+  if(!invitesAllowed() || state.mode==="FOCUSMAX") return;
+  btn.classList.add("lure");
+  setTimeout(function(){ btn.classList.remove("lure"); }, 2100);
+}, 60000);
 
 /* ---- macros: repeated asks become one-tap deterministic scripts ---- */
 function loadMacros(){

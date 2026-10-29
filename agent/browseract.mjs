@@ -95,7 +95,7 @@ async function dismissConsent(page) {
    same profile dir — the loser's Chromium blocks on the Singleton lock
    and the request hangs with zero bytes. */
 const pendingSessions = new Map();
-async function ensureSession(slot) {
+export async function ensureSession(slot) {
   const cur = sessions.get(slot);
   if (cur) {
     try { if (!cur.page.isClosed()) return cur; } catch {}
