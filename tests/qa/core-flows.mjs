@@ -58,6 +58,16 @@ check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.textConte
 {
   const chatBox = await page.locator('#pane-chat').boundingBox();
   const browBox = await page.locator('#pane-browser').boundingBox();
+  const flexBefore = await page.evaluate(() => document.querySelector('#pane-browser').style.flex);
+  await page.click('#pane-browser .pinbtn');
+  await page.waitForTimeout(500);
+  await page.mouse.move(browBox.x + browBox.width - 4, browBox.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(browBox.x + browBox.width + 110, browBox.y + 200, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(800);
+  const flexAfter = await page.evaluate(() => document.querySelector('#pane-browser').style.flex);
+  check('resize: flex share grows on east drag', parseFloat(flexAfter) > parseFloat(flexBefore || '1'));
   await page.click('#pane-browser .pinbtn');
   await page.waitForTimeout(500);
   await page.mouse.move(browBox.x + 4, browBox.y + 200);
@@ -67,7 +77,6 @@ check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.textConte
   await page.waitForTimeout(800);
   const chat2 = await page.locator('#pane-chat').boundingBox();
   const brow2 = await page.locator('#pane-browser').boundingBox();
-  check('resize: browser grew', brow2.width > browBox.width + 40);
   check('resize: neighbour adapted (no overlap)', Math.abs(chat2.x + chat2.width - brow2.x) < 22);
   await page.click('#pane-browser .pinbtn');
 }

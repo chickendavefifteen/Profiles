@@ -10,8 +10,7 @@
   "intensity": "full",
   "tier": null,
   "modelFile": null,
-  "updated": "2026-10-29T07:56:38.033Z",
-  "closedPanes": [],
+  "updated": "2026-10-29T08:00:58.414Z",
   "layout": {
     "order": [
       "pane-chat",
@@ -40,5 +39,6 @@
         "h": 600
       }
     }
-  }
+  },
+  "closedPanes": []
 }
