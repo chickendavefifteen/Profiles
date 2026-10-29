@@ -41,8 +41,12 @@ document.getElementById('f').addEventListener('submit', function(e){
   e.preventDefault();
   var q=document.getElementById('q').value.trim();
   if(!q) return;
-  var url=/^https?:\/\//i.test(q)?q:(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(q)?'https://'+q:'https://www.bing.com/search?q='+encodeURIComponent(q));
-  location.href='__API__/api/proxy?url='+encodeURIComponent(url);
+  if(/^https?:\/\//i.test(q)||/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(q)){
+    var url=/^https?:\/\//i.test(q)?q:'https://'+q;
+    location.href=window.__API+'/api/proxy?url='+encodeURIComponent(url);
+  } else {
+    location.href=window.__API+'/api/search?q='+encodeURIComponent(q);
+  }
 });
 </script>
 </body>

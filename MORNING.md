@@ -393,3 +393,8 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
   [hidden] rule + Retry fallback.
 - Search moved to Bing (Google sorry-pages automation; DDG challenges).
 - QA rewritten for iframe (native click+type proven in Chromium).
+
+## Native iframe browser shipped (2026-10-29)
+- Rework verified in the native window: Start page renders natively,
+  trash+sessions far right, no Go buttons, Calm dots live.
+- Bing default home; proxy cookies persist; links stay in pane.

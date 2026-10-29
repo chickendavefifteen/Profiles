@@ -545,6 +545,32 @@ export async function handleAgent(req, res, prefix = '/api') {
       } catch { json(res, 500, { error: 'home failed' }); }
       return true;
     }
+    if (path === '/search' && req.method === 'GET') {
+      /* Native results page: clean cards rendered from real extracted
+         results — no third-party CSS lottery, readable in any engine. */
+      try {
+        const q = (url.searchParams.get('q') || '').slice(0, 200);
+        const { webSearch } = await import('./browseract.mjs');
+        const slot = (await paths()).slot;
+        const out = await webSearch(slot, q);
+        const esc = (t) => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const items = (out.results || []).map((r, i) => `
+          <a class="hit" href="/api/proxy?url=${encodeURIComponent(r.href)}">
+            <span class="n">${i + 1}</span>
+            <span><b>${esc(r.title)}</b><small>${esc(r.href.replace(/^https?:\/\//, '').split('/')[0])}</small><p>${esc(r.snippet)}</p></span>
+          </a>`).join('');
+        const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(q)} — results</title>
+          <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#14101d;color:#ece4f8;padding:28px 22px;line-height:1.5}
+          h1{font-size:1.05rem;font-weight:600;color:#a89cc6;margin:0 0 16px}.hit{display:flex;gap:12px;text-decoration:none;color:inherit;background:#211a2e;border:1px solid #352a4c;border-radius:12px;padding:13px 15px;margin-bottom:10px;max-width:720px}
+          .hit:hover{border-color:#b78ae0}.n{color:#b78ae0;font-weight:700}.hit b{display:block;font-size:.98rem}.hit small{color:#a89cc6;font-size:.76rem}.hit p{margin:6px 0 0;font-size:.85rem;color:#cfc6e4}.empty{color:#a89cc6}</style></head><body>
+          <h1>Results for &ldquo;${esc(q)}&rdquo;</h1>
+          ${items || '<p class="empty">Nothing came back — try different words.</p>'}</body></html>`;
+        const buf = Buffer.from(html);
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': buf.length, 'cache-control': 'no-store' });
+        res.end(buf);
+      } catch (e) { json(res, 502, { error: 'search failed' }); }
+      return true;
+    }
     if (path === '/browser/stop' && req.method === 'POST') {
       try { const { stopScreencast } = await import('./browseract.mjs'); await stopScreencast((await paths()).slot); } catch {}
       json(res, 200, { ok: true }); return true;

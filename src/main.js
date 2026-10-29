@@ -1079,7 +1079,7 @@ function normUrl(u){
   if(!u) return "https://www.bing.com";
   if(/^https?:\/\//i.test(u)) return u;
   if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return "https://"+u;
-  return "https://www.bing.com/search?q="+encodeURIComponent(u);
+  return apiUrl("/api/search?q="+encodeURIComponent(u));
 }
 var lastBrowserUrl="";
 var browserLoaded=false;

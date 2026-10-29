@@ -170,6 +170,8 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(js.includes('suggestYes') && js.includes('requiresUserYes') || js.includes('pendingSuggest'), 'frontend: auto mode is suggest-first');
   ok(js.includes('/api/stage/') && js.includes('format=docx') || js.includes('export?format=docx'), 'frontend: staged drafts export to docx');
   ok(existsSync(join(root, 'SPEC-REAL-AGENT.md')), 'spec: SPEC-REAL-AGENT.md documents the real-agent design');
+  ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="customiseBtn"'), 'chrome: no header cog, menu in brand');
+  ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/search'"), 'search: native results page, no third-party CSS lottery');
   ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('target="_blank"') || true, 'links stay in pane (no forced new tabs)');
   const px = await import('../agent/proxy.mjs');
   ok(px.rewriteHtml('<a href="/news">x</a>', 'https://www.bbc.co.uk/').includes('/api/proxy?url='), 'proxy: links rewritten inside');

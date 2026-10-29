@@ -111,6 +111,20 @@ check('tool: browser pane shows BBC after ask', /bbc/i.test(_bbcUrl));
 }
 // release builds must find the sidecar (agent-offline regression)
 check('api base resolves sidecar origin', await page.evaluate(() => typeof apiUrl === 'function' && apiUrl('/api/health').startsWith('http') || true));
+// search from the start page: native results render (never a third-party lottery)
+await page.fill('#urlInput', '');
+await page.press('#urlInput', 'Enter');
+await page.waitForTimeout(2500);
+check('start search box submits to native results', await page.evaluate(async () => {
+  const doc = document.querySelector('#browserFrame').contentDocument;
+  const box = doc.querySelector('#q');
+  if (!box) return false;
+  box.value = 'bbc news';
+  box.form.requestSubmit();
+  await new Promise(rr => setTimeout(rr, 6000));
+  const d2 = document.querySelector('#browserFrame').contentDocument;
+  return d2.body.innerText.includes('Results for') && (d2.body.innerText.match(/bbc|BBC/) || []).length > 0;
+}));
 // typing: native click into a real field + real keystrokes + Enter (the exact user gesture)
 await page.fill('#urlInput', 'http://localhost:1420/api/test/click-target');
 await page.press('#urlInput', 'Enter');

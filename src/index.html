@@ -210,10 +210,11 @@ body[data-slotx="1"]{--deck1:#8b5cf6;--deck2:#22d3ee;--front:#f5f3ff}
 .cogbtn{margin-left:auto;font:inherit;font-size:1.08rem;color:var(--muted);background:var(--card);border:1px solid var(--line);
  border-radius:50%;width:42px;height:42px;cursor:pointer;flex:none}
 .cogbtn:hover{color:var(--ink);border-color:var(--accent)}
-.headbtn{margin-left:0;font:inherit;color:var(--muted);background:var(--card);border:1px solid var(--line);
+.headbtn{margin-left:auto;font:inherit;color:var(--muted);background:var(--card);border:1px solid var(--line);
  border-radius:50%;width:42px;height:42px;cursor:pointer;flex:none;display:inline-flex;align-items:center;justify-content:center;position:relative}
 .headbtn:hover{color:var(--ink);border-color:var(--accent)}
 .headbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#sessBtn{margin-left:0}
 #sessBtn svg{fill:unset;stroke:none}
 #trashCount{position:absolute;top:-4px;right:-4px;background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;
  border-radius:99px;padding:2px 7px}
@@ -429,7 +430,6 @@ body.kids .advancedBlock{display:none!important}
       <span class="slotgap" aria-hidden="true"></span>
       <button id="slotX" aria-pressed="false" type="button" hidden title="Profile X — full-access power profile (opt-in)">X</button>
     </div>
-      <span style="flex:1" aria-hidden="true"></span>
       <button id="trashBtn" type="button" title="Recently closed" aria-label="Recently closed panes" class="headbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span id="trashCount" hidden></span></button>
       <button id="sessBtn" type="button" title="Past sessions — save, name and restore" aria-label="Past sessions" class="headbtn"><svg viewBox="0 0 24 24"><path d="M2 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" fill="var(--deck2)" opacity=".55" stroke="none"/><path d="M4 10a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="var(--deck1)" opacity=".8" stroke="none"/><path d="M6 12a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" fill="var(--front)" opacity=".95" stroke="none"/></svg></button>
   </header>
