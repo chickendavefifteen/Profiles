@@ -206,7 +206,7 @@ body[data-detail="sleek"] #stages,body[data-detail="sleek"] .log{display:none}
 .panetabs button .x{opacity:.55;border:none;background:none;color:inherit;cursor:pointer;font:inherit;padding:2px 5px}
 .panetabs button:hover{color:var(--ink);border-color:var(--accent)}
 .panetabs button.flash{border-color:var(--accent);color:var(--ink)}
-.canvas{display:grid!important;gap:14px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.canvas{gap:14px}
 .canvas .pane{display:block}
 .canvas .pane.hiddenPane{display:none}
 .canvas.maxed{grid-template-columns:1fr}
@@ -335,9 +335,22 @@ body.kids .advancedBlock{display:none!important}
 #profileXBox{border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
 .small{font-size:.8rem;color:var(--muted);line-height:1.6}
 
-/* v4 tiling wins the cascade */
-.canvas{grid-template-columns:repeat(auto-fit,minmax(400px,1fr))}
-.canvas.maxed{grid-template-columns:1fr}
+/* v4 tiling wins the cascade — flex, so resizing one pane makes its
+   neighbours adapt instead of being underlapped */
+.canvas{display:flex;flex-wrap:wrap;align-items:stretch}
+.canvas .pane{flex:1 1 400px;min-width:min(400px,100%);min-height:min(600px,calc(100vh - 240px));display:flex;flex-direction:column}
+.canvas .pane.hiddenPane{display:none}
+.canvas.maxed .pane{flex-basis:100%}
+.pane .chatlog{flex:1}
+.resize-handle{position:absolute;z-index:6;touch-action:none}
+.resize-handle[data-dir="e"]{right:-14px;top:0;width:30px;height:100%;cursor:ew-resize}
+.resize-handle[data-dir="w"]{left:-14px;top:0;width:30px;height:100%;cursor:ew-resize}
+.resize-handle[data-dir="s"]{bottom:-14px;left:0;height:30px;width:100%;cursor:ns-resize}
+.resize-handle[data-dir="n"]{top:-14px;left:0;height:30px;width:100%;cursor:ns-resize}
+.resize-handle[data-dir="se"]{right:-16px;bottom:-16px;width:36px;height:36px;cursor:nwse-resize}
+.resize-handle[data-dir="nw"]{left:-16px;top:-16px;width:36px;height:36px;cursor:nwse-resize}
+.resize-handle[data-dir="ne"]{right:-16px;top:-16px;width:36px;height:36px;cursor:nesw-resize}
+.resize-handle[data-dir="sw"]{left:-16px;bottom:-16px;width:36px;height:36px;cursor:nesw-resize}
 </style>
 </head>
 

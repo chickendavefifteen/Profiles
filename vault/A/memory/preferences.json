@@ -3,11 +3,15 @@
   "macroCandidates": [
     {
       "phrase": "hi r u agentic now",
-      "count": 6
+      "count": 12
     },
     {
       "phrase": "open a brower on bbc news",
-      "count": 6
+      "count": 8
+    },
+    {
+      "phrase": "hi",
+      "count": 3
     },
     {
       "phrase": "search the web for allotment jobs in october",
@@ -20,21 +24,21 @@
         "pane-chat",
         "pane-doc"
       ],
-      "count": 776
+      "count": 61
     },
     {
       "panes": [
         "pane-browser",
         "pane-chat"
       ],
-      "count": 772
+      "count": 58
     },
     {
       "panes": [
         "pane-browser",
         "pane-doc"
       ],
-      "count": 771
+      "count": 56
     },
     {
       "panes": [
@@ -52,6 +56,6 @@
     }
   ],
   "lastDismissal": null,
-  "events": 861,
-  "derivedAt": "2026-10-29T01:01:15.063Z"
+  "events": 154,
+  "derivedAt": "2026-10-29T07:55:43.308Z"
 }

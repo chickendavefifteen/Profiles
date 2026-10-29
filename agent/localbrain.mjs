@@ -8,6 +8,18 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from './system.mjs';
 
 const agentDir = dirname(fileURLToPath(import.meta.url));
+import { readdirSync } from 'node:fs';
+/* Always-on guarantee: every profile answers with SOME local model.
+   Preference order is deliberate: configured (retained per slot) >
+   PC-standard 2-3B > lite 1.2B > anything present. Never alphabetical —
+   that once would have defaulted everyone to the 4.5GB Gemma. */
+export function pickDefaultModel() {
+  let files = [];
+  try { files = readdirSync(join(agentDir, 'models')).filter((f) => f.endsWith('.gguf')); } catch { return null; }
+  const pref = ['qwen2.5-3b', 'lfm2.5-1.2b', 'qwen2.5-0.5b', 'nemotron', 'gemma'];
+  for (const p of pref) { const hit = files.find((f) => f.toLowerCase().includes(p)); if (hit) return hit; }
+  return files[0] ?? null;
+}
 
 /* Per-model prompt templates - a GGUF is not its chat format. Wrong
    template = empty/garbled answers (found the hard way with LFM +
@@ -43,8 +55,7 @@ export function extractAnswer(template, stdout) {
 
 export async function localBrainAnswer(query, modeLabel = 'Life-ful') {
   const slot = await loadConfig();
-  const file = slot.modelFile ?? (existsSync(join(agentDir, 'models'))
-    ? (await import('node:fs')).readdirSync(join(agentDir, 'models')).find((f) => f.endsWith('.gguf')) : null);
+  const file = slot.modelFile || pickDefaultModel();
   if (!file) return { ok: false, reason: 'no GGUF in agent/models/' };
   const modelPath = join(agentDir, 'models', file);
   if (!existsSync(modelPath)) return { ok: false, reason: 'model file missing: ' + file };

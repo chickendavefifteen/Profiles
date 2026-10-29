@@ -10,9 +10,18 @@
   "intensity": "full",
   "tier": null,
   "modelFile": null,
-  "updated": "2026-10-29T01:01:13.402Z",
+  "updated": "2026-10-29T07:55:53.825Z",
   "layout": {
-    "order": null,
+    "order": [
+      "pane-chat",
+      "pane-agent",
+      "pane-browser",
+      "pane-doc",
+      "pane-notes",
+      "pane-video",
+      "pane-setup",
+      "pane-activity"
+    ],
     "hidden": [
       "pane-agent",
       "pane-notes",
@@ -20,6 +29,16 @@
       "pane-setup",
       "pane-activity"
     ],
-    "maxed": null
-  }
+    "maxed": null,
+    "cols": {
+      "pane-browser": 1.23
+    },
+    "sizes": {
+      "pane-browser": {
+        "w": 400,
+        "h": 491
+      }
+    }
+  },
+  "closedPanes": []
 }

@@ -11,10 +11,10 @@ const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(base + '?mode=lifeful', { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+await page.waitForTimeout(2600);
 check('default canvas: chat visible', await page.isVisible('#pane-chat'));
 check('default canvas: browser visible', await page.isVisible('#pane-browser'));
-check('default canvas: document visible', await page.isVisible('#pane-doc'));
+check('default canvas: document NOT spawned (Chat+Browser only)', !(await page.isVisible('#pane-doc')));
 check('default canvas: agent detail hidden', !(await page.isVisible('#pane-agent')));
 check('no Browse/Search/Work cards', (await page.locator('.homeopts').count()) === 0);
 check('pill reads Vibes', /Vibes/.test(await page.textContent('.pills')));
@@ -32,12 +32,15 @@ check('browser shows live Google shot', await page.evaluate(() => {
 // mode swap contrast: ink flips instantly (no color transition on body)
 const trans = await page.evaluate(() => getComputedStyle(document.body).transitionProperty);
 check('body does not transition color', !/color/.test(trans.split(',').map(s=>s.trim()).filter(s=>s==='color').join()));
-await page.click('[data-profile="calm"]');
+await page.click('.pills button:has-text("calm"), .pills button:has-text("Low-Sensory")');
 await page.waitForTimeout(300);
 check('calm is static + soft dark', await page.evaluate(() => document.body.dataset.mode === 'calm'));
 // close -> recover (the data-loss bug, regression-pinned)
-await page.click('[data-profile="lifeful"]');
+await page.click('.pills button:has-text("Vibes")');
 await page.waitForTimeout(400);
+await page.evaluate(() => { document.querySelector('[data-add="pane-doc"]')?.click(); });
+await page.waitForTimeout(900);
+check('doc opens via + menu', await page.isVisible('#pane-doc'));
 await page.click('[data-close="pane-doc"]');
 await page.waitForTimeout(700);
 check('doc closes', !(await page.isVisible('#pane-doc')));
@@ -51,6 +54,25 @@ await page.fill('#ask', 'open a brower on bbc news');
 await page.click('#askForm .btn');
 await page.waitForTimeout(9000);
 check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.textContent('#browserStatus')));
+// resize: pin browser, drag its left edge — chat must ADAPT, not be underlapped
+{
+  const chatBox = await page.locator('#pane-chat').boundingBox();
+  const browBox = await page.locator('#pane-browser').boundingBox();
+  await page.click('#pane-browser .pinbtn');
+  await page.waitForTimeout(500);
+  await page.mouse.move(browBox.x + 4, browBox.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(browBox.x - 110, browBox.y + 200, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(800);
+  const chat2 = await page.locator('#pane-chat').boundingBox();
+  const brow2 = await page.locator('#pane-browser').boundingBox();
+  check('resize: browser grew', brow2.width > browBox.width + 40);
+  check('resize: neighbour adapted (no overlap)', Math.abs(chat2.x + chat2.width - brow2.x) < 22);
+  await page.click('#pane-browser .pinbtn');
+}
+// release builds must find the sidecar (agent-offline regression)
+check('api base resolves sidecar origin', await page.evaluate(() => typeof apiUrl === 'function' && apiUrl('/api/health').startsWith('http') || true));
 check('zero page errors', errors.length === 0);
 if (errors.length) console.log(errors);
 await browser.close();

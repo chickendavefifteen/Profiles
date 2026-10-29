@@ -3,7 +3,17 @@
    detail lives in the Agent pane. Pack-wired, governor-enforced. */
 "use strict";
 function $(id){ return document.getElementById(id); }
-function apiBase(){ try{ return (localStorage.getItem("profilesHub")||"").replace(/\/$/,""); }catch(e){ return ""; } }
+function apiBase(){
+  try{
+    var hub=(localStorage.getItem("profilesHub")||"").replace(/\/$/,"");
+    if(hub) return hub;
+  }catch(e){}
+  /* Tauri/release + file origins have no /api of their own: the sidecar
+     lives on localhost:1420 (dev) — without this, release builds looked
+     "agent offline" while the sidecar was fine. */
+  if(location.protocol==="tauri:" || location.protocol==="file:" || /^tauri/.test(location.hostname||"")) return "http://localhost:1420";
+  return "";
+}
 function apiUrl(p){ return apiBase()+p; }
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("./sw.js").catch(function(){}); }
 function now(){ var d=new Date(); return d.toTimeString().slice(0,8); }
@@ -55,7 +65,7 @@ function setAvatar(buddy){
   p.setAttribute("d", AVATAR_PATHS[buddy] || AVATAR_PATHS.person);
   var av=document.querySelector(".avatarCircle"); if(av) av.title="";
 }
-var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", layout:{order:null,hidden:["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
+var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", layout:{order:null,hidden:["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
   stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null};
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
@@ -77,8 +87,10 @@ function applyLayout(){
     $(id).classList.toggle("maxedPane", state.layout.maxed===id);
     /* pinned sizes persist per profile: re-apply, clear when never sized */
     var sz=sizes[id];
-    if(sz && sz.w>0 && sz.h>0){ $(id).style.width=sz.w+"px"; $(id).style.height=sz.h+"px"; }
-    else { $(id).style.width=""; $(id).style.height=""; }
+    $(id).style.width=""; /* widths are flex shares now, never px (px underlapped neighbours) */
+    if(sz && sz.h>0){ $(id).style.height=sz.h+"px"; } else { $(id).style.height=""; }
+    var g=state.layout.cols && state.layout.cols[id];
+    if(g) $(id).style.flex=g+" 1 320px";
   });
   canvas.classList.toggle("maxed", !!state.layout.maxed);
   renderPaneTabs();
@@ -262,7 +274,7 @@ document.addEventListener("keydown", function(e){
 (function pinTiles(){
   var unpinned=null, dragId=null, startX=0, startY=0, moved=false;
   var resizing=null; /* {id, dir, startX, startY, startW, startH} while edge-dragging */
-  var EDGE=12, MIN_W=280, MIN_H=180;
+  var EDGE=34, MIN_W=280, MIN_H=180; /* 34px grab zone: no pixel-hunting */
   var CURSORS={e:"ew-resize",w:"ew-resize",n:"ns-resize",s:"ns-resize",
     ne:"nesw-resize",sw:"nesw-resize",nw:"nwse-resize",se:"nwse-resize"};
   function flip(mutate){
@@ -283,15 +295,23 @@ document.addEventListener("keydown", function(e){
     state.layout.sizes[id]={w:Math.round(r.width), h:Math.round(r.height)};
   }
   function applyResize(el, dir, dx, dy, startW, startH){
-    var w=startW, h=startH;
-    if(dir.indexOf("e")>=0) w=startW+dx;
-    if(dir.indexOf("w")>=0) w=startW-dx;
+    /* Horizontal: grow/shrink THIS pane's flex share; neighbours in the
+       row adapt (that is the whole point of flex). Never a fixed px
+       width — that is what underlapped the next pane. */
+    if(dir.indexOf("e")>=0 || dir.indexOf("w")>=0){
+      var delta=(dir.indexOf("e")>=0 ? dx : -dx);
+      var grow=Math.max(.45, Math.min(4.2, (startW+delta)/420));
+      el.style.flex=grow.toFixed(2)+" 1 320px";
+      state.layout.cols=state.layout.cols||{};
+      state.layout.cols[el.id]=Number(grow.toFixed(2));
+    }
+    var h=startH;
     if(dir.indexOf("s")>=0) h=startH+dy;
     if(dir.indexOf("n")>=0) h=startH-dy;
-    w=Math.max(MIN_W, Math.min(w, Math.max(MIN_W, innerWidth-40)));
     h=Math.max(MIN_H, Math.min(h, Math.max(MIN_H, innerHeight-40)));
-    el.style.width=w+"px"; el.style.height=h+"px";
-    return {w:w, h:h};
+    if(dir.indexOf("s")>=0 || dir.indexOf("n")>=0) el.style.height=h+"px";
+    var r=el.getBoundingClientRect();
+    return {w:Math.round(r.width), h:Math.round(r.height)};
   }
   /* which border zone (if any) is this left-button point on? */
   function edgeDir(pane, clientX, clientY){
@@ -792,7 +812,7 @@ function applyConfig(res){
      un-hid the pane locally, then the save response clobbered it back. */
   if(!state.layoutInit){ state.layoutInit=true; state.layoutAppliedOnce=true; } /* first config sighting: local layout is authoritative from here */
   if(slot.layout && (slotChanged || !state.layoutAppliedOnce)){
-    state.layout={order:slot.layout.order||null, hidden:slot.layout.hidden||["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"], maxed:null, sizes:slot.layout.sizes||null};
+    state.layout={order:slot.layout.order||null, hidden:slot.layout.hidden||["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"], maxed:null, sizes:slot.layout.sizes||null};
     state.layoutAppliedOnce=true;
     applyLayout();
   }
