@@ -6,20 +6,23 @@
 
 export const TOOLS = [
   { id: 'file-task', label: 'File into vault tasks + note', risk: 'low', confirm: false,
-    modes: ['lite', 'chill', 'focus', 'lifeful', 'calm'], status: 'live' },
+    modes: ['babylite', 'chill', 'FOCUSMAX', 'Vibes', 'calm', 'xMAX'], status: 'live' },
   { id: 'stage-doc', label: 'Stage a document draft (preview, .md/.docx)', risk: 'low', confirm: false,
-    modes: ['lite', 'chill', 'focus', 'lifeful', 'calm'], status: 'live' },
-  { id: 'stage-slides', label: 'Stage a slide-deck outline', risk: 'low', confirm: false,
-    modes: ['chill', 'focus', 'lifeful'], status: 'live' },
+    modes: ['babylite', 'chill', 'FOCUSMAX', 'Vibes', 'calm', 'xMAX'], status: 'live' },
+  { id: 'stage-slides', label: 'Stage a slide-deck outline', risk: 'low', confirm: true,
+    modes: ['chill', 'FOCUSMAX', 'Vibes', 'xMAX'], status: 'live' },
   { id: 'write-script', label: 'Write a Playwright/codemode script to vault (never auto-runs)', risk: 'medium', confirm: true,
-    modes: ['focus', 'lifeful'], status: 'live' },
+    modes: ['FOCUSMAX', 'Vibes', 'xMAX'], status: 'live' },
   { id: 'browser-act', label: 'Drive a browser (Playwright, read-only actions, per-run confirm token)', risk: 'high', confirm: true,
-    modes: ['lifeful'], status: 'gated', gate: 'live via /api/browser/prepare+run (X or Advanced, 60s token); CUA+vision still gated' },
+    modes: ['Vibes', 'xMAX'], status: 'gated', gate: 'live via /api/browser/prepare+run (X or Advanced, 60s token); CUA+vision still gated' },
   { id: 'google-docs', label: 'Push staged draft to Google Docs/Slides', risk: 'medium', confirm: true,
-    modes: ['chill', 'focus', 'lifeful'], status: 'gated', gate: 'needs Google OAuth (next hop); .docx export works today' },
+    modes: ['chill', 'FOCUSMAX', 'Vibes', 'xMAX'], status: 'gated', gate: 'needs Google OAuth (next hop); .docx export works today' },
 ];
 
-const UI_TO_MODE = { dev: 'lifeful', 'low-sensory': 'calm' };
+// Legacy mode IDs -> canonical new nomenclature (2026-10-29).
+const UI_TO_MODE = { dev: 'Vibes', lifeful: 'Vibes', vibes: 'Vibes',
+  lite: 'babylite', focus: 'FOCUSMAX', focused: 'FOCUSMAX',
+  'low-sensory': 'calm', lowsensory: 'calm', xmax: 'xMAX', XMAX: 'xMAX' };
 
 /** Tools available in a mode (accepts pack names like dev/low-sensory too). */
 export function toolsForMode(mode) {

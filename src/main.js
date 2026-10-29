@@ -8,20 +8,36 @@ function apiUrl(p){ return apiBase()+p; }
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("./sw.js").catch(function(){}); }
 function now(){ var d=new Date(); return d.toTimeString().slice(0,8); }
 
+var MODE_ORDER=["babylite","chill","FOCUSMAX","Vibes","calm","xMAX"];
+var MODE_ALIASES={lite:"babylite",focus:"FOCUSMAX",focused:"FOCUSMAX",lifeful:"Vibes",vibes:"Vibes",dev:"Vibes","low-sensory":"calm",lowsensory:"calm",xmax:"xMAX",XMAX:"xMAX"};
+function canonicalMode(id){
+  if(!id) return null;
+  if(MODE_ORDER.indexOf(id)>=0) return id;
+  var lower=String(id).toLowerCase();
+  for(var i=0;i<MODE_ORDER.length;i++){ if(MODE_ORDER[i].toLowerCase()===lower) return MODE_ORDER[i]; }
+  if(MODE_ALIASES[id]) return MODE_ALIASES[id];
+  if(MODE_ALIASES[lower]) return MODE_ALIASES[lower];
+  return null;
+}
 var MODES={
-  lite:    {label:"Lite · big targets",         motion:60, sim:1, tick:900,  speech:"terse",
-             note:"Lite — big targets, one thing, always asks. Governor: motion 60%, 1 simultaneous, flash 0/s (capped). Agent simple/asks-first, parallelism 1."},
-  chill:   {label:"Chill · warm and slow",      motion:35, sim:1, tick:2600, speech:"sparse",
-             note:"Chill — warm, slow, rest reminders. Governor: motion 35%, 1 simultaneous, flash 0/s (capped). Agent brief/checkpointed, parallelism 1."},
-  focus:   {label:"Focus · mono-task",          motion:10, sim:1, tick:1000, speech:"terse",
-             note:"Focus — mono-task, distractions held. Governor: motion 10%, 1 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."},
-  lifeful: {label:"Vibes · full energy",            motion:100,sim:4, tick:700,  speech:"full",
-             note:"Dev/Heavy — parallel agent, proactive, checkpointed before anything irreversible. Governor: motion 100%, 4 simultaneous, flash 0/s (capped). Agent detailed/act-with-checkpoint, parallelism 4."},
-  calm:    {label:"Low-Sensory · ND calm",      motion:0,  sim:0, tick:4200, speech:"quiet",
-             note:"Low-Sensory — motion stops, palette softens, agent terse and mono-task. Governor: motion 0%, 0 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."}
+  babylite:{label:"babylite · soft + simple",   motion:60, sim:1, tick:900,  speech:"terse",
+             note:"babylite — soft baby-blue, big targets, one thing, always asks. Governor: motion 60%, 1 simultaneous, flash 0/s (capped). Agent simple/asks-first, parallelism 1."},
+  chill:   {label:"chill · warm and slow",      motion:35, sim:1, tick:2600, speech:"sparse",
+             note:"chill — warm, slow, rest reminders. Governor: motion 35%, 1 simultaneous, flash 0/s (capped). Agent brief/checkpointed, parallelism 1."},
+  FOCUSMAX:{label:"FOCUSMAX · mono-task",       motion:10, sim:1, tick:1000, speech:"terse",
+             note:"FOCUSMAX — mono-task, distractions held. Governor: motion 10%, 1 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."},
+  Vibes:   {label:"Vibes · full energy",        motion:100,sim:4, tick:700,  speech:"full",
+             note:"Vibes — fun, fluent, energetic, parallel agent, proactive, checkpointed before anything irreversible. Governor: motion 100%, 4 simultaneous, flash 0/s (capped). Agent detailed/act-with-checkpoint, parallelism 4."},
+  calm:    {label:"calm · sensory panic button",motion:0,  sim:0, tick:4200, speech:"quiet",
+             note:"calm — sensory panic button: motion stops, palette softens, agent terse and mono-task. Governor: motion 0%, 0 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."},
+  xMAX:    {label:"xMAX · parallel storm",      motion:100,sim:6, tick:450,  speech:"full",
+             note:"xMAX — Vibes + FOCUSMAX hybrid: crisp, quick, heavy parallelism (Profile X only). Governor: motion 100%, 6 simultaneous, flash 0/s (capped). Agent detailed/act-with-checkpoint, parallelism 6."}
 };
-var ROUTING={lite:"muse-spark-1.3-contributor",chill:"muse-spark-1.3-contributor",
-  focus:"muse-spark-1.3-contributor",lifeful:"muse-spark-1.3-contributor",calm:null};
+/* legacy aliases so old deep-links / saved metaMode values keep resolving */
+MODES.lite=MODES.babylite; MODES.focus=MODES.FOCUSMAX; MODES.lifeful=MODES.Vibes; MODES["low-sensory"]=MODES.calm; MODES.dev=MODES.Vibes;
+var ROUTING={babylite:"muse-spark-1.3-contributor",chill:"muse-spark-1.3-contributor",
+  FOCUSMAX:"muse-spark-1.3-contributor",Vibes:"muse-spark-1.3-contributor",calm:null,xMAX:"muse-spark-1.3-contributor"};
+ROUTING.lite=ROUTING.babylite; ROUTING.focus=ROUTING.FOCUSMAX; ROUTING.lifeful=ROUTING.Vibes; ROUTING["low-sensory"]=ROUTING.calm; ROUTING.dev=ROUTING.Vibes;
 var livePacks={};
 var BUDDIES={fox:"🦊",turtle:"🐢",rocket:"🚀",leaf:"🌿",cat:"🐱"};
 var AVATAR_PATHS={
@@ -39,7 +55,7 @@ function setAvatar(buddy){
   p.setAttribute("d", AVATAR_PATHS[buddy] || AVATAR_PATHS.person);
   var av=document.querySelector(".avatarCircle"); if(av) av.title="";
 }
-var state={mode:"lifeful", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", layout:{order:null,hidden:["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
+var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", layout:{order:null,hidden:["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
   stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null};
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
@@ -290,8 +306,16 @@ function persistLayout(){
 }
 
 /* ---- profiles: instant var swap, nothing reflows ---- */
-function setMode(mode, why){
+function profileXOn(){ return state.slot==="X" || (state.appCfg && state.appCfg.showX); }
+function setMode(mode, why, opts){
+  mode=canonicalMode(mode)||mode;
   if(!MODES[mode]) return;
+  if(mode==="xMAX" && !profileXOn()){
+    bubble("xMAX lives inside Profile X only — turn on Profile X (Settings › Profiles) to unlock the parallel storm.", "sys");
+    return;
+  }
+  var segway=opts&&opts.segway;
+  if(segway){ document.body.classList.add("segwaying"); }
   state.mode=mode;
   var m=MODES[mode];
   document.body.dataset.mode=mode;
@@ -304,17 +328,30 @@ function setMode(mode, why){
   $("govNote").textContent=m.note;
   stream("profile → "+m.label+(why?" ("+why+")":"")+" — budget motion "+m.motion+"%, flash 0/s, simult "+m.sim);
   updateModelLine();
+  updateXmaxVisibility();
   learnStay(mode);
-  if(why && why.indexOf("opening")!==0 && why.indexOf("pack engine")!==0 && why.indexOf("learned")!==0) checkLearned();
+  if(segway){ setTimeout(function(){ document.body.classList.remove("segwaying"); }, 700); }
+  if(why && why.indexOf("opening")!==0 && why.indexOf("pack engine")!==0 && why.indexOf("learned")!==0 && why.indexOf("adaptive")!==0) checkLearned();
+}
+function updateXmaxVisibility(){
+  var btn=document.querySelector('.pills button[data-profile="xMAX"]');
+  if(!btn) return;
+  var on=profileXOn();
+  btn.hidden=!on;
+  if(!on && state.mode==="xMAX") setMode("Vibes","xMAX hidden — Profile X off, back to Vibes");
 }
 document.querySelectorAll(".pills button").forEach(function(b){
   b.addEventListener("click", function(){ setMode(b.dataset.profile, "you switched"); });
 });
 document.addEventListener("keydown", function(e){
   if(e.target && (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")) return;
-  var map={"1":"lite","2":"chill","3":"focus","4":"lifeful","5":"calm"};
-  if(map[e.key]) setMode(map[e.key], "key "+e.key);
-  if(e.key==="c"||e.key==="C"){ focusPane("pane-chat"); $("ask").focus(); }
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  var map={"1":"babylite","2":"chill","3":"FOCUSMAX","4":"Vibes","5":"calm","6":"xMAX"};
+  if(map[e.key]){ setMode(map[e.key], "key "+e.key, {segway:true}); return; }
+  var k=String(e.key||"").toLowerCase();
+  var slotMap={a:"A",b:"B",c:"C",x:"X"};
+  if(slotMap[k]){ switchSlot(slotMap[k]); stream("profile → "+slotMap[k]+" (key "+k+")"); return; }
+  if(e.key==="/"){ e.preventDefault(); focusPane("pane-chat"); $("ask").focus(); }
 });
 
 /* ---- chat: answers are bubbles; agent log is detail ---- */
@@ -450,7 +487,7 @@ $("askForm").addEventListener("submit", function(e){
   e.preventDefault();
   var q=$("ask").value.trim();
   $("ask").value="";
-  if(state.mode==="lifeful" && state.mode!=="calm"){
+  if((state.mode==="Vibes"||state.mode==="xMAX") && state.mode!=="calm"){
     var r=document.createElement("span"); r.className="rippleFx";
     r.style.width="90px"; r.style.height="90px"; r.style.right="30px"; r.style.bottom="24px";
     $("pane-chat").appendChild(r); setTimeout(function(){ r.remove(); }, 750);
@@ -573,7 +610,9 @@ function applyConfig(res){
     state.layoutAppliedOnce=true;
     applyLayout();
   }
-  if(slot.metaMode && slot.metaMode!==state.mode && !state.urlMode) setMode(slot.metaMode, "this profile settles here");
+  var canonMeta=canonicalMode(slot.metaMode);
+  if(canonMeta && canonMeta!==state.mode && !state.urlMode) setMode(canonMeta, "this profile settles here");
+  updateXmaxVisibility();
   if(slotChanged) resetWorldView(slot);
   if(slotChanged && state.slot==="X") bubble("⚡ Profile X — ringfenced power world. Extensible pi + durable, deeper access where this device allows, advised brain: PC-standard or better. A and B cannot see or touch any of this, and X cannot touch them.", "agent");
 }
@@ -605,6 +644,7 @@ function loadAppConfig(){
   fetch(apiUrl("/api/appconfig")).then(function(r){ return r.json(); }).then(function(ac){
     state.appCfg=ac;
     $("slotX").hidden=!ac.showX;
+  state.appCfg=ac; updateXmaxVisibility();
     $("showXToggle").checked=!!ac.showX;
     var extra=ac.extraSlots||[];
     $("slotD").hidden=extra.indexOf("D")<0;
@@ -996,6 +1036,70 @@ $("routingToggle").addEventListener("change", function(e){
   stream("routing "+(state.routing?"ON — cost preview shown":"OFF — fixed model"));
 });
 
+/* ---- Adaptive switcher: gentle segways, context triggers (2026-10-29 modes lane) ----
+   Triggers: AFK/idle (>=90s) -> chill · single-pane focus -> FOCUSMAX ·
+   rapid pane swapping (>=5/min) -> Vibes · CPU/RAM pressure -> babylite.
+   calm is a manual panic button: Adaptive never selects it and never
+   pulls you out of it. xMAX never auto-selected (Profile X manual only). */
+state.adaptive=false; state.lastActivity=Date.now(); state.paneSwitchTimes=[];
+function decideAdaptiveLocal(ctx){
+  var idleSec=ctx.idleSec||0, swapRate=ctx.swapRate||0, cpu=ctx.cpuLoad||0, mem=ctx.memPressure||0, focused=!!ctx.focusedSinglePane, cur=ctx.current;
+  if(cur==="calm") return null; /* panic button is sticky */
+  if((cpu>=0.85||mem>=0.85)&&cur!=="babylite") return {to:"babylite",why:"resource pressure: CPU/RAM struggling \u2014 soft downshift to babylite"};
+  if(idleSec>=90&&cur!=="chill") return {to:"chill",why:"idle/AFK \u2014 gentle segway to chill"};
+  if(swapRate>=5&&cur!=="Vibes"&&cur!=="xMAX") return {to:"Vibes",why:"rapid task swapping \u2014 segway to Vibes"};
+  if(focused&&cur!=="FOCUSMAX"&&cur!=="xMAX") return {to:"FOCUSMAX",why:"sustained single-pane focus \u2014 segway to FOCUSMAX"};
+  return null;
+}
+function adaptiveContext(){
+  var idleSec=Math.round((Date.now()-(state.lastActivity||Date.now()))/1000);
+  var cutoff=Date.now()-60000;
+  state.paneSwitchTimes=(state.paneSwitchTimes||[]).filter(function(t){ return t>cutoff; });
+  var swapRate=state.paneSwitchTimes.length;
+  var focused=!!state.layout.maxed;
+  var cpuLoad=0, memPressure=0;
+  try{
+    var nav=navigator||{};
+    if(typeof nav.hardwareConcurrency==="number"&&nav.hardwareConcurrency<=4) cpuLoad=Math.max(cpuLoad,0.5);
+    if(typeof nav.deviceMemory==="number"&&nav.deviceMemory<=4) memPressure=Math.max(memPressure,0.9);
+    if(performance&&performance.memory&&performance.memory.jsHeapSizeLimit){
+      var ratio=performance.memory.usedJSHeapSize/performance.memory.jsHeapSizeLimit;
+      if(ratio>0.85) memPressure=Math.max(memPressure,0.9);
+    }
+  }catch(e){}
+  return {idleSec:idleSec,swapRate:swapRate,cpuLoad:cpuLoad,memPressure:memPressure,focusedSinglePane:focused,current:state.mode};
+}
+function adaptiveTick(){
+  if(!state.adaptive||document.visibilityState!=="visible") return;
+  var d=decideAdaptiveLocal(adaptiveContext());
+  if(!d||d.to===state.mode) return;
+  if(d.to==="xMAX"||d.to==="calm") return; /* never auto-select these */
+  setMode(d.to,"adaptive: "+d.why,{segway:true});
+  stream("adaptive \u2192 "+MODES[d.to].label+" ("+d.why+")");
+}
+["pointerdown","keydown","wheel"].forEach(function(ev){
+  document.addEventListener(ev,function(){ state.lastActivity=Date.now(); },{passive:true,capture:true});
+});
+var _origShowPaneEl=showPaneEl;
+showPaneEl=function(id,silent){
+  state.paneSwitchTimes.push(Date.now());
+  return _origShowPaneEl(id,silent);
+};
+setInterval(adaptiveTick,15000);
+function bindAdaptive(){
+  var t=$("adaptiveToggle"); if(!t||t.dataset.bound) return; t.dataset.bound="1";
+  try{ state.adaptive=localStorage.getItem("profilesAdaptive")==="1"; }catch(e){}
+  t.checked=!!state.adaptive;
+  $("adaptiveWrap").classList.toggle("on",!!state.adaptive);
+  t.addEventListener("change",function(){
+    state.adaptive=t.checked;
+    $("adaptiveWrap").classList.toggle("on",!!state.adaptive);
+    try{ localStorage.setItem("profilesAdaptive",state.adaptive?"1":"0"); }catch(e){}
+    stream("adaptive "+(state.adaptive?"ON \u2014 segways announced, calm stays manual":"OFF"));
+    bubble(state.adaptive?"Adaptive on \u2014 I segway gently (idle \u2192 chill, focus \u2192 FOCUSMAX, swapping \u2192 Vibes, strain \u2192 babylite). calm stays your panic button.":"Adaptive off \u2014 modes only change when you tap, press 1\u20136, or a/b/c/x.", "sys");
+  });
+}
+
 /* ---- pack engine wiring ---- */
 function packToMode(p, fb){
   var b=(p.sensory_budget||{}), out={label:p.name||fb.label, motion:fb.motion, sim:fb.sim,
@@ -1018,7 +1122,7 @@ function fetchPack(file){
   });
 }
 function bootPacks(){
-  var files={lite:"lite",chill:"chill",focus:"focus",lifeful:"dev",calm:"low-sensory"};
+  var files={babylite:"babylite",chill:"chill",FOCUSMAX:"FOCUSMAX",Vibes:"Vibes",calm:"low-sensory",xMAX:"xmax"};
   var jobs=Object.keys(files).map(function(mode){
     return fetchPack(files[mode]).then(function(p){ livePacks[mode]=p; MODES[mode]=packToMode(p, MODES[mode]); })
     .catch(function(){});
@@ -1185,11 +1289,13 @@ seed();
 applyLayout();
 (function(){
   var sp=new URLSearchParams(location.search);
-  var m=(sp.get("mode")||"lifeful").toLowerCase();
+  var raw=sp.get("mode")||"Vibes";
   if(sp.get("mode")) state.urlMode=true;
-  if(m==="dev") m="lifeful"; if(m==="low-sensory") m="calm";
-  setMode(MODES[m]?m:"lifeful","opening demo");
+  var m=canonicalMode(raw)||"Vibes";
+  if(!MODES[m]) m="Vibes";
+  setMode(m,"opening demo");
   updateModelLine();
+  bindAdaptive(); updateXmaxVisibility();
   bootPacks();
   bootAgent();
   loadConfig(); loadAppConfig(); loadMacros(); loadNotes();
