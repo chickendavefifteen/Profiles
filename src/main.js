@@ -570,51 +570,37 @@ function logLine(text){
 }
 
 /* simulated fallback (labelled) — only when the sidecar is unreachable */
-function stageLine(stage, q){
-  var m=MODES[state.mode], sp=m.speech;
-  if(sp==="quiet") return null;
-  if(sp==="sparse" && (stage==="sense"||stage==="plan"||stage==="remember")) return null;
-  switch(stage){
-    case "sense": return "sense ✓ inbox scan";
-    case "plan":  return "plan → \""+q+"\" first";
-    case "act":   return "act ✓ filed → tasks";
-    case "verify":return "verify ✓ checkpoint #"+(state.runCount+1);
-    case "remember": return "remember ✓ ledger remembers";
-  }
-  return null;
-}
-function startRun(q){
-  if(state.timer){ clearInterval(state.timer); state.timer=null; }
-  state.runCount++; state.stage=-1;
+/* Honest failure path: the agent NEVER fakes an answer. On a failed
+   ask it says so, retries once by itself, and only then asks you to
+   retry. Nothing is filed, nothing staged, no invented reply. */
+var askRetries={};
+function askFailed(q, err){
+  clearThinking();
   paintStages(-1);
-  $("agentStatus").classList.add("working");
-  $("agentStatusText").textContent="working on “"+q+"” — sidecar unreachable, labelled";
-  logLine("→ “"+q+"” · simulated (sidecar down)");
-  state.timer=setInterval(function(){ tick(q); }, MODES[state.mode].tick);
-}
-function tick(q){
-  state.stage++;
-  if(state.stage>=STAGES.length){
-    clearInterval(state.timer); state.timer=null;
-    paintStages(99);
-    $("agentStatus").classList.remove("working");
-    $("agentStatusText").textContent="done ✓";
-    bubble(liteFallback(q), "agent");
-    addLedger(q);
-    stream("simulated run #"+state.runCount+" ✓ “"+q+"” (sidecar down)");
+  $("agentStatus").classList.remove("working");
+  var n=(askRetries[q]||0)+1; askRetries[q]=n;
+  logLine("! ask failed ("+String((err&&err.message)||err||"unknown").slice(0,120)+") — attempt "+n);
+  if(n<=1){
+    $("agentStatusText").textContent="connection hiccup — retrying…";
+    bubble("Connection hiccup — retrying your ask by itself…", "sys");
+    setTimeout(function(){
+      if((askRetries[q]||0)>1) return;
+      askRetries[q]=0;
+      state.agentOk=true;
+      runReal(q, true);
+    }, 2500);
     return;
   }
-  var s=STAGES[state.stage];
-  paintStages(state.stage);
-  var line=stageLine(s,q);
-  if(line) logLine(line);
+  askRetries[q]=0;
+  $("agentStatusText").textContent="idle — that ask did not go through";
+  bubble("That one did not go through — the connection dropped it, and I did not file or stage anything. Tap Go again to retry.", "agent");
+  stream("ask failed honestly — nothing filed, nothing faked");
 }
-
 /* ---- real sidecar: always on, chat-first ----
    Smooth by design: one in-flight ask at a time (abort + replace),
    30s timeout, busy lock on Go, tool results paint instantly. */
 var askCtrl=null, askBusy=false;
-function runReal(q){
+function runReal(q, isRetry){
   state.runCount++;
   if(askCtrl){ try{ askCtrl.abort(); }catch(e){} }
   askCtrl=(typeof AbortController!=="undefined") ? new AbortController() : null;
@@ -668,16 +654,8 @@ function runReal(q){
       return;
     }
     $("agentStatus").classList.remove("working");
-    logLine("! sidecar unreachable ("+err.message+") — labelled simulation instead");
-    startRun(q);
+    askFailed(q, err);
   });
-}
-function liteFallback(q){
-  var low=String(q||"").toLowerCase();
-  if(/^(hi|hey|hello)\b/.test(low)) return "Hello! I'm here — ask me to search, open a page, or draft something.";
-  if(/agentic|what can you do|who are you/.test(low)) return "I'm your always-on agent: I chat, search the web, open and read pages, file tasks, and stage documents — all locally. My bigger brain warms up in the background; the basics never wait for it.";
-  if(/open|search|browse/.test(low)) return "On it — the Browser pane is right there; if it's hidden, tap + and choose Browse. My full browsing brain is still warming up just now.";
-  return "Got it. My full brain is warming up in the background, but I never switch off — ask me to search, open a page, or draft something and I'll do the basics right now.";
 }
 function ask(q){
   q=(q||"").trim();
@@ -699,7 +677,7 @@ function ask(q){
     }).catch(function(){ bubble("I tried to snapshot but the sidecar is unreachable — run npm start and ask again.", "agent"); });
     return;
   }
-  if(state.agentOk) runReal(q); else startRun(q);
+  runReal(q); /* askFailed() owns every failure — never a fake answer */
 }
 $("askForm").addEventListener("submit", function(e){
   e.preventDefault();
@@ -1032,13 +1010,22 @@ function browserShow(out){
 }
 /* Live view: MJPEG stream straight into the pane — the page, not a still. */
 var browserObj=null;
+var streamFails=0;
 function browserLive(){
   var img=$("browserImg"); if(!img) return;
   if(browserObj) URL.revokeObjectURL(browserObj.src);
   var src=apiUrl("/api/browser/stream");
   browserObj=img;
   img.alt="Live browser";
-  img.onerror=function(){ setTimeout(function(){ img.src=src; }, 1500); }; img.src=src;
+  img.onerror=function(){
+    streamFails++;
+    /* after 2 dead frames show the last good still behind the retry —
+       a stale frame beats a blank void, and the stream keeps healing */
+    if(streamFails===2) img.src=apiUrl("/api/browser/poster")+"?t="+Date.now();
+    else setTimeout(function(){ img.src=src; }, 1500);
+  };
+  img.onload=function(){ streamFails=0; };
+  img.src=src;
 }
 var browserHungryTimer=null;
 function browserHungry(){
@@ -1051,6 +1038,14 @@ function browserHungry(){
 setInterval(function(){
   if(browserLoaded && (!$("browserImg") || !$("browserImg").src || $("browserImg").src==="")) browserLive();
 }, 3000);
+/* Cold boot shows the last good frame instantly (poster), then the live
+   stream takes over — the pane is never a white void while handshaking. */
+setTimeout(function(){
+  var img=$("browserImg"); if(!img || img.src) return;
+  img.src=apiUrl("/api/browser/poster")+"?t="+Date.now();
+  img.onerror=function(){};
+  setTimeout(function(){ browserLive(); }, 1200);
+}, 300);
 function browserCall(path, body){
   var payload=body||{};
   if(payload.url) payload.url=normUrl(payload.url);
@@ -1628,12 +1623,28 @@ setInterval(function(){
 
 /* ---- agent presence: always on, no toggle, honest badge ---- */
 setTimeout(function(){ if(!browserLoaded && paneVisible("pane-browser")) browserCall("/api/browser/home", {}); }, 1200);
+var bootBuild=null;
+if($("updatePill")) $("updatePill").addEventListener("click", function(){ location.reload(); });
+function checkBuild(h){
+  if(!h || !h.build) return;
+  if(!bootBuild){ bootBuild=h.build; return; }
+  if(h.build!==bootBuild){
+    var pill=$("updatePill");
+    if(pill){ pill.hidden=false; }
+    stream("update available ("+h.build+") — reload to run the newest build");
+  }
+}
+setInterval(function(){
+  if(document.visibilityState!=="visible") return;
+  fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(checkBuild).catch(function(){});
+}, 30000);
 function bootAgent(){
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
+    checkBuild(h);
     state.agentOk=true;
     $("brainBadge").textContent="agent on · local";
     $("agentStatusText").textContent="lite agent on — ask in chat; detail lands here";
-    bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. Ask me anything, or tap “Help me get a better agent plugged in” and I will upgrade myself with you, step by step.", "agent");
+    bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. Ask me anything: chat, search, open pages, draft documents.", "agent");
     stream("lite agent ON — "+h.brain);
   }).catch(function(){
     /* never dead, never apologising about plumbing: retry quietly and

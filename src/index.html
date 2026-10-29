@@ -273,7 +273,7 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
 .pane{display:none;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
  transition:background-color .45s ease,border-color .45s ease;min-height:200px}
 .pane.on{display:block;animation:pageIn .3s var(--ease)}
-.panehead{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:.84rem;font-weight:600}
+.panehead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:.84rem;font-weight:600}
 .pinbtn{margin-left:auto;font:inherit;font-size:.8rem;background:none;border:1px solid transparent;border-radius:8px;cursor:pointer;min-height:34px;min-width:38px;opacity:.65}
 .pinbtn:hover{opacity:1;border-color:var(--line)}
 .pane.unpinned{outline:2px solid var(--accent);box-shadow:0 18px 44px rgba(0,0,0,.4);z-index:5;touch-action:none;min-width:280px;min-height:180px}
@@ -364,6 +364,7 @@ body.kids .advancedBlock{display:none!important}
     <button class="avatarBtn" id="brandMenuBtn" type="button" title="Account, settings and more" aria-haspopup="true" aria-expanded="false">
         <span class="avatarCircle" aria-hidden="true"><svg viewBox="0 0 24 24"><path id="avatarPath" d=""/></svg></span>
       </button>
+      <button id="updatePill" hidden type="button" title="A newer build is running — reload to use it" style="font:inherit;font-size:.75rem;font-weight:700;color:#fff;background:var(--accent);border:none;border-radius:99px;padding:6px 13px;cursor:pointer;min-height:34px">Update — reload</button>
       <span class="wordmark" aria-label="Profiles"><span class="ppp" aria-hidden="true"><i>P</i><i>P</i><i>P</i></span><span class="rest">rofiles</span></span>
     <div class="brandmenu" id="brandMenu" hidden>
       <button type="button" data-menu="setup">⚙ Settings</button>

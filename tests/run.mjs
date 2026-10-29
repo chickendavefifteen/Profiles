@@ -87,7 +87,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(html.includes('gov-freeze') && html.includes('prefers-reduced-motion'), 'frontend: governor kill-switch + reduced-motion guard');
   ok(html.includes('Skip to') && html.includes('aria-live'), 'frontend: skip link + live regions');
   ok(js.includes('location.search'), 'frontend: deep-linkable modes for screenshots/demo');
-  ok(js.includes('get("ask")') && js.includes('startRun(q'), 'frontend: ?ask= deep-link starts a run on boot');
+  ok(js.includes('get("ask")') && js.includes('ask(qq') || js.includes('ask(q.slice'), 'frontend: ?ask= deep-link starts a run on boot');
   ok(!html.includes('Synthetic demo'), 'frontend: no synthetic/demo boilerplate text in the UI');
   ok(js.includes('packs/') && js.includes('fetchPack'), 'frontend: wired to packs/*.json with vendored fallback');
   ok(js.includes('gov-freeze'), 'frontend: JS enforces still mode');
@@ -166,7 +166,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(html.includes('id="pane-doc"') && html.includes('id="stageList"'), 'frontend: Document/Stage pane for staged docs');
   ok(html.includes('id="autoToggle"') && !html.includes('id="agentToggle"'), 'frontend: lite agent always on, no settings trip to enable it');
   ok(js.includes('bubble(') && js.includes('"agent"'), 'frontend: answers land in chat bubbles, TUI is detail');
-  ok(js.includes('/api/ask') && js.includes('sidecar unreachable'), 'frontend: real runs with labelled simulated fallback');
+  ok(js.includes('/api/ask') && js.includes('askFailed') && !js.includes('liteFallback'), 'frontend: failed asks are honest (retry, never faked)');
   ok(js.includes('suggestYes') && js.includes('requiresUserYes') || js.includes('pendingSuggest'), 'frontend: auto mode is suggest-first');
   ok(js.includes('/api/stage/') && js.includes('format=docx') || js.includes('export?format=docx'), 'frontend: staged drafts export to docx');
   ok(existsSync(join(root, 'SPEC-REAL-AGENT.md')), 'spec: SPEC-REAL-AGENT.md documents the real-agent design');
@@ -325,6 +325,13 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('"+ Pane"') || true, 'plus: label check soft');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('add.textContent="+"'), 'plus: just a bold plus now');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('max-width:1480px'), 'scale: canvas ~25% wider for big screens');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('updatePill'), 'frontend: stale windows offer Reload on new builds');
+  ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/poster'"), 'sidecar: still poster behind the live stream');
+  const al2 = await import('../agent/agentloop.mjs');
+  ok(al2.decideTool('bbc news')?.tool === 'browser_open', 'tools: bare "bbc news" opens');
+  ok(al2.decideTool('sky news')?.tool === 'browser_open', 'tools: bare "sky news" opens');
+  ok(al2.decideTool('allotment jobs october')?.tool === 'web_search', 'tools: bare topic searches');
+  ok(al2.decideTool('hi') === null && al2.decideTool('what is 2+2?') === null, 'tools: greetings/questions stay chat');
   const man2 = JSON.parse(readFileSync(join(root, 'agent', 'models.json'), 'utf8'));
   ok(!!man2['researched2026-10-28-v2'], 'research: v2 verdicts on Bolt E4B / Minitron-2B recorded');
 }

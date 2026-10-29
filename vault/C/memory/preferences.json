@@ -2,16 +2,24 @@
   "preferredMode": {},
   "macroCandidates": [
     {
-      "phrase": "go to bc news website",
-      "count": 23
+      "phrase": "hi r u agentic now",
+      "count": 570
     },
     {
-      "phrase": "hi r u agentic now",
-      "count": 9
+      "phrase": "go to bc news website",
+      "count": 36
     },
     {
       "phrase": "open a brower on bbc news",
-      "count": 9
+      "count": 22
+    },
+    {
+      "phrase": "bbc news",
+      "count": 13
+    },
+    {
+      "phrase": "open bbc news",
+      "count": 3
     }
   ],
   "linkedGroups": [
@@ -20,21 +28,21 @@
         "pane-browser",
         "pane-chat"
       ],
-      "count": 293
+      "count": 530
     },
     {
       "panes": [
         "pane-chat",
         "pane-doc"
       ],
-      "count": 259
+      "count": 495
     },
     {
       "panes": [
         "pane-browser",
         "pane-doc"
       ],
-      "count": 252
+      "count": 488
     },
     {
       "panes": [
@@ -52,6 +60,6 @@
     }
   ],
   "lastDismissal": null,
-  "events": 350,
-  "derivedAt": "2026-10-29T11:34:34.676Z"
+  "events": 1190,
+  "derivedAt": "2026-10-29T12:32:19.999Z"
 }

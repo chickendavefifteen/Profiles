@@ -90,16 +90,35 @@ async function dismissConsent(page) {
     if (await btn.count()) { await btn.first().click({ timeout: 3000 }); await page.waitForTimeout(900); }
   } catch {}
 }
+/* Singleflight: concurrent first-touches (page img + tool call racing
+   on a cold server) must SHARE one launch, never double-launch on the
+   same profile dir — the loser's Chromium blocks on the Singleton lock
+   and the request hangs with zero bytes. */
+const pendingSessions = new Map();
 async function ensureSession(slot) {
-  if (sessions.has(slot)) {
-    const s = sessions.get(slot);
-    try { if (!s.page.isClosed()) return s; } catch {}
+  const cur = sessions.get(slot);
+  if (cur) {
+    try { if (!cur.page.isClosed()) return cur; } catch {}
     sessions.delete(slot); /* dead session: never serve a corpse */
   }
+  if (pendingSessions.has(slot)) return pendingSessions.get(slot);
+  const p = buildSession(slot).finally(() => pendingSessions.delete(slot));
+  pendingSessions.set(slot, p);
+  const sess = await p;
+  sessions.set(slot, sess);
+  return sess;
+}
+async function buildSession(slot) {
   const { chromium } = await import('playwright');
   const p = slotPaths(slot);
   const profileDir = join(p.root, 'browser-profile-' + (process.env.PROFILES_SERVER_PORT || process.env.PROFILES_AGENT_PORT || 'main'));
   await mkdir(profileDir, { recursive: true });
+  try {
+    const { rmSync } = await import('node:fs');
+    for (const f of ['SingletonLock', 'SingletonCookie', 'SingletonSocket']) {
+      try { rmSync(join(profileDir, f), { force: true }); } catch {}
+    }
+  } catch {}
   /* Headless persistent Chromium: passes Google's bot check (proven),
      works in every spawn context (Tauri-spawned sidecars have no
      DISPLAY — headed there dies instantly and poisons the session). */
@@ -111,9 +130,7 @@ async function ensureSession(slot) {
     await page.goto('https://www.google.com', { timeout: 25000 }).catch(() => {});
     await dismissConsent(page);
   }
-  const sess = { browser: ctx, page, ctx };
-  sessions.set(slot, sess);
-  return sess;
+  return { browser: ctx, page, ctx };
 }
 async function snap(slot) {
   const { page } = await ensureSession(slot);
@@ -121,7 +138,19 @@ async function snap(slot) {
     await page.waitForLoadState('domcontentloaded', { timeout: 4000 }).catch(() => {});
     await page.waitForTimeout(400);
     const title = await page.title().catch(() => '');
-    return { ok: true, title, url: page.url(), shot: null };
+    const url = page.url();
+    /* The stream is the live view; the still is its poster + receipt.
+       Written best-effort, never allowed to fail the snap. */
+    let shot = null;
+    try {
+      const p = slotPaths(slot);
+      const dir = join(p.staging, 'browser');
+      await mkdir(dir, { recursive: true });
+      const file = `view-${slot}.png`;
+      await page.screenshot({ path: join(dir, file) });
+      shot = file;
+    } catch {}
+    return { ok: true, title, url, shot };
   } catch (e) { return { ok: false, error: 'page closed: ' + String(e && e.message || e).slice(0, 80) }; }
 }
 /* ---- live view: one CDP screencast per slot, MJPEG over HTTP ----
@@ -129,8 +158,55 @@ async function snap(slot) {
    are the real rendered page (not a stale screenshot). Controls land
    on the same page the user sees: one actor, not two. */
 const screencasts = new Map();
+function withTimeout(p, ms, what) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timed out')), ms))]);
+}
+function firstFrame(sess, ms) {
+  return new Promise((resolve, reject) => {
+    let buf = Buffer.alloc(0);
+    const done = (v) => { clearTimeout(t); sess.stream.off('data', onData); resolve(v); };
+    const fail = () => { sess.stream.off('data', onData); reject(new Error('no frame')); };
+    const t = setTimeout(fail, ms);
+    const onData = (c) => {
+      try {
+        buf = Buffer.concat([buf, Buffer.isBuffer(c) ? c : Buffer.from(c)]);
+        const headEnd = buf.indexOf('\r\n\r\n');
+        if (headEnd < 0) return;
+        const head = buf.slice(0, headEnd).toString('latin1');
+        const mLen = head.match(/Content-Length:\s*(\d+)/i);
+        if (!mLen) { buf = Buffer.alloc(0); return; }
+        const total = headEnd + 4 + Number(mLen[1]);
+        if (buf.length >= total) done(buf.slice(headEnd + 4, total));
+        if (buf.length > 4 * 1024 * 1024) buf = buf.slice(-1024);
+      } catch { fail(); }
+    };
+    sess.stream.on('data', onData);
+  });
+}
+/* Robust: reuse only a session that PROVES itself with a real frame
+   within seconds; otherwise tear down and rebuild once, then fail loud
+   (503 -> frontend poster + retry) instead of hanging the request. */
 export async function ensureScreencast(slot) {
-  if (screencasts.has(slot)) { const sess = screencasts.get(slot); if (!sess.dead) return sess; }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let sess = screencasts.get(slot) || null;
+    if (sess && sess.dead) { screencasts.delete(slot); sess = null; }
+    if (!sess) {
+      sess = await withTimeout(buildScreencast(slot), 15000, 'screencast setup');
+      screencasts.set(slot, sess);
+    }
+    /* Liveness proof is a real render, not a fresh paint: CDP screencast
+       only emits on repaint, so an idle page starves frame-waits. A
+       screenshot proves the page renders NOW; live frames follow it. */
+    const { page } = await ensureSession(slot);
+    const proof = await withTimeout(
+      page.screenshot({ type: 'jpeg', quality: 70 }).catch(() => null), 10000, 'proof shot').catch(() => null);
+    if (proof && proof.length > 500) { sess.proof = proof; return sess; }
+    try { await sess.stop(); } catch {}
+    screencasts.delete(slot);
+  }
+  throw new Error('browser produced no render');
+}
+async function buildScreencast(slot) {
   const { page } = await ensureSession(slot);
   const { PassThrough } = await import('node:stream');
   const cdp = await page.context().newCDPSession(page);
@@ -152,7 +228,6 @@ export async function ensureScreencast(slot) {
   sess.stop = async () => { sess.dead = true; try { cdp.off('Page.screencastFrame', onFrame); await cdp.send('Page.stopScreencast').catch(() => {}); } catch {} };
   try { await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: 1100, maxHeight: 800, everyNthFrame: 1 }); } catch {}
   page.on('close', () => sess.stop());
-  screencasts.set(slot, sess);
   return sess;
 }
 export async function stopScreencast(slot) { const sess = screencasts.get(slot); if (sess) { screencasts.delete(slot); await sess.stop(); } }
@@ -248,8 +323,9 @@ export async function webSearch(slot, query) {
   let sess;
   try { sess = await ensureSession(slot); }
   catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200), query, results: [] }; }
+  const { page } = sess;
+  /* Pass 1: DuckDuckGo html (light, bot-tolerant). */
   try {
-    const { page } = sess;
     await page.goto('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), { timeout: 15000 });
     const results = await page.evaluate(() => {
       const out = [];
@@ -260,6 +336,24 @@ export async function webSearch(slot, query) {
       });
       return out.slice(0, 6);
     }).catch(() => []);
-    return { ok: true, query, results };
+    if (results.length) return { ok: true, query, results, via: 'duckduckgo' };
+  } catch {}
+  /* Pass 2: Google in the real persistent session (bot-proof here).
+     A search that returns nothing is a failure of the tool, never of
+     the user — so we never report "no results", we show the page. */
+  try {
+    await page.goto('https://www.google.com/search?q=' + encodeURIComponent(query), { timeout: 25000 });
+    await dismissConsent(page);
+    await page.waitForTimeout(1200).catch(() => {});
+    const results = await page.evaluate(() => {
+      const out = [];
+      document.querySelectorAll('div.yuHEv, div.g').forEach((g) => {
+        const a = g.querySelector('a[href^="http"]:not([href*="google."])');
+        const h = g.querySelector('h3');
+        if (a && h) out.push({ title: h.textContent.trim(), href: a.href, snippet: (g.querySelector('[data-sncf], .VwiC3b') || {}).textContent?.trim?.() || '' });
+      });
+      return out.slice(0, 6);
+    }).catch(() => []);
+    return { ok: true, query, results, via: 'google', pageUrl: page.url() };
   } catch (e) { return { ok: false, error: 'search failed: ' + String(e.message || e).slice(0, 160), query, results: [] }; }
 }

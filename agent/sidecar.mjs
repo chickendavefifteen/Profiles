@@ -20,6 +20,17 @@ import { recordEvent, loadEvents, computePreferences, savePreferences, learnedSu
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 import { slotPaths, activeSlot, setActiveSlot, ensureSlot } from './slots.mjs';
 async function paths() { const sl = await activeSlot(); return { slot: sl, ...slotPaths(sl) }; }
+/* Build stamp: frontend polls this to detect stale windows. Any code
+   change -> new stamp -> window offers Reload. Stale-window bugs die. */
+import { execSync } from 'node:child_process';
+export const BUILD = (() => {
+  try {
+    const sha = execSync('git rev-parse --short HEAD', { cwd: root, timeout: 3000 }).toString().trim();
+    const dirty = execSync('git status --porcelain -- src agent server.mjs', { cwd: root, timeout: 3000 }).toString().trim();
+    return sha + (dirty ? '-dirty' : '');
+  } catch { return 'dev-' + Date.now(); }
+})();
+const STARTED_AT = new Date().toISOString();
 const tinyModelFile = existsSync(join(dirname(fileURLToPath(import.meta.url)), 'models'))
   && (await readdir(join(dirname(fileURLToPath(import.meta.url)), 'models')).catch(() => [])).some((f) => f.endsWith('.gguf'));
 
@@ -239,7 +250,8 @@ export async function handleAgent(req, res, prefix = '/api') {
   try {
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST', 'access-control-allow-headers': 'content-type' }); res.end(); return true; }
     if (path === '/health' && req.method === 'GET') {
-      json(res, 200, { ok: true, brain: tinyModelFile ? 'bundled-tiny (gguf found)' : 'bundled-tiny (heuristic classifier)',
+      json(res, 200, { ok: true, build: BUILD, startedAt: STARTED_AT,
+        brain: tinyModelFile ? 'bundled-tiny (gguf found)' : 'bundled-tiny (heuristic classifier)',
         cloud: cloudOptIn && hasApiKey ? 'opted-in' : 'off', tiers: TIERS.map((t) => t.id), note: 'Pi-shaped sidecar; per-slot vaults, zero carry-across' });
       return true;
     }
@@ -373,9 +385,22 @@ export async function handleAgent(req, res, prefix = '/api') {
     }
     const shotMatch = path.match(/^\/browser\/shot\/([\w.-]+)$/);
     if (shotMatch && req.method === 'GET') {
-      /* compat shim: old frontend asked for stills; live view streams now */
-      res.writeHead(410, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'stills retired — the Browser pane streams live now' }));
+      /* stills live on as the fallback/poster behind the stream: if the
+         stream drops, the pane shows the last good frame, never a void */
+      const slot = (await paths()).slot;
+      const file = join(slotPaths(slot).staging, 'browser', shotMatch[1]);
+      try { const buf = await readFile(file); res.writeHead(200, { 'content-type': 'image/png', 'content-length': buf.length }); res.end(buf); }
+      catch { json(res, 404, { error: 'no shot yet' }); }
+      return true;
+    }
+    if (path === '/browser/poster' && req.method === 'GET') {
+      const slot = (await paths()).slot;
+      const file = join(slotPaths(slot).staging, 'browser', `view-${slot}.png`);
+      try {
+        const buf = await readFile(file);
+        res.writeHead(200, { 'content-type': 'image/png', 'content-length': buf.length });
+        res.end(buf);
+      } catch { json(res, 404, { error: 'no frame yet' }); }
       return true;
     }
     const streamMatch = path.match(/^\/browser\/stream$/);
@@ -385,10 +410,30 @@ export async function handleAgent(req, res, prefix = '/api') {
         const { ensureScreencast } = await import('./browseract.mjs');
         const sess = await ensureScreencast(slot);
         if (!sess || !sess.cdp || !sess.stream) throw new Error('screencast unavailable');
+        /* Headers FIRST, always: a client must never stare at a silent
+           socket while we prepare frames. Parts follow as ready. */
         res.writeHead(200, { 'content-type': 'multipart/x-mixed-replace; boundary=' + sess.boundary,
           'cache-control': 'no-cache, no-store, max-age=0', connection: 'keep-alive', 'access-control-allow-origin': '*' });
-        sess.stream.on('data', (chunk) => { try { res.write(chunk); } catch {} });
-        req.on('close', () => {});
+        /* Every consumer gets an instant first frame: a fresh screenshot
+           taken for THIS request (proves the render, ~200ms). Live paint
+           frames follow. No consumer ever stares at a silent stream. */
+        try {
+          const { page: proofPage } = await (await import('./browseract.mjs')).ensureSession(slot);
+          const proof = await Promise.race([
+            proofPage.screenshot({ type: 'jpeg', quality: 70 }),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('shot timeout')), 9000)),
+          ]);
+          if (proof && proof.length > 500) {
+            res.write(`--${sess.boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${proof.length}\r\n\r\n`);
+            res.write(proof); res.write('\r\n');
+          } else if (sess.proof) {
+            res.write(`--${sess.boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${sess.proof.length}\r\n\r\n`);
+            res.write(sess.proof); res.write('\r\n');
+          }
+        } catch {}
+        const onData = (chunk) => { try { res.write(chunk); } catch {} };
+        sess.stream.on('data', onData);
+        req.on('close', () => { try { sess.stream.off('data', onData); } catch {} });
         return true;
       } catch (e) { json(res, 503, { error: 'live view unavailable: ' + String(e && e.message || e).slice(0, 140) }); return true; }
     }

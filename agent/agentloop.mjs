@@ -10,6 +10,8 @@ import { viewGo, viewCurrent, viewRead, webSearch } from './browseract.mjs';
 
 const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.co.uk/news',
   'bc news': 'https://www.bbc.co.uk/news', 'bbc news website': 'https://www.bbc.co.uk/news',
+  'sky news': 'https://news.sky.com/uk', sky: 'https://news.sky.com/uk',
+  'investing': 'https://www.investing.com/', 'investing dot com': 'https://www.investing.com/',
   google: 'https://www.google.com', news: 'https://www.bbc.co.uk/news',
   youtube: 'https://www.youtube.com', github: 'https://github.com', wikipedia: 'https://en.wikipedia.org' };
 function siteFor(target) {
@@ -32,6 +34,8 @@ export const AGENT_TOOLS = [
 export function decideTool(query) {
   const q = String(query || '');
   const low = q.toLowerCase().trim();
+  let rm0 = low.match(/^(?:open|show|go to)\s+result\s+(\d{1,2})$/);
+  if (rm0) return { tool: 'open_result', args: { n: Number(rm0[1]) } };
   let m = low.match(/^(?:please\s+)?(?:open|show|launch|go to|take me to|browse|visit)\s+(?:a\s+|the\s+)?(?:browser\s+(?:on|to|for)\s+|brower\s+(?:on|to)\s+)?(.+)$/);
   if (/^(open|show|launch)\s+(a\s+)?(browser|brower)$/.test(low)) return { tool: 'browser_open', args: { url: 'https://www.google.com' } };
   if (m && !/^(draft|write|file|slides|letter)/.test(low)) {
@@ -50,10 +54,29 @@ export function decideTool(query) {
     return { tool: 'browser_read', args: {} };
   }
   if (/\b(latest|today'?s?)\s+(news|headlines)\b/.test(low)) return { tool: 'web_search', args: { query: 'BBC News headlines today' } };
+  const bare = low.replace(/\s+(please|properly|for me)\s*$/g, '').trim();
+  if (bare && !/^(hi|hey|hello|yo|thanks|thank you|ok|okay|yes|no|bye)\b/.test(bare)
+      && !/\?\s*$/.test(bare) && !/^(what|why|how|when|who|can|could|do|does|is|are|will|would|should|am)\b/.test(bare)
+      && !/^(draft|write|make|create|file|save|log|add|send|delete|remind|schedule|help me get)/.test(bare)) {
+    const known = siteFor(bare);
+    if (known) return { tool: 'browser_open', args: { url: known } };
+    if (/^[a-z0-9][a-z0-9 .'-]{1,60}$/.test(bare) && bare.split(/\s+/).length <= 6) {
+      return { tool: 'web_search', args: { query: q.trim() } };
+    }
+  }
   return null;
 }
 
+const lastResults = new Map();
 export async function runTool(slot, decision) {
+  if (decision.tool === 'open_result') {
+    const list = lastResults.get(slot) || [];
+    const hit = list[(decision.args.n || 1) - 1];
+    if (!hit) return { tool: 'open_result', ok: false, observation: 'No saved result with that number — search first, then say "open result 1".' };
+    const out = await viewGo(slot, hit.href);
+    return { tool: 'open_result', ok: out.ok, observation: `Opened result ${decision.args.n}: ${hit.title} — ${out.url}. Showing in the Browser pane.`,
+      ui: { showPane: 'pane-browser', browser: out } };
+  }
   switch (decision.tool) {
     case 'browser_open': {
       const out = await viewGo(slot, decision.args.url);
@@ -81,12 +104,18 @@ export async function runTool(slot, decision) {
     }
     case 'web_search': {
       const out = await webSearch(slot, decision.args.query);
+      if (out.ok && out.results && out.results.length) lastResults.set(slot, out.results);
       if (!out.ok) {
         return { tool: decision.tool, ok: false, observation: `Web search “${decision.args.query}” could not run (${out.error || 'unavailable'}) — try opening a site directly (“open bbc news”).`,
           ui: { showPane: 'pane-browser' }, results: [] };
       }
       const lines = (out.results || []).map((r, i) => `${i + 1}. ${r.title} — ${r.snippet} (${r.href})`).join('\n');
-      return { tool: decision.tool, ok: true, observation: `Web search “${decision.args.query}”:\n${lines || 'no results came back'}`,
+      const obs = lines
+        ? `Web search “${decision.args.query}”:\n${lines}`
+        : (out.pageUrl
+          ? `Web search “${decision.args.query}” is showing live in your Browser pane (${out.pageUrl}) — results are rendering there; tell me what you see or say "read this page" and I'll read it.`
+          : `Web search “${decision.args.query}” is showing live in your Browser pane — tell me what you see or say "read this page".`);
+      return { tool: decision.tool, ok: true, observation: obs,
         ui: { showPane: 'pane-browser' }, results: out.results };
     }
     default: return { tool: decision.tool, ok: false, observation: 'unknown tool' };

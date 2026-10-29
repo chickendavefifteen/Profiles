@@ -350,3 +350,853 @@
 {"at":"2026-10-29T11:34:34.676Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
 {"at":"2026-10-29T11:34:43.630Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
 {"at":"2026-10-29T11:34:45.192Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T11:35:40.800Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:36:00.800Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:36:26.643Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:36:46.657Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:36:51.432Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T11:37:06.658Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:37:26.658Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:37:46.658Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:38:06.658Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:38:26.659Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:38:46.663Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:39:06.668Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:39:26.672Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:39:46.676Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:40:06.680Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:40:26.683Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:40:46.687Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:41:06.691Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:41:26.696Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:41:46.700Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:42:06.704Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:42:26.708Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:42:46.711Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:43:06.716Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:43:26.720Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:43:46.724Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:44:06.727Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:44:26.731Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:44:46.735Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:45:06.740Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:45:26.744Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:45:46.747Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:46:06.752Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:46:26.755Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:46:46.759Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:47:06.763Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:47:26.768Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:47:46.773Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:48:01.416Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:03.993Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:06.551Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:06.776Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:48:09.107Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T11:48:11.660Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:13.493Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T11:48:14.217Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:16.777Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:18.171Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:48:19.333Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:21.890Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:24.447Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:26.780Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:48:27.002Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:29.559Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:32.116Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:34.672Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:37.227Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:38.262Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:48:39.783Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:42.338Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:44.893Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:46.784Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:48:47.445Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:49.237Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T11:48:49.998Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:52.550Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:55.107Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:57.916Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:48:58.262Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:49:00.592Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:03.149Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:06.788Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:49:18.775Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:21.331Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:23.887Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:26.444Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T11:49:26.792Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:49:29.002Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:30.851Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T11:49:31.559Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:34.117Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:35.526Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:49:36.675Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:39.233Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:41.789Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:44.346Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:46.795Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:49:46.903Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:49.459Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:52.014Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:54.570Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:55.618Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:49:57.126Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:49:59.683Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:02.241Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:04.797Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:06.593Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T11:50:06.799Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:50:07.355Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:09.912Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:12.467Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:15.277Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:15.618Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:50:17.835Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:20.388Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:20.649Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T11:50:22.946Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:25.503Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:26.803Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:50:28.061Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:30.879Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:33.436Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:35.618Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:50:36.005Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:38.561Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:41.119Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:43.674Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:46.231Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:46.807Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:50:48.787Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:51.346Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:54.120Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:55.618Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:50:56.674Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:50:59.233Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:01.790Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:04.346Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:06.812Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:51:06.900Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:09.457Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:12.009Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:14.561Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:15.618Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:51:17.112Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:19.669Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:22.225Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:24.780Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:26.815Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:51:27.338Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:29.895Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:32.448Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:35.003Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:35.619Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:51:37.560Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:40.276Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:42.834Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:45.391Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:46.819Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:51:47.948Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:50.529Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:53.084Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:55.619Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:51:55.639Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:51:58.195Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:00.749Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:03.305Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:05.862Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:06.824Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:52:08.419Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:10.975Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:13.532Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:15.618Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:52:16.089Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:18.647Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:21.204Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:23.756Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:26.308Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:26.828Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:52:28.871Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:31.427Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:33.985Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:35.619Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:52:36.589Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:39.143Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:41.699Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:44.258Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:46.818Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:46.831Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:52:49.376Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:51.931Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:54.488Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:55.619Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:52:57.044Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:52:59.599Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:02.156Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:04.715Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:06.836Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:53:07.273Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:09.830Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:12.384Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:14.941Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:15.619Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:53:17.498Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:20.052Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:22.609Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:25.167Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:26.839Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:53:27.725Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:30.280Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:32.838Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:35.396Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:35.619Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:53:37.953Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:40.510Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:43.068Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:45.624Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:46.843Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:53:48.178Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:50.736Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:53.293Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:55.619Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:53:55.843Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:53:58.400Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:00.957Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:03.702Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:06.259Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:06.848Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:54:08.818Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:11.377Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:13.932Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:26.852Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:54:39.855Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:42.411Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:44.967Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:46.855Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:54:47.522Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T11:54:50.075Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:51.933Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T11:54:52.630Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:55.186Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:54:56.658Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:54:57.744Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:00.297Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:02.869Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:05.425Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:06.859Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:55:07.983Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:10.539Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:13.095Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:15.652Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:16.705Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:55:18.210Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:20.765Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:23.323Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:25.880Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:26.864Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:55:27.681Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T11:55:28.433Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:30.988Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:33.545Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:36.096Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:36.769Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:55:38.653Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:41.207Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:41.733Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T11:55:43.764Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:46.323Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:46.867Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:55:48.884Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:51.443Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:54.001Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:56.693Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:55:56.770Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:55:59.250Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:01.807Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:04.363Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:06.872Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:56:06.968Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:09.525Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:12.079Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:14.637Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:16.769Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:56:17.193Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:19.750Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:22.307Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:24.873Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:26.875Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:56:27.428Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:30.194Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:32.747Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:35.305Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:36.770Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:56:37.862Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:40.416Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:42.973Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:45.530Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:46.879Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:56:48.123Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:50.683Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:53.238Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:55.796Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:56:56.770Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:56:58.350Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:00.907Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:03.463Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:06.020Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:06.884Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:57:08.575Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:11.127Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:13.678Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:16.310Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:16.770Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:57:18.882Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:21.439Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:23.995Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:26.551Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:26.888Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:57:29.107Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:31.666Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:34.221Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:36.770Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:57:36.777Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:39.334Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:41.891Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:44.444Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:46.891Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:57:47.000Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:49.558Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:52.120Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:54.685Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:56.771Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:57:57.249Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:57:59.812Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:02.413Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:04.976Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:06.896Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:58:07.541Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:10.105Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:12.670Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:15.226Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:16.771Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:58:17.784Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:20.340Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:22.899Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:25.456Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:26.899Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:58:28.010Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:30.566Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:33.122Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:35.679Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:36.771Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:58:38.236Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:40.793Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:43.351Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:45.908Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:46.903Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:58:48.466Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:51.022Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:53.580Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:56.136Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:58:56.771Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:58:58.693Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:59:01.305Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:59:03.860Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:59:06.570Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:59:06.907Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:59:09.127Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:59:11.685Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:59:14.241Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T11:59:26.911Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T11:59:46.916Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:00:06.919Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:00:26.924Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:00:46.927Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:01:06.931Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:01:26.937Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:01:46.940Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:02:06.944Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:02:26.948Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:02:46.953Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:03:06.956Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:03:26.960Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:03:46.968Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:04:06.968Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:04:26.972Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:04:46.976Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:05:06.981Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:05:26.984Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:05:46.988Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:06:04.409Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:06.976Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:06.991Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:06:09.532Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:12.088Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:06:14.645Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:16.486Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:06:17.202Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:19.757Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:21.137Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:06:22.313Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:24.873Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:26.995Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:06:27.428Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:29.982Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:32.540Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:35.092Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:37.651Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:40.207Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:41.147Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:06:42.761Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:45.318Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:47.000Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:06:47.873Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:50.430Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:52.224Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:06:52.985Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:55.541Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:06:58.098Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:00.757Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:01.147Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:07:03.474Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:06.031Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:06.291Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:07:07.004Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:07:08.587Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:11.140Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:13.698Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:16.255Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:18.812Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:21.234Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:07:21.369Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:23.926Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:26.526Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:27.008Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:07:29.074Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:31.643Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:34.200Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:07:47.012Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:08:07.016Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:08:10.073Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:08:27.020Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:08:47.025Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:09:07.028Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:09:17.973Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:20.530Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:23.086Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:25.644Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:09:27.031Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:09:28.195Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:30.050Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:09:30.747Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:33.302Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:34.726Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:09:35.859Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:38.415Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:40.971Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:43.528Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:46.083Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:47.035Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:09:48.638Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:51.197Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:53.753Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:54.840Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:09:56.307Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:09:58.864Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:01.419Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:03.975Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:05.813Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:10:06.531Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:07.040Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:10:09.087Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:11.644Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:14.199Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:14.840Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:10:16.755Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:19.312Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:19.871Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:10:21.868Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:24.425Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:26.981Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:27.043Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:10:29.538Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:32.092Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:34.826Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:34.841Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:10:37.382Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:39.939Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:42.489Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:45.044Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:10:47.047Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:10:47.602Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:07.052Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:11:09.377Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:11.933Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:14.485Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:17.041Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:11:19.599Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:21.457Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:11:22.157Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:24.714Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:26.173Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:11:27.055Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:11:27.270Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:29.827Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:32.383Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:34.941Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:37.497Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:40.052Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:42.610Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:45.166Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:46.174Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:11:47.060Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:11:47.753Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:50.308Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:52.863Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:55.419Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:11:57.211Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:11:57.973Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:00.530Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:03.085Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:05.637Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:06.174Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:12:07.064Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:12:08.190Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:10.741Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:11.267Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:12:13.298Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:15.856Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:18.413Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:20.968Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:23.525Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:26.224Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:26.224Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:12:27.067Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:12:28.783Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:31.333Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:33.887Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:36.442Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:38.996Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:12:47.071Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:13:07.075Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:13:27.080Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:13:47.084Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:14:07.087Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:14:27.091Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:14:47.095Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:15:27.105Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:15:46.116Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:15:47.107Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:15:48.678Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:15:51.236Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:15:53.792Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:15:56.349Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:15:58.190Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:15:58.920Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:01.478Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:02.909Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:16:04.035Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:06.592Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:07.111Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:16:09.144Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:11.694Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:14.246Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:16.803Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:19.359Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:21.915Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:22.911Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:16:24.467Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:27.018Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:27.116Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:16:29.569Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:32.124Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:33.930Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:16:34.680Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:37.232Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:39.790Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:42.346Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:42.910Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:16:45.126Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:47.119Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:16:47.681Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:47.989Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:16:50.236Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:52.793Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:55.344Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:16:57.899Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:00.456Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:02.941Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:17:03.013Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:05.568Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:07.124Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:17:08.125Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:10.682Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:13.233Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:15.790Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:17:27.128Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:17:47.131Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:17:47.340Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:18:07.136Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:18:27.140Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:18:41.273Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:18:43.830Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:18:46.385Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:18:47.143Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:18:48.938Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:18:51.491Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:18:53.351Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:18:54.049Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:18:56.609Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:18:58.070Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:18:59.166Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:01.723Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:04.280Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:06.837Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:07.147Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:19:09.393Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:11.950Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:14.506Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:17.065Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:18.071Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:19:19.622Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:22.176Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:24.734Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:27.152Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:19:27.408Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:29.131Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:19:29.964Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:32.519Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:35.076Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:37.819Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:38.071Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:19:40.493Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:43.051Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:43.193Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:19:45.607Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:47.155Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:19:48.166Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:19:50.722Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:07.159Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:20:27.168Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:20:31.822Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:34.383Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:36.941Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:39.498Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:20:42.058Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:43.898Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:20:44.617Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:47.167Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:20:47.174Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:48.553Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:20:49.731Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:52.287Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:54.839Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:57.396Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:20:59.952Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:02.507Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:05.062Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:07.172Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:21:07.618Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:08.558Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:21:10.173Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:12.729Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:15.285Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:17.842Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:19.661Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:21:20.398Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:22.953Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:25.510Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:27.176Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:21:28.296Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:28.558Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:21:30.968Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:33.524Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:33.718Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:21:36.081Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:38.635Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:41.192Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:47.179Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:21:56.785Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:21:59.342Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:01.899Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:04.456Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:22:07.008Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:07.183Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:22:08.862Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:22:09.565Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:12.123Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:13.587Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:22:14.679Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:17.235Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:19.791Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:22.349Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:24.920Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:27.188Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:22:27.477Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:30.034Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:32.589Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:33.587Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:22:35.139Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:37.690Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:40.243Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:42.914Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:44.622Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:22:45.472Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:47.191Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:22:48.027Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:50.584Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:53.334Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:53.587Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:22:56.016Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:58.573Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:22:58.683Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:23:01.130Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:03.687Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:06.244Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:07.196Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:23:18.581Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:21.139Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:23.697Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:26.255Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:23:27.199Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:23:28.813Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:30.629Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:23:31.371Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:33.930Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:35.389Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:23:36.489Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:39.050Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:41.606Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:44.162Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:46.719Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:47.203Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:23:49.276Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:51.833Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:54.389Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:55.390Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:23:56.945Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:23:59.690Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:02.247Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:04.805Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:06.246Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:24:07.208Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:24:07.356Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:09.920Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:12.478Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:15.034Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:15.391Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:24:17.591Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:20.149Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:20.296Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:24:22.706Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:25.264Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:27.212Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:24:27.821Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:24:38.548Z","type":"ask","query":"open bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:24:47.215Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:25:07.219Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:25:27.223Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:25:47.227Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:26:07.231Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:26:27.236Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:26:45.370Z","type":"ask","query":"open bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:26:47.239Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:27:00.742Z","type":"ask","query":"open bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:27:07.243Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:27:27.248Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:27:47.251Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:28:07.256Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:28:27.260Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:28:47.362Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:29:07.268Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:29:27.272Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:29:44.532Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:29:47.092Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:29:47.275Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:29:49.650Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:29:52.208Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:29:54.766Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:29:56.610Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:29:57.322Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:29:59.880Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:01.325Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:30:02.438Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:04.996Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:07.279Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:30:07.547Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:10.099Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:12.651Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:15.207Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:17.765Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:20.321Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:21.325Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:30:22.879Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:25.433Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:27.284Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:30:27.988Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:30.662Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:32.371Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:30:33.220Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:35.774Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:38.331Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:41.085Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:41.325Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:30:43.765Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:46.322Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:46.433Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:30:47.287Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:30:48.880Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:51.437Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:30:53.994Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:07.292Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:31:10.746Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:13.299Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:15.852Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:18.406Z","type":"ask","query":"hi r u agentic now","mode":"calm"}
+{"at":"2026-10-29T12:31:20.965Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:22.773Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:31:23.527Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:26.083Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:27.296Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:31:27.541Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:31:28.641Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:31.200Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:33.754Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:36.311Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:38.868Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:41.427Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:43.983Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:46.541Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:47.299Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:31:47.541Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:31:49.096Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:51.835Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:54.389Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:56.956Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:31:58.412Z","type":"ask","query":"go to bc news website","mode":"Vibes"}
+{"at":"2026-10-29T12:31:59.512Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:02.076Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:04.637Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:07.212Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:07.303Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:32:07.541Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:32:09.769Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:12.326Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:12.461Z","type":"ask","query":"bbc news","mode":"Vibes"}
+{"at":"2026-10-29T12:32:14.882Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:17.441Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:19.998Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T12:32:27.307Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:32:53.754Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:33:13.754Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:33:33.755Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:33:53.754Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:34:13.754Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:34:33.754Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:34:53.755Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:35:13.759Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:35:33.763Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:35:53.767Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T12:36:13.771Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}

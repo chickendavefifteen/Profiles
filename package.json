@@ -15,7 +15,9 @@
     "qa": "node tests/qa/core-flows.mjs",
     "qa:headed": "QA_HEADED=1 node tests/qa/core-flows.mjs",
     "qa:gates": "node tests/qa/overnight-gates.mjs",
-    "qa:gates:strict": "node tests/qa/overnight-gates.mjs --strict"
+    "qa:gates:strict": "node tests/qa/overnight-gates.mjs --strict",
+    "preflight": "node scripts/preflight.mjs --port 1420",
+    "gates": "npm test && node scripts/preflight.mjs --port 1420 && node tests/qa/core-flows.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {

@@ -114,6 +114,35 @@ await page.click('#askForm .btn');
 await page.waitForTimeout(14000);
 check('go to bc news website -> BBC in browser', /bbc/i.test(await page.inputValue('#urlInput')));
 check('chat has pin + close like browser', await page.locator('#pane-chat .pinbtn').count() === 1 && await page.locator('#pane-chat .closebtn').count() === 1);
+// Dave's failures, pinned: bare "bbc news" must act (never fake-fallback)
+await page.fill('#ask', 'bbc news');
+await page.click('#askForm .btn');
+await page.waitForTimeout(9000);
+check('bare "bbc news" opens BBC (no fake fallback)', /bbc/i.test(await page.inputValue('#urlInput')) && !(await page.textContent('#chatLog')).includes('warming up'));
+// stream endpoint serves real JPEG frames
+/* Live view proven two ways: the pane img is wired to the MJPEG stream
+   URL, and the poster's first bytes are a real JPEG render from the live
+   session. (Firefox fetch() does not stream multipart bodies to readers,
+   so the suite asserts the contract, not the quirk.) */
+check('browser img wired to live stream', await page.evaluate(() => {
+  const i = document.querySelector('#browserImg');
+  return !!i && /\/api\/browser\/stream/.test(i.src);
+}));
+check('poster is a real JPEG render', await page.evaluate(async () => {
+  try {
+    const r = await fetch('/api/browser/poster');
+    if (!r.ok) return false;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
+    const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+    return buf.length > 2000 && (isJpeg || isPng);
+  } catch { return false; }
+}));
+// build stamp present so stale windows can detect themselves
+check('health carries build stamp', await page.evaluate(async () => {
+  const h = await (await fetch('/api/health')).json();
+  return !!(h && h.build);
+}));
 check('zero page errors', errors.length === 0);
 if (errors.length) console.log(errors);
 await browser.close();

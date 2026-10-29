@@ -7,3 +7,16 @@ vault/*/staging/browser/
 *.log
 .DS_Store
 worktrees/
+vault/*/browser-profile*/
+vault/*/memory/events.jsonl
+vault/*/memory/preferences.json
+vault/*/tasks/ledger.json
+vault/*/snapshots/
+vault/*/macros/
+vault/A/config.json
+vault/B/config.json
+vault/C/config.json
+vault/D/config.json
+vault/E/config.json
+vault/X/config.json
+vault/app.json

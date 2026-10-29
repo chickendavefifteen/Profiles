@@ -31,6 +31,21 @@ its own sidecar — kill :1420 first and prove the app revives it);
 browser pane loads Google clean (consent auto-rejected).
 
 ## Gotchas (paid for in blood, keep)
+- `scripts/preflight.mjs` runs before every QA/screenshot/launch claim:
+  server build stamp must match disk (stale servers certifying old code
+  was the whole "it works for you, broken for me" class). RED = stop.
+- First MJPEG chunk is the multipart header text, not a JPEG — any
+  "first bytes" validation must parse a full part (Content-Length).
+- Concurrent cold starts double-launch Chromium on one profile dir and
+  the loser blocks on the Singleton lock with zero bytes out. Singleflight
+  session creation + stale-lock cleanup on launch.
+- CDP screencast emits on repaint only: idle pages starve frame-waits.
+  Liveness = proof screenshot render; every /stream consumer gets an
+  instant first frame; response headers go out BEFORE frame prep.
+- Firefox fetch() does not stream multipart bodies to readers — assert
+  the contract (img wired to stream URL + poster decodes), not the quirk.
+- Headless virtual-time screenshots hang forever on infinite streams —
+  use Playwright screenshots for visual proof, never chromium --screenshot.
 - Google bot-blocks headless Firefox -> persistent HEADED Chromium
   profile per slot is the browser; headless = search API only via DDG.
 - All search engines X-Frame SAMEORIGIN -> never iframe Google.
