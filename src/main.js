@@ -209,6 +209,17 @@ function fitBrowserView(){
     var vh=Math.round(view.getBoundingClientRect().height);
     if(vw>50) fr.setAttribute("width", String(vw));
     if(vh>50) fr.setAttribute("height", String(vh));
+    /* viewport-stuck guard: this engine can freeze an iframe viewport at
+       first-paint size; a same-origin read proves it, one reload heals it */
+    try{
+      var iw=fr.contentWindow.innerWidth||0;
+      if(vw>50 && Math.abs(iw-vw)>8 && !fr.dataset.vwFixed){
+        fr.dataset.vwFixed="1";
+        fr.contentWindow.location.reload();
+      } else if(vw>50 && Math.abs(iw-vw)<=8 && fr.dataset.vwFixed){
+        delete fr.dataset.vwFixed;
+      }
+    }catch(e){}
   }
 }
 if(window.ResizeObserver){
@@ -1216,13 +1227,15 @@ if($("fallbackRetry")) $("fallbackRetry").addEventListener("click", function(){
   hideFallback();
 });
 /* boot: clean proxied Google, ready to type in */
+fitBrowserView();
 setTimeout(function(){
   if(browserLoaded) return;
   lastBrowserUrl="";
   $("urlInput").value="";
+  fitBrowserView();
   $("browserFrame").src=homeUrl();
   browserLoaded=true;
-}, 600);
+}, 1200);
 setTimeout(fitBrowserView, 900);
 
 /* ---- voice: talk -> it listens; answers spoken back in a natural voice ---- */
