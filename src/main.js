@@ -186,8 +186,28 @@ document.querySelectorAll("[data-min]").forEach(function(b){
     b.textContent=p.classList.contains("minimised")?"+":"–";
   });
 });
+/* Pixel-definite view height: this engine resolves iframe percentages
+   against thin air (300x150 default), so the pane measures real pixels
+   and sets them explicitly. No percentages left to misread. */
+function fitBrowserView(){
+  var pane=$("pane-browser"), view=$("browserView");
+  if(!pane || !view) return;
+  var ph=pane.getBoundingClientRect().height;
+  if(ph<120) return;
+  var used=0;
+  Array.prototype.forEach.call(pane.children, function(el){
+    if(el!==view){ var r=el.getBoundingClientRect(); used+=r.height; }
+  });
+  var want=Math.max(160, Math.round(ph-used-28));
+  var cur=parseInt(view.style.height||"0", 10);
+  if(Math.abs(want-cur)>2) view.style.height=want+"px";
+}
+if(window.ResizeObserver){
+  new ResizeObserver(function(){ fitBrowserView(); }).observe(document.body);
+}
+window.addEventListener("resize", function(){ setTimeout(fitBrowserView, 120); });
 function showPaneEl(id, silent){
-  if(id==="pane-browser"){ nudgeSoon(500); }
+  if(id==="pane-browser"){ nudgeSoon(500); setTimeout(fitBrowserView, 150); }
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
   if(state.layout.maxed && state.layout.maxed!==id) state.layout.maxed=null;
   applyLayout();
@@ -1194,6 +1214,7 @@ setTimeout(function(){
   $("browserFrame").src=homeUrl();
   browserLoaded=true;
 }, 600);
+setTimeout(fitBrowserView, 900);
 
 /* ---- voice: talk -> it listens; answers spoken back in a natural voice ---- */
 function pickVoice(){
