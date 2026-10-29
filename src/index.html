@@ -283,6 +283,17 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
 .tierline{font-size:.82rem;color:var(--muted);line-height:1.65;padding:6px 0;border-bottom:1px solid var(--line)}
 .kidsNote{display:none}
 body.kids .advancedBlock{display:none}
+/* Profile X gating: power tools hidden by default. One explicit opt-in
+   (“Turn on Profile X” + disclaimer) reveals them. Kids mode wins. */
+.advancedBlock{display:none}
+body[data-advanced="1"] .advancedBlock{display:block}
+body.kids .advancedBlock{display:none!important}
+#profileXDisclaimer{position:fixed;z-index:60;left:50%;top:12vh;transform:translateX(-50%);width:min(520px,92vw);
+ background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:20px 22px;box-shadow:0 26px 70px rgba(0,0,0,.5)}
+#profileXDisclaimer[hidden]{display:none}
+#profileXDisclaimer h3{margin:0 0 8px;font-size:1rem}
+#profileXDisclaimer p{font-size:.87rem;line-height:1.65;color:var(--ink);margin:0 0 10px}
+#profileXBox{border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
 .small{font-size:.8rem;color:var(--muted);line-height:1.6}
 
 /* v4 tiling wins the cascade */
@@ -434,6 +445,18 @@ body.kids .advancedBlock{display:none}
         <p class="costline">A, B and C are yours by default. D/E appear here only if you want more separate worlds.</p>
         <label class="setrow"><input type="checkbox" id="showXToggle"> Show Profile X (power users)</label>
         <p class="costline" id="xWarn">⚠ Profile X is a different beast: full-access, Codex-style — the agent can reach the whole machine (or whatever a phone allows), extend itself, and hack on its own setup. It is ringfenced from A/B/C, but inside X the training wheels are off. Most people, most days, want A/B/C. Opt in only if that is really you.</p>
+        <div id="profileXBox">
+          <button class="sbtn" id="profileXEnable" type="button">Turn on Profile X</button>
+          <span class="small" id="profileXStatus" style="margin-left:10px">Advanced power tools are hidden until you opt in.</span>
+        </div>
+        <div id="profileXDisclaimer" hidden role="dialog" aria-modal="true" aria-labelledby="profileXTitle">
+          <h3 id="profileXTitle">Turn on Profile X?</h3>
+          <p id="profileXText">Profile X is the power world. One switch turns everything on: local shell via staged scripts you confirm, whole-machine agent tools where this device allows, and bleeding-edge features. Profiles A, B and C stay strictly sandboxed — ringfenced, isolated, and untouched by anything you do in X (and X cannot see them either). Turning on X creates a private local git repo for the X vault so you can roll back. Whole-machine folder widening and cloud brains stay separate explicit opt-ins (cloud also needs your own key).</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <button class="sbtn" id="profileXConfirm" type="button">I understand — turn everything on</button>
+            <button class="sbtn ghost" id="profileXCancel" type="button">Keep me on A/B/C</button>
+          </div>
+        </div>
         <div id="capLine" class="small"></div>
         <h3 style="font-size:.9rem;margin:16px 0 6px">Phone / tablet — home hub</h3>
         <p class="costline">On your phone, Profiles is a remote to the always-on PC: put the PC sidecar address here (same Wi-Fi or Tailscale), e.g. http://192.168.1.20:8123 — the phone stays light, the house does the thinking. Empty = this device.</p>

@@ -559,6 +559,7 @@ function applyConfig(res){
   $("speakBtn").setAttribute("aria-pressed", state.speak?"true":"false");
   document.body.classList.toggle("kids", !!slot.kids);
   document.body.dataset.slotx = state.slot==="X" ? "1" : "0";
+  if(typeof updateAdvancedVisibility==="function") updateAdvancedVisibility();
   $("nameInput").value=slot.name||"";
   $("buddyInput").value=slot.buddy||"fox";
   renderTrash(slot.closedPanes||[]);
@@ -609,6 +610,8 @@ function loadAppConfig(){
     $("slotD").hidden=extra.indexOf("D")<0;
     $("slotE").hidden=extra.indexOf("E")<0;
     $("extraSlotsToggle").checked=extra.length>0;
+    if(typeof updateAdvancedVisibility==="function") updateAdvancedVisibility();
+    if(typeof refreshProfileXStatus==="function") refreshProfileXStatus();
   }).catch(function(){});
 }
 function postAppConfig(patch){
@@ -623,6 +626,55 @@ $("showXToggle").addEventListener("change", function(e){
 });
 $("extraSlotsToggle").addEventListener("change", function(e){
   postAppConfig({extraSlots:e.target.checked?["D","E"]:[]});
+});
+/* ---- Profile X: single gated opt-in, all-on, private git rollback ----
+   Advanced power tools stay hidden until the explicit disclaimer is
+   accepted. One switch turns everything on — no sub-checkbox maze.
+   Activation never touches vault/A|B|C (server proves isolation). */
+function updateAdvancedVisibility(){
+  var on=!!(state.appCfg&&state.appCfg.showX) || state.slot==="X";
+  document.body.dataset.advanced=on?"1":"0";
+  var btn=$("profileXEnable");
+  if(btn) btn.style.display=on?"none":"";
+  var st=$("profileXStatus");
+  if(st && on) st.textContent="Profile X is on — all power features enabled, private rollback repo ready. A/B/C stay sandboxed.";
+}
+function refreshProfileXStatus(){
+  fetch(apiUrl("/api/profilex/status")).then(function(r){ return r.json(); }).then(function(st){
+    var el=$("profileXStatus");
+    if(!el) return;
+    if(st.showX){
+      el.textContent="Profile X is on — all power features enabled"+(st.git&&st.git.commit?" · rollback "+String(st.git.commit).slice(0,7):"")+". A/B/C stay sandboxed.";
+    } else {
+      el.textContent="Advanced power tools are hidden until you opt in.";
+    }
+    updateAdvancedVisibility();
+  }).catch(function(){});
+}
+if($("profileXEnable")) $("profileXEnable").addEventListener("click", function(){
+  fetch(apiUrl("/api/profilex/disclaimer")).then(function(r){ return r.json(); }).then(function(out){
+    if(out&&out.disclaimer) $("profileXText").textContent=out.disclaimer;
+  }).catch(function(){});
+  $("profileXDisclaimer").hidden=false;
+});
+if($("profileXCancel")) $("profileXCancel").addEventListener("click", function(){
+  $("profileXDisclaimer").hidden=true;
+  bubble("Kept you on A/B/C — nothing changed, nothing installed.", "sys");
+});
+if($("profileXConfirm")) $("profileXConfirm").addEventListener("click", function(){
+  var btn=$("profileXConfirm");
+  btn.textContent="Turning on…"; btn.disabled=true;
+  fetch(apiUrl("/api/profilex/activate"),{method:"POST"}).then(function(r){ return r.json(); }).then(function(out){
+    btn.textContent="I understand — turn everything on"; btn.disabled=false;
+    $("profileXDisclaimer").hidden=true;
+    if(!out||!out.ok){ bubble("Profile X could not turn on: "+((out&&out.error)||"unknown")+" — A/B/C untouched, nothing half-enabled.", "agent"); return; }
+    bubble("⚡ Profile X is on — everything enabled in one switch. Private rollback repo ready"+(out.git&&out.git.commit?(" ("+String(out.git.commit).slice(0,7)+")"):"")+". A/B/C remain strictly sandboxed and untouched.", "agent");
+    stream("profile X ON — all-on, git rollback "+(out.git&&out.git.commit?String(out.git.commit).slice(0,7):"ok")+" · A/B/C unchanged");
+    loadAppConfig(); loadConfig();
+  }).catch(function(){
+    btn.textContent="I understand — turn everything on"; btn.disabled=false;
+    bubble("Profile X activation unreachable — is npm start running? Nothing changed.", "agent");
+  });
 });
 $("welcomeSave").addEventListener("click", function(){
   var name=$("nameInput").value.trim(), buddy=$("buddyInput").value;

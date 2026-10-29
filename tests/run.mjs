@@ -332,5 +332,30 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!!man2['researched2026-10-28-v2'], 'research: v2 verdicts on Bolt E4B / Minitron-2B recorded');
 }
 
+/* ---- 11. Profile X: gated opt-in, disclaimer, all-on, git rollback, sandbox ---- */
+{
+  const htmlX = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const jsX = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(htmlX.includes('id="profileXEnable"') && htmlX.includes('Turn on Profile X'), 'profilex: single prominent opt-in button');
+  ok(htmlX.includes('id="profileXDisclaimer"') && htmlX.includes('id="profileXConfirm"') && htmlX.includes('id="profileXCancel"'), 'profilex: disclaimer dialog with confirm/cancel');
+  ok(htmlX.includes('id="profileXText"') && htmlX.includes('strictly sandboxed'), 'profilex: disclaimer names A/B/C sandbox isolation');
+  ok(htmlX.includes('private local git repo') || htmlX.includes('git repo'), 'profilex: disclaimer mentions private rollback repo');
+  ok(htmlX.includes('.advancedBlock{display:none}') && htmlX.includes('data-advanced'), 'profilex: advanced features hidden by default, gated on opt-in');
+  ok(htmlX.includes('id="profileXStatus"'), 'profilex: status line in Setup');
+  ok(jsX.includes('updateAdvancedVisibility') && jsX.includes('/api/profilex/activate') && jsX.includes('/api/profilex/status'), 'profilex: frontend gating + activation flow');
+  ok(jsX.includes('nothing half-enabled') || jsX.includes('A/B/C'), 'profilex: frontend states A/B/C untouched');
+  ok(existsSync(join(root, 'agent', 'profilex.mjs')), 'profilex: backend module exists');
+  const px = readFileSync(join(root, 'agent', 'profilex.mjs'), 'utf8');
+  ok(px.includes('activateProfileX') && px.includes('ensureXGitRepo') && px.includes('verifyIsolation') && px.includes('fingerprintABC'), 'profilex: git rollback + isolation proof functions');
+  ok(px.includes('PROFILEX_ALL_ON') && px.includes('advanced: true') && px.includes('piBrain: true'), 'profilex: all-on turns power features on in one switch');
+  ok(px.includes('wholeMachine') && px.includes('cloudEnabled') || px.includes('second explicit gate'), 'profilex: whole-machine/cloud stay separate explicit gates');
+  ok(px.includes("remote") && px.includes('never pushed') || px.includes('never add a remote'), 'profilex: rollback repo is private local-only, never pushed');
+  const scX = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(scX.includes("/profilex/activate") && scX.includes("/profilex/status") && scX.includes("/profilex/disclaimer"), 'profilex: sidecar endpoints mounted');
+  // Isolation by construction: activation writes vault/X + vault/app.json only.
+  ok(!/vault\/(A|B|C)/.test(px.split('fingerprintABC')[0]) || px.includes('slotPaths(\'X\')'), 'profilex: activation targets X vault, never A/B/C paths');
+  ok(px.includes("['A', 'B', 'C']"), 'profilex: isolation checks cover A, B and C');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -256,6 +256,19 @@ export async function handleAgent(req, res, prefix = '/api') {
       await writeFile(join(root, 'vault', 'app.json'), JSON.stringify(next, null, 2));
       json(res, 200, next); return true;
     }
+    if (path === '/profilex/disclaimer' && req.method === 'GET') {
+      const { profileXStatus } = await import('./profilex.mjs');
+      const st = await profileXStatus();
+      json(res, 200, { disclaimer: st.disclaimer, gated: st.gated, showX: st.showX }); return true;
+    }
+    if (path === '/profilex/status' && req.method === 'GET') {
+      const { profileXStatus } = await import('./profilex.mjs');
+      json(res, 200, await profileXStatus()); return true;
+    }
+    if (path === '/profilex/activate' && req.method === 'POST') {
+      const { activateProfileX } = await import('./profilex.mjs');
+      json(res, 200, await activateProfileX()); return true;
+    }
     if (path === '/slot' && req.method === 'GET') { json(res, 200, { active: await activeSlot() }); return true; }
     if (path === '/slot' && req.method === 'POST') {
       let b = ''; for await (const c of req) b += c;
