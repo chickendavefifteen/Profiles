@@ -71,9 +71,14 @@ function applyLayout(){
   }
   var order=state.layout.order||PANES;
   order.forEach(function(id){ canvas.appendChild($(id)); });
+  var sizes=state.layout.sizes||{};
   PANES.forEach(function(id){
     $(id).classList.toggle("hiddenPane", !paneVisible(id));
     $(id).classList.toggle("maxedPane", state.layout.maxed===id);
+    /* pinned sizes persist per profile: re-apply, clear when never sized */
+    var sz=sizes[id];
+    if(sz && sz.w>0 && sz.h>0){ $(id).style.width=sz.w+"px"; $(id).style.height=sz.h+"px"; }
+    else { $(id).style.width=""; $(id).style.height=""; }
   });
   canvas.classList.toggle("maxed", !!state.layout.maxed);
   renderPaneTabs();
@@ -214,9 +219,52 @@ document.addEventListener("pointerdown", function(e){
   if(!$("brandMenu").hidden && !e.target.closest("#brandMenu") && !e.target.closest("#brandMenuBtn")) $("brandMenu").hidden=true;
 }, true);
 
-/* pin-to-move: 📌 unlocks a pane, drag it, click anywhere to land + re-pin */
+/* Universal outside-click dismissal: ONE rule for every popup, menu, chip
+   selector and preview. Open popups: #addMenu, #brandMenu, #trashPop.
+   Clicking (left button, any device pointer) anywhere outside the open popup
+   AND outside its trigger dismisses it immediately. Escape closes all.
+   Triggers are exempt so toggle-clicks still work; everything else lands here. */
+function dismissAllPopups(){
+  var changed=false;
+  [["addMenu"],["brandMenu"],["trashPop"]].forEach(function(pair){
+    var el=$(pair[0]);
+    if(el && !el.hidden){ el.hidden=true; changed=true; }
+  });
+  var bm=$("brandMenuBtn");
+  if(bm && changed) bm.setAttribute("aria-expanded","false");
+  return changed;
+}
+function popupDismissForEvent(e){
+  if(e.button!==undefined && e.button!==0 && e.type.indexOf("key")!==0) return;
+  var t=e.target;
+  var inAdd=t.closest && t.closest("#addMenu");
+  var addTrigger=t.closest && t.closest("#paneTabs") && t.textContent==="+";
+  var inBrand=t.closest && t.closest("#brandMenu");
+  var brandTrigger=t.closest && t.closest("#brandMenuBtn");
+  var inTrash=t.closest && t.closest("#trashPop");
+  var trashTrigger=t.closest && t.closest("#trashBtn");
+  var add=$("addMenu"), brand=$("brandMenu"), trash=$("trashPop");
+  if(add && !add.hidden && !inAdd && !addTrigger) add.hidden=true;
+  if(brand && !brand.hidden && !inBrand && !brandTrigger){
+    brand.hidden=true;
+    var bb=$("brandMenuBtn"); if(bb) bb.setAttribute("aria-expanded","false");
+  }
+  /* recycle bin preview: clicking anywhere outside dismisses immediately */
+  if(trash && !trash.hidden && !inTrash && !trashTrigger) trash.hidden=true;
+}
+document.addEventListener("pointerdown", popupDismissForEvent, true);
+document.addEventListener("keydown", function(e){
+  if(e.key==="Escape") dismissAllPopups();
+});
+
+/* pin-to-move+resize: 📌 unlocks a pane, drag to move, drag any edge/border to
+   resize (left button), click 📌 again or anywhere outside to land + re-pin */
 (function pinTiles(){
   var unpinned=null, dragId=null, startX=0, startY=0, moved=false;
+  var resizing=null; /* {id, dir, startX, startY, startW, startH} while edge-dragging */
+  var EDGE=12, MIN_W=280, MIN_H=180;
+  var CURSORS={e:"ew-resize",w:"ew-resize",n:"ns-resize",s:"ns-resize",
+    ne:"nesw-resize",sw:"nesw-resize",nw:"nwse-resize",se:"nwse-resize"};
   function flip(mutate){
     var rects={};
     PANES.forEach(function(id){ rects[id]=$(id).getBoundingClientRect(); });
@@ -228,9 +276,71 @@ document.addEventListener("pointerdown", function(e){
         requestAnimationFrame(function(){ el.style.transition="transform .3s cubic-bezier(.22,1,.36,1)"; el.style.transform=""; }); }
     });
   }
+  function rememberSize(id){
+    var el=$(id); if(!el) return;
+    var r=el.getBoundingClientRect();
+    state.layout.sizes=state.layout.sizes||{};
+    state.layout.sizes[id]={w:Math.round(r.width), h:Math.round(r.height)};
+  }
+  function applyResize(el, dir, dx, dy, startW, startH){
+    var w=startW, h=startH;
+    if(dir.indexOf("e")>=0) w=startW+dx;
+    if(dir.indexOf("w")>=0) w=startW-dx;
+    if(dir.indexOf("s")>=0) h=startH+dy;
+    if(dir.indexOf("n")>=0) h=startH-dy;
+    w=Math.max(MIN_W, Math.min(w, Math.max(MIN_W, innerWidth-40)));
+    h=Math.max(MIN_H, Math.min(h, Math.max(MIN_H, innerHeight-40)));
+    el.style.width=w+"px"; el.style.height=h+"px";
+    return {w:w, h:h};
+  }
+  /* which border zone (if any) is this left-button point on? */
+  function edgeDir(pane, clientX, clientY){
+    var r=pane.getBoundingClientRect();
+    var dl=clientX-r.left, dr=r.right-clientX, dt=clientY-r.top, db=r.bottom-clientY;
+    if(dl<0||dr<0||dt<0||db<0) return "";
+    var w=dl<EDGE, e=dr<EDGE, n=dt<EDGE, s=db<EDGE;
+    if(n&&w) return "nw"; if(n&&e) return "ne"; if(s&&w) return "sw"; if(s&&e) return "se";
+    if(w) return "w"; if(e) return "e"; if(n) return "n"; if(s) return "s";
+    return "";
+  }
+  function isInteractive(t){
+    return !!(t && t.closest && t.closest("button,a,input,select,textarea,iframe,video,.resize-handle"));
+  }
+  function addHandles(pane){
+    removeHandles(pane);
+    ["n","s","e","w","ne","nw","se","sw"].forEach(function(dir){
+      var h=document.createElement("div");
+      h.className="resize-handle"; h.dataset.dir=dir;
+      h.setAttribute("aria-hidden","true");
+      h.addEventListener("pointerdown", function(e){
+        if(e.button!==undefined && e.button!==0) return; /* left button only */
+        e.preventDefault(); e.stopPropagation();
+        startResize(pane, dir, e);
+      });
+      pane.appendChild(h);
+    });
+  }
+  function removeHandles(pane){
+    Array.prototype.slice.call(pane.querySelectorAll(".resize-handle")).forEach(function(h){ h.remove(); });
+  }
+  function startResize(pane, dir, e){
+    var r=pane.getBoundingClientRect();
+    resizing={id:pane.id, dir:dir, startX:e.clientX, startY:e.clientY, startW:r.width, startH:r.height};
+    dragId=null;
+    try{ pane.setPointerCapture(e.pointerId); }catch(err){}
+    pane.style.cursor=CURSORS[dir]||"nwse-resize";
+  }
   function land(){
+    if(resizing){ /* finish an in-flight resize first, keep the size */
+      var rid=resizing.id; resizing=null;
+      rememberSize(rid);
+    }
     if(!unpinned) return;
-    $(unpinned).classList.remove("unpinned");
+    var el=$(unpinned);
+    removeHandles(el);
+    el.style.cursor="";
+    rememberSize(unpinned);
+    el.classList.remove("unpinned");
     bubble(PANE_LABELS[unpinned]+" pinned there. Layout remembered for this profile.", "sys");
     stream("layout — "+unpinned+" re-pinned by hand");
     unpinned=null; dragId=null;
@@ -240,18 +350,45 @@ document.addEventListener("pointerdown", function(e){
   }
   document.querySelectorAll(".pane").forEach(function(pane){
     var pin=pane.querySelector(".pinbtn");
-    if(pin) pin.addEventListener("click", function(e){
+    if(pin){ pin.title="Pin: click to unlock and move/resize this pane"; pin.setAttribute("aria-label","Pin or unpin pane");
+    pin.addEventListener("click", function(e){
       e.stopPropagation();
       if(unpinned===pane.id){ land(); return; }
       if(unpinned) land();
       unpinned=pane.id;
+      moved=false; dragId=null; resizing=null;
       pane.classList.add("unpinned");
-      bubble(PANE_LABELS[pane.id]+" unlocked — drag it where you want, then click anywhere and it lands and re-pins.", "sys");
+      addHandles(pane);
+      bubble(PANE_LABELS[pane.id]+" unlocked — drag to move, or left-drag any edge/border to resize smoothly. Click 📌 again (or anywhere outside) to lock it in.", "sys");
+    }); }
+    /* border resize takes precedence over move: left-button press on any
+       edge/border of the highlighted box starts a smooth drag-resize */
+    pane.addEventListener("pointerdown", function(e){
+      if(unpinned!==pane.id || resizing) return;
+      if(e.button!==undefined && e.button!==0) return; /* left button only */
+      if(e.target!==pane && isInteractive(e.target) && !e.target.classList.contains("panehead")){
+        /* let buttons/inputs/links work normally — except a bare edge click */
+        if(!e.target.classList.contains("resize-handle") && !edgeDir(pane, e.clientX, e.clientY)) return;
+        if(e.target.closest("button,a,input,select,textarea") && !e.target.classList.contains("resize-handle")) return;
+      }
+      var dir=edgeDir(pane, e.clientX, e.clientY);
+      if(dir){ e.preventDefault(); startResize(pane, dir, e); }
     });
     /* as soon as the pin is clicked the pane is LIVE: just moving the
-       mouse (no holding) glides it across its neighbours; click lands it */
+       mouse (no holding) glides it across its neighbours; click lands it.
+       While edge-resizing, the same motion resizes instead of moving. */
     pane.addEventListener("pointermove", function(e){
       if(unpinned!==pane.id) return;
+      if(resizing && resizing.id===pane.id){
+        var dx=e.clientX-resizing.startX, dy=e.clientY-resizing.startY;
+        applyResize(pane, resizing.dir, dx, dy, resizing.startW, resizing.startH);
+        return;
+      }
+      if((!e.buttons || (e.buttons&1)===0) && (!e.pointerType || e.pointerType==="mouse")){
+        /* hover affordance: show the resize cursor on any edge/border */
+        var hov=(!e.target.classList || isInteractive(e.target)) ? "" : edgeDir(pane, e.clientX, e.clientY);
+        pane.style.cursor=hov ? (CURSORS[hov]||"nwse-resize") : "";
+      }
       dragId=pane.id;
       if(!moved){ startX=e.clientX; startY=e.clientY; moved=true; }
       if(!moved && Math.hypot(e.clientX-startX, e.clientY-startY)<7) return;
@@ -267,9 +404,36 @@ document.addEventListener("pointerdown", function(e){
         });
       }
     });
-    pane.addEventListener("pointerup", function(){ dragId=null; });
+    pane.addEventListener("pointerup", function(e){
+      if(resizing && resizing.id===pane.id){
+        var done=resizing; resizing=null;
+        pane.style.cursor="";
+        try{ if(e && e.pointerId!==undefined && pane.releasePointerCapture) pane.releasePointerCapture(e.pointerId); }catch(err){}
+        var r=pane.getBoundingClientRect();
+        state.layout.sizes=state.layout.sizes||{};
+        state.layout.sizes[pane.id]={w:Math.round(r.width), h:Math.round(r.height)};
+        persistLayout();
+        stream("layout — "+pane.id+" resized to "+Math.round(r.width)+"×"+Math.round(r.height));
+        void done;
+      }
+      dragId=null;
+    });
+    pane.addEventListener("pointercancel", function(){ if(resizing && resizing.id===pane.id){ rememberSize(pane.id); resizing=null; pane.style.cursor=""; persistLayout(); } dragId=null; });
   });
+  document.addEventListener("pointermove", function(e){
+    if(!resizing) return;
+    var el=$(resizing.id); if(!el) return;
+    applyResize(el, resizing.dir, e.clientX-resizing.startX, e.clientY-resizing.startY, resizing.startW, resizing.startH);
+  });
+  document.addEventListener("pointerup", function(){
+    if(!resizing) return;
+    var el=$(resizing.id);
+    var rid=resizing.id; resizing=null;
+    if(el){ el.style.cursor=""; rememberSize(rid); }
+    persistLayout();
+  }, true);
   document.addEventListener("pointerdown", function(e){
+    if(resizing) return; /* let the resize finish on pointerup, don't re-pin mid-drag */
     if(unpinned && !e.target.closest("#"+unpinned)) land();
   }, true);
 })();
@@ -628,7 +792,7 @@ function applyConfig(res){
      un-hid the pane locally, then the save response clobbered it back. */
   if(!state.layoutInit){ state.layoutInit=true; state.layoutAppliedOnce=true; } /* first config sighting: local layout is authoritative from here */
   if(slot.layout && (slotChanged || !state.layoutAppliedOnce)){
-    state.layout={order:slot.layout.order||null, hidden:slot.layout.hidden||["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"], maxed:null};
+    state.layout={order:slot.layout.order||null, hidden:slot.layout.hidden||["pane-agent","pane-notes","pane-video","pane-setup","pane-activity"], maxed:null, sizes:slot.layout.sizes||null};
     state.layoutAppliedOnce=true;
     applyLayout();
   }

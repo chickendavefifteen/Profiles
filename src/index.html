@@ -276,8 +276,18 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
 .panehead{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:.84rem;font-weight:600}
 .pinbtn{margin-left:auto;font:inherit;font-size:.8rem;background:none;border:1px solid transparent;border-radius:8px;cursor:pointer;min-height:34px;min-width:38px;opacity:.65}
 .pinbtn:hover{opacity:1;border-color:var(--line)}
-.pane.unpinned{outline:2px solid var(--accent);box-shadow:0 18px 44px rgba(0,0,0,.4);z-index:5}
+.pane.unpinned{outline:2px solid var(--accent);box-shadow:0 18px 44px rgba(0,0,0,.4);z-index:5;touch-action:none;min-width:280px;min-height:180px}
 .pane.unpinned .pinbtn{opacity:1;background:var(--accent)}
+.pane.unpinned::after{content:"drag edges to resize · click 📌 to lock";position:absolute;left:50%;bottom:6px;transform:translateX(-50%);font-size:.68rem;color:var(--muted);background:color-mix(in srgb,var(--card) 88%,transparent);border:1px solid var(--line);border-radius:99px;padding:2px 10px;pointer-events:none;white-space:nowrap}
+.resize-handle{position:absolute;z-index:6;touch-action:none}
+.resize-handle[data-dir="e"]{top:0;right:-5px;width:10px;height:100%;cursor:ew-resize}
+.resize-handle[data-dir="w"]{top:0;left:-5px;width:10px;height:100%;cursor:ew-resize}
+.resize-handle[data-dir="s"]{left:0;bottom:-5px;width:100%;height:10px;cursor:ns-resize}
+.resize-handle[data-dir="n"]{left:0;top:-5px;width:100%;height:10px;cursor:ns-resize}
+.resize-handle[data-dir="se"]{right:-7px;bottom:-7px;width:16px;height:16px;cursor:nwse-resize}
+.resize-handle[data-dir="sw"]{left:-7px;bottom:-7px;width:16px;height:16px;cursor:nesw-resize}
+.resize-handle[data-dir="ne"]{right:-7px;top:-7px;width:16px;height:16px;cursor:nesw-resize}
+.resize-handle[data-dir="nw"]{left:-7px;top:-7px;width:16px;height:16px;cursor:nwse-resize}
 .panehead .focus{margin-left:0;font:inherit;font-size:.72rem;color:var(--muted);background:none;border:1px solid var(--line);
  border-radius:99px;padding:4px 10px;cursor:pointer;min-height:32px}
 .panebody{padding:14px 16px}
@@ -409,7 +419,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane on" id="pane-agent" aria-label="Agent detail">
-      <div class="panehead">🤖 Agent — detail <button class="detailToggle" id="detailToggle" type="button" title="Sleek hides reasoning and tool calls; Detailed shows everything">Detailed</button><button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-agent" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">🤖 Agent — detail <button class="detailToggle" id="detailToggle" type="button" title="Sleek hides reasoning and tool calls; Detailed shows everything">Detailed</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-agent" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="status" id="agentStatus" style="border-bottom:1px solid var(--line)"><span class="pulse" aria-hidden="true"></span><span id="agentStatusText">idle — the lite agent is always on</span></div>
       <div class="stages" id="stages" aria-hidden="true">
         <span data-stage="sense">sense</span><span data-stage="plan">plan</span><span data-stage="act">act</span><span data-stage="verify">verify</span><span data-stage="remember">remember</span>
@@ -418,7 +428,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-browser" aria-label="Browser">
-      <div class="panehead">🌐 Browser <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">🌐 Browser <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <form class="urlrow" id="urlForm">
           <button class="sbtn ghost" id="browserHome" type="button" title="Home (Google)">⌂</button>
@@ -442,7 +452,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-doc" aria-label="Documents and staging">
-      <div class="panehead">📄 Document / Stage <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-doc" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">📄 Document / Stage <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-doc" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <p class="costline">Work apps:</p>
         <div class="chips" style="padding:0 0 10px">
@@ -458,7 +468,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-setup" aria-label="Setup and my Profiles">
-      <div class="panehead">🧭 Setup — no menus, just steps <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-setup" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">🧭 Setup — no menus, just steps <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-setup" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <div id="setupSteps"><p class="small">Ask “help me get a better agent plugged in” and the steps appear here. Deterministic scripts, nothing runs without your tap.</p></div>
         <h3 style="font-size:.9rem;margin:16px 0 6px">About you (this profile)</h3>
@@ -542,7 +552,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-notes" aria-label="Notes">
-      <div class="panehead">📝 Notes + sketch <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">📝 Notes + sketch <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <textarea id="notesArea" rows="8" style="width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:12px" placeholder="Notes for THIS profile only — saved locally as you type…" aria-label="Profile notes"></textarea>
         <p class="small" id="notesLine">Saved to this profile's own notes. Linked automatically when you watch + note + ask (the agent notices co-use, locally).</p>
@@ -559,7 +569,7 @@ body.kids .advancedBlock{display:none!important}
       </div>
     </section>
     <section class="pane" id="pane-video" aria-label="Video">
-      <div class="panehead">🎬 Video <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-video" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">🎬 Video <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-video" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <form class="urlrow" id="videoForm">
           <input id="videoInput" type="text" placeholder="YouTube link or .mp4 URL…" aria-label="Video address">
@@ -569,7 +579,7 @@ body.kids .advancedBlock{display:none!important}
       </div>
     </section>
     <section class="pane" id="pane-activity" aria-label="Activity">
-      <div class="panehead">📜 Activity + ledger <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-activity" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">📜 Activity + ledger <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-activity" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <ul class="stream" id="stream"></ul>
         <h3 style="font-size:.9rem;margin:14px 0 6px">Task ledger · checkpoints</h3>
