@@ -11,19 +11,56 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const jars = new Map(); // slot -> Map(host -> cookie string)
+import { readFile as readCookieFile, writeFile as writeCookieFile, mkdir as mkdirCookie } from 'node:fs/promises';
+import { existsSync as existsCookie } from 'node:fs';
+let jarTimer = null;
+async function persistJars() {
+  try {
+    const { slotPaths } = await import('./slots.mjs');
+    for (const [slot, jar] of jars) {
+      const p = slotPaths(slot);
+      await mkdirCookie(p.root, { recursive: true });
+      const obj = {};
+      for (const [host, ck] of jar) obj[host] = ck;
+      await writeCookieFile(join(p.root, 'proxy-cookies.json'), JSON.stringify(obj));
+    }
+  } catch {}
+}
+function schedulePersist() {
+  if (jarTimer) return;
+  jarTimer = setTimeout(() => { jarTimer = null; persistJars().catch(() => {}); }, 2000);
+}
+async function loadJar(slot) {
+  try {
+    const { slotPaths } = await import('./slots.mjs');
+    const f = join(slotPaths(slot).root, 'proxy-cookies.json');
+    if (!existsCookie(f)) return;
+    const obj = JSON.parse(await readCookieFile(f, 'utf8'));
+    const jar = jarFor(slot);
+    for (const [host, ck] of Object.entries(obj)) if (!jar.has(host)) jar.set(host, ck);
+  } catch {}
+}
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 function jarFor(slot) {
   if (!jars.has(slot)) jars.set(slot, new Map());
   return jars.get(slot);
 }
+const jarsLoaded = new Set();
+async function ensureJar(slot) {
+  if (jarsLoaded.has(slot)) return;
+  jarsLoaded.add(slot);
+  await loadJar(slot);
+}
 function storeCookies(slot, host, headers) {
   const set = headers.getSetCookie ? headers.getSetCookie() : [];
   if (!set.length) return;
+  ensureJar(slot).catch(() => {});
   const jar = jarFor(slot);
   const prev = jar.get(host) || '';
   const fresh = set.map((c) => c.split(';')[0].trim()).filter(Boolean).join('; ');
   jar.set(host, prev ? prev + '; ' + fresh : fresh);
+  schedulePersist();
 }
 function cookieHeader(slot, host) {
   return jarFor(slot).get(host) || '';
@@ -48,6 +85,8 @@ export function rewriteHtml(html, pageUrl) {
     if (/^(#|javascript:|mailto:|tel:|data:)/i.test(href.trim())) return m;
     return pre + '/api/proxy?url=' + encodeURIComponent(absolutize(href, pageUrl)) + post;
   });
+  /* rewritten links stay in the pane (no forced new tabs) */
+  out = out.replace(/<a\b([^>]*?)>/gi, (tag) => tag.replace(/\s+target\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, ''));
   out = out.replace(/(<form\b[^>]*?\baction\s*=\s*["'])([^"']*)(["'])/gi, (m, pre, act, post) => {
     if (/^(#|javascript:|mailto:|data:)/i.test(act.trim())) return m;
     return pre + '/api/proxy?url=' + encodeURIComponent(absolutize(act, pageUrl)) + post;
@@ -82,6 +121,7 @@ function stripFraming(headers) {
 
 /** Fetch through redirects with the slot jar. Returns {status, headers, body, url}. */
 export async function fetchUpstream(url, slot, method = 'GET', body = null, contentType = '') {
+  await ensureJar(slot);
   let current = url;
   let jar = jarFor(slot);
   void jar;

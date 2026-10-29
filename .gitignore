@@ -22,3 +22,5 @@ vault/X/config.json
 vault/app.json
 vault/active-slot.json
 vault/*/staging/
+vault/*/proxy-cookies.json
+src/bundle.json

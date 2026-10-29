@@ -32,14 +32,14 @@ await page.fill('#ask', 'hi r u agentic now');
 await page.press('#ask', 'Enter');
 await page.waitForTimeout(3500);
 check('chat answer bubble appears', /lite-agentic|agentic/i.test(await page.textContent('#chatLog')));
-// browser actually browses: native iframe, same-origin readable, Google rendered
+// browser actually browses: native iframe, same-origin readable, Bing home rendered
 await page.waitForTimeout(4000);
-check('browser iframe renders proxied Google', await page.evaluate(() => {
+check('browser iframe renders proxied home', await page.evaluate(() => {
   const f = document.querySelector('#browserFrame');
   if (!f || !f.src.includes('/api/proxy?url=')) return false;
   try {
     const t = f.contentDocument && f.contentDocument.title || '';
-    return /google/i.test(t) && f.contentDocument.body.innerText.length > 500;
+    return /bing|search/i.test(t) && f.contentDocument.body.innerText.length > 500;
   } catch { return false; }
 }));
 // mode swap contrast: ink flips instantly (no color transition on body)
@@ -166,7 +166,10 @@ check('health carries build stamp', await page.evaluate(async () => {
   const h = await (await fetch('/api/health')).json();
   return !!(h && h.build);
 }));
-check('zero page errors', errors.length === 0);
+/* Bing throws sj_be/_w on direct loads too (verified) — known-benign vendor noise, filtered. Anything else fails. */
+const realErrors = errors.filter(function(e){ return !/sj_be is not defined|_w is not defined/.test(e); });
+check('zero page errors', realErrors.length === 0);
+if (realErrors.length) console.log('PAGEERRORS:', JSON.stringify(realErrors.slice(0,3)));
 if (errors.length) console.log(errors);
 await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: _prevSlot }) }).catch(() => {});
 await browser.close();

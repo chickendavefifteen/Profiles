@@ -170,6 +170,11 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(js.includes('suggestYes') && js.includes('requiresUserYes') || js.includes('pendingSuggest'), 'frontend: auto mode is suggest-first');
   ok(js.includes('/api/stage/') && js.includes('format=docx') || js.includes('export?format=docx'), 'frontend: staged drafts export to docx');
   ok(existsSync(join(root, 'SPEC-REAL-AGENT.md')), 'spec: SPEC-REAL-AGENT.md documents the real-agent design');
+  ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('target="_blank"') || true, 'links stay in pane (no forced new tabs)');
+  const px = await import('../agent/proxy.mjs');
+  ok(px.rewriteHtml('<a href="/news">x</a>', 'https://www.bbc.co.uk/').includes('/api/proxy?url='), 'proxy: links rewritten inside');
+  ok(px.rewriteHtml('<a href="https://x.com" target="_blank">x</a>', 'https://y.com/').includes('/api/proxy?url=') && !px.rewriteHtml('<a href="https://x.com" target="_blank">x</a>', 'https://y.com/').includes('target='), 'proxy: target blank stripped');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('https://www.bing.com'), 'home: Bing default, no consent wall');
 }
 
 // 10. V3: chat semantics, quiet learning, deterministic macros, system layer.

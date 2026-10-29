@@ -652,7 +652,7 @@ function runReal(q, isRetry){
         bubble(res.chat || res.result || "Done.", "agent");
         if(res.ui && res.ui.showPane){
           showPaneEl(res.ui.showPane, true);
-          if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded) browserShow({ok:true, url:"https://www.google.com"}); }, 600);
+          if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded) browserShow({ok:true, url:"https://www.bing.com"}); }, 600);
           else { try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
         }
         if(res.setup){ renderSetup(res.setup, res.capabilities); showPane("pane-setup"); }
@@ -1077,10 +1077,10 @@ $("stageRefresh").addEventListener("click", loadStaged);
 var browserLoaded=false;
 function normUrl(u){
   u=String(u||"").trim();
-  if(!u) return "https://www.google.com";
+  if(!u) return "https://www.bing.com";
   if(/^https?:\/\//i.test(u)) return u;
   if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return "https://"+u;
-  return "https://www.google.com/search?q="+encodeURIComponent(u);
+  return "https://www.bing.com/search?q="+encodeURIComponent(u);
 }
 var lastBrowserUrl="";
 var browserLoaded=false;
@@ -1157,7 +1157,7 @@ if($("fallbackOpen")) $("fallbackOpen").addEventListener("click", function(){
 if($("fallbackRetry")) $("fallbackRetry").addEventListener("click", function(){
   var f=$("browserFrame");
   var u=$("urlInput").value.trim()||lastBrowserUrl;
-  if(!u) u="https://www.google.com";
+  if(!u) u="https://www.bing.com";
   lastBrowserUrl=u;
   f.src=proxyFor(normUrl(u));
   hideFallback();
@@ -1165,7 +1165,7 @@ if($("fallbackRetry")) $("fallbackRetry").addEventListener("click", function(){
 /* boot: clean proxied Google, ready to type in */
 setTimeout(function(){
   if(browserLoaded) return;
-  var home="https://www.google.com";
+  var home="https://www.bing.com";
   lastBrowserUrl=home;
   $("urlInput").value=home;
   $("browserFrame").src=proxyFor(home);
@@ -1392,9 +1392,13 @@ function updateModelLine(){
   else{ c.classList.remove("on"); c.textContent="Opt in to let Astra pick per hop, with that same cap. Agent suggests, never auto-switches."; }
 }
 function renderBuild(){
+  fetch("./bundle.json").then(function(r){ return r.json(); }).then(function(b){
+    var el=$("buildLine");
+    if(el && b && b.build) el.setAttribute("data-bundle", b.build+" "+(b.at||""));
+  }).catch(function(){});
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
     var el=$("buildLine");
-    if(el && h) el.textContent="sidecar build "+(h.build||"?")+" · up "+String(h.startedAt||"").slice(11,16)+" UTC · UI loaded "+window.__profilesUiLoaded;
+    if(el && h) el.textContent="UI bundle "+(el.getAttribute("data-bundle")||"dev-live")+" · sidecar "+(h.build||"?")+" · up "+String(h.startedAt||"").slice(11,16)+" UTC";
   }).catch(function(){});
 }
 function refreshCloud(){
