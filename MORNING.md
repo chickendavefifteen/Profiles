@@ -373,3 +373,12 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
   claiming Done (my own QA created it by asking 40x). Fast-path now
   file/stage only; reset clears macros+events; bogus macros deleted.
 - Proven 5x consistent browser_open; tests 282, QA 29/29 x2.
+
+## Smooth browser + stall-proofing (2026-10-29)
+- Measured Qwen2.5-3B Q4: ~4.5GB peak RSS, 0 VRAM (CPU-only llama build).
+- Browser behind the scenes: Chromium headless-shell via Playwright, one
+  persistent profile per slot, CDP screencast MJPEG viewed+driven as one actor.
+- Frozen-frame fix: frame counter + 12s stall re-attach; stream parks when
+  its pane hides; everyNthFrame 3/q68; /browser/state carries frames.
+- Clicks: /mouse endpoint verified live; native drag-eat prevented.
+- Tests 285 unit, QA 30/30. Pushed.

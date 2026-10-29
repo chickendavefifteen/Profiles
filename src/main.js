@@ -187,7 +187,7 @@ document.querySelectorAll("[data-min]").forEach(function(b){
   });
 });
 function showPaneEl(id, silent){
-  if(id==="pane-browser"){ setTimeout(reportBrowserSize, 400); setTimeout(function(){ browserLive(); }, 600); }
+  if(id==="pane-browser"){ /* iframe persists; nothing to re-attach */ }
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
   if(state.layout.maxed && state.layout.maxed!==id) state.layout.maxed=null;
   applyLayout();
@@ -195,10 +195,6 @@ function showPaneEl(id, silent){
   if(id==="pane-setup") loadSetup();
 }
 function hidePane(id){
-  if(id==="pane-browser"){
-    try{ var _img=$("browserImg"); if(_img) _img.removeAttribute("src"); }catch(e){}
-    fetch(apiUrl("/api/browser/stop"),{method:"POST"}).catch(function(){});
-  }
   /* everything closable now — including chat. Tabs + Recently closed recover it. */
   var closed=(state.cfg&&state.cfg.closedPanes)||[];
   if(!closed.some(function(c){ return c.id===id; })){
@@ -647,7 +643,7 @@ function runReal(q, isRetry){
     askBusy=false; if(goBtn) goBtn.disabled=false;
     if(!res || !res.events){ throw new Error("bad agent reply"); }
     var i=0, tickMs=MODES[state.mode].motion===0?500:220;
-    if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); setTimeout(function(){ browserLive(); }, 700); }catch(e){} }
+    if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
     (function next(){
       if(i>=res.events.length){
         paintStages(99);
@@ -656,8 +652,8 @@ function runReal(q, isRetry){
         bubble(res.chat || res.result || "Done.", "agent");
         if(res.ui && res.ui.showPane){
           showPaneEl(res.ui.showPane, true);
-          if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded || !$("browserImg").src) browserCall("/api/browser/view", {}); }, 600);
-          else { try{ browserShow(res.ui.browser, res.ui.browser.url); setTimeout(function(){ browserLive(); }, 700); }catch(e){} }
+          if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded) browserShow({ok:true, url:"https://www.google.com"}); }, 600);
+          else { try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
         }
         if(res.setup){ renderSetup(res.setup, res.capabilities); showPane("pane-setup"); }
         if(res.staged){ bubble("Staged \u201c"+res.staged.title+"\u201d — see the Document pane.", "sys"); loadStaged(); }
@@ -1087,133 +1083,94 @@ function normUrl(u){
   return "https://www.google.com/search?q="+encodeURIComponent(u);
 }
 var lastBrowserUrl="";
+var browserLoaded=false;
+function proxyFor(url){ return apiUrl("/api/proxy?url="+encodeURIComponent(url)); }
+function frameRealUrl(){
+  try{
+    var h=$("browserFrame").contentWindow.location.href || "";
+    var m=/[?&]url=([^&]+)/.exec(h);
+    if(m){ try{ return decodeURIComponent(m[1]); }catch(e){ return h; } }
+    return h;
+  }catch(e){ return ""; }
+}
+/* Agent navigations land here: the native frame shows the proxied page. */
 function browserShow(out){
-  if(!out || !out.ok) { browserHungry(); return; }
-  if(out.url){ $("urlInput").value=out.url; lastBrowserUrl=out.url; }
+  if(!out || !out.ok || !out.url) return;
+  lastBrowserUrl=out.url;
+  $("urlInput").value=out.url;
+  var f=$("browserFrame");
+  var want=proxyFor(out.url);
+  try{ if(f.contentWindow.location.href!==want) f.src=want; }catch(e){ f.src=want; }
+  hideFallback();
   browserLoaded=true;
 }
-var lastFrames=-1, lastFrameAt=Date.now();
+function showFallback(msg, realUrl){
+  var fb=$("browserFallback"); if(!fb) return;
+  fb.hidden=false;
+  $("browserFallbackText").textContent=msg;
+  var open=$("fallbackOpen");
+  if(open) open.onclick=function(){ if(realUrl) window.open(realUrl,"_blank"); };
+}
+function hideFallback(){ var fb=$("browserFallback"); if(fb) fb.hidden=true; }
+$("browserFrame").addEventListener("load", function(){
+  /* proxy errors come back tiny: surface the escape instead of a void */
+  hideFallback();
+  try{
+    var doc=$("browserFrame").contentDocument;
+    var t=(doc && doc.body && doc.body.innerText || "").trim();
+    if(/^\{"error"/.test(t) || /^(too many redirects|page too large)/i.test(t)){
+      showFallback("This page would not embed ("+t.slice(0,120)+").", lastBrowserUrl);
+    }
+  }catch(e){}
+});
+/* URL bar follows real in-frame navigation (same-origin through proxy) */
 setInterval(function(){
   if(document.visibilityState!=="visible" || !paneVisible("pane-browser")) return;
-  fetch(apiUrl("/api/browser/state")).then(function(r){ return r.json(); }).then(function(st){
-    if(!st || !st.ok || !st.url) return;
-    if(st.url!==lastBrowserUrl){
-      lastBrowserUrl=st.url;
-      $("urlInput").value=st.url;
-      browserLive();
-      lastFrames=st.frames; lastFrameAt=Date.now();
-      return;
+  try{
+    var real=frameRealUrl();
+    if(real && real.indexOf("http")===0 && real!==lastBrowserUrl){
+      lastBrowserUrl=real;
+      $("urlInput").value=real;
     }
-    if(typeof st.frames==="number"){
-      if(st.frames!==lastFrames){ lastFrames=st.frames; lastFrameAt=Date.now(); }
-      else if(Date.now()-lastFrameAt>12000){ lastFrameAt=Date.now(); browserLive(); }
-    }
-  }).catch(function(){});
-}, 4000);
-/* Live view: MJPEG stream straight into the pane — the page, not a still. */
-var browserObj=null;
-var streamFails=0;
-function browserLive(){
-  var img=$("browserImg"); if(!img) return;
-  if(browserObj) URL.revokeObjectURL(browserObj.src);
-  var src=apiUrl("/api/browser/stream");
-  browserObj=img;
-  img.alt="Live browser";
-  img.onerror=function(){
-    streamFails++;
-    /* after 2 dead frames show the last good still behind the retry —
-       a stale frame beats a blank void, and the stream keeps healing */
-    if(streamFails===2) img.src=apiUrl("/api/browser/poster")+"?t="+Date.now();
-    else setTimeout(function(){ img.src=src; }, 1500);
-  };
-  img.onload=function(){ streamFails=0; };
-  img.src=src;
-}
-var browserHungryTimer=null;
-function browserHungry(){
-  clearTimeout(browserHungryTimer);
-  browserHungryTimer=setTimeout(function(){
-    if(document.visibilityState!=="visible") return;
-    browserCall("/api/browser/home", {});
-  }, 400);
-}
-setInterval(function(){
-  var img=$("browserImg"); if(!img) return;
-  if(!img.src || img.src==="" || /\/api\/browser\/poster/.test(img.src)) browserLive();
-}, 3000);
-document.addEventListener("visibilitychange", function(){
-  if(document.visibilityState==="visible" && paneVisible("pane-browser")) browserLive();
-});
-/* Cold boot shows the last good frame instantly (poster), then the live
-   stream takes over — the pane is never a white void while handshaking. */
-setTimeout(function(){
-  var img=$("browserImg"); if(!img || img.src) return;
-  img.src=apiUrl("/api/browser/poster")+"?t="+Date.now();
-  img.onerror=function(){};
-  setTimeout(function(){ browserLive(); }, 1200);
-}, 300);
-function browserCall(path, body){
-  var payload=body||{};
-  if(payload.url) payload.url=normUrl(payload.url);
-  fetch(apiUrl(path),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})
-    .then(function(r){ return r.json(); }).then(browserShow).catch(function(){});
-}
+  }catch(e){}
+}, 2000);
 $("urlForm").addEventListener("submit", function(e){
   e.preventDefault();
-  browserCall("/api/browser/view", {url:$("urlInput").value.trim()});
+  var u=normUrl($("urlInput").value.trim());
+  lastBrowserUrl=u;
+  $("urlInput").value=u;
+  $("browserFrame").src=proxyFor(u);
+  hideFallback();
+  browserLoaded=true;
 });
-$("browserBack").addEventListener("click", function(){ browserCall("/api/browser/back", {}); });
-var browserFocus=false, typeQueue="", typeTimer=null;
-function flushType(enter){
-  if(!typeQueue && !enter) return;
-  var t=typeQueue; typeQueue="";
-  fetch(apiUrl("/api/browser/keys"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({kind:"type", text:t})}).then(function(){ if(enter) fetch(apiUrl("/api/browser/keys"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"press", key:"Enter"})}); }).catch(function(){});
-}
-function paneFrac(e){
-  /* Exact map for object-fit: cover in a box of the same ratio: the full
-     1280x800 page maps 1:1 onto the frame, no letterbox math needed. */
-  var r=$("browserImg").getBoundingClientRect();
-  return {fx:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), fy:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))};
-}
-var mouseFails=0;
-function mousePost(body){
-  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify(body)}).then(function(r){ return r.json(); }).then(function(out){
-    if(out && out.ok){ mouseFails=0; return; }
-    throw new Error((out && out.error) || "click rejected");
-  }).catch(function(err){
-    mouseFails++;
-    /* failures speak up (once) instead of dying silent — then quiet again */
-    if(mouseFails===2) bubble("That click did not land ("+String(err.message||err).slice(0,100)+"). The page view may be stale — it re-syncs by itself, or tap Go.", "sys");
-  });
-}
-$("browserImg").addEventListener("dragstart", function(e){ e.preventDefault(); });
-$("browserImg").addEventListener("click", function(e){
-  var f=paneFrac(e); browserFocus=true;
-  mousePost({kind:"click", fx:f.fx, fy:f.fy});
+$("browserBack").addEventListener("click", function(){
+  try{ $("browserFrame").contentWindow.history.back(); }catch(e){}
 });
-$("browserImg").addEventListener("mousemove", function(e){
-  if(e.buttons!==1) return; /* hold-drag pans exactly like a real browser */
-  var f=paneFrac(e);
-  mousePost({kind:"move", fx:f.fx, fy:f.fy});
+if($("openExternal")) $("openExternal").addEventListener("click", function(){
+  var u=$("urlInput").value.trim()||lastBrowserUrl;
+  if(u) window.open(u, "_blank");
 });
-$("browserImg").addEventListener("wheel", function(e){
-  e.preventDefault();
-  mousePost({kind:"wheel", fy:e.deltaY});
-}, {passive:false});
-document.addEventListener("keydown", function(e){
-  if(!browserFocus || !paneVisible("pane-browser")) return;
-  var t=e.target;
-  if(t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.tagName==="SELECT")) return;
-  if(e.metaKey||e.ctrlKey||e.altKey) return;
-  if(e.key==="Enter"){ e.preventDefault(); flushType(true); }
-  else if(e.key==="Backspace"){ e.preventDefault(); fetch(apiUrl("/api/browser/keys"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"press", key:"Backspace"})}).catch(function(){}); }
-  else if(e.key.length===1){ typeQueue+=e.key; clearTimeout(typeTimer); typeTimer=setTimeout(function(){ flushType(false); }, 450); }
+if($("fallbackOpen")) $("fallbackOpen").addEventListener("click", function(){
+  var u=$("urlInput").value.trim()||lastBrowserUrl;
+  if(u) window.open(u, "_blank");
 });
-document.addEventListener("pointerdown", function(e){
-  if(!e.target.closest || !e.target.closest("#pane-browser")) browserFocus=false;
-}, true);
+if($("fallbackRetry")) $("fallbackRetry").addEventListener("click", function(){
+  var f=$("browserFrame");
+  var u=$("urlInput").value.trim()||lastBrowserUrl;
+  if(!u) u="https://www.google.com";
+  lastBrowserUrl=u;
+  f.src=proxyFor(normUrl(u));
+  hideFallback();
+});
+/* boot: clean proxied Google, ready to type in */
+setTimeout(function(){
+  if(browserLoaded) return;
+  var home="https://www.google.com";
+  lastBrowserUrl=home;
+  $("urlInput").value=home;
+  $("browserFrame").src=proxyFor(home);
+  browserLoaded=true;
+}, 600);
 
 /* ---- voice: talk -> it listens; answers spoken back in a natural voice ---- */
 function pickVoice(){
@@ -1841,24 +1798,7 @@ setInterval(function(){
 }, 20000);
 
 /* ---- agent presence: always on, no toggle, honest badge ---- */
-setTimeout(function(){ if(!browserLoaded && paneVisible("pane-browser")) browserCall("/api/browser/home", {}); }, 1200);
-/* Pane-size tracking: the browser session always renders at exactly the
-   size of the frame on screen — resize the window and the page follows. */
-var browserSizeTimer=null;
-function reportBrowserSize(){
-  var v=$("browserView"); if(!v) return;
-  var r=v.getBoundingClientRect();
-  if(r.width<50 || r.height<50) return;
-  fetch(apiUrl("/api/browser/size"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({w:Math.round(r.width), h:Math.round(r.height)})}).catch(function(){});
-}
-if(window.ResizeObserver && $("browserView")){
-  new ResizeObserver(function(){
-    clearTimeout(browserSizeTimer);
-    browserSizeTimer=setTimeout(reportBrowserSize, 500);
-  }).observe($("browserView"));
-}
-setTimeout(reportBrowserSize, 2500);
+/* boot handled above (proxied home); nothing to fetch */
 var bootBuild=null;
 if($("updatePill")) $("updatePill").addEventListener("click", function(){ location.reload(); });
 function checkBuild(h){

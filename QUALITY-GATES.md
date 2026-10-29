@@ -48,6 +48,13 @@ browser pane loads Google clean (consent auto-rejected).
   QA hammering got our IP flagged — sorry page IN the user session). Search
   runs on Bing now; Google is never scraped. QA search steps are few and
   Bing-targeted; the shared-IP budget is real.
+- Inline `display:flex` defeats the `hidden` attribute (author style beats UA):
+  an overlay that ignores `hidden` eats every click forever with zero
+  errors. Global `[hidden]{display:none!important}` + fallbacks that show
+  Retry, never voids.
+- Headless-Firefox synthetic mouse clicks do not penetrate iframe
+  documents (harness quirk, verified vs Chromium where the full loop
+  passes). QA defaults to Chromium; Firefox-only runs skip those two.
 - Headless virtual-time screenshots hang forever on infinite streams —
   use Playwright screenshots for visual proof, never chromium --screenshot.
 - Google bot-blocks headless Firefox -> persistent HEADED Chromium

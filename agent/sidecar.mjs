@@ -478,9 +478,12 @@ export async function handleAgent(req, res, prefix = '/api') {
        dependence on any external site's layout. */
     if (path === '/test/click-target' && req.method === 'GET') {
       const html = `<!doctype html><html><head><meta charset="utf-8"><title>CLICKTEST-READY</title>
-        <style>html,body{margin:0;height:100%}#hit{position:fixed;inset:0;width:100%;height:100%;font-size:64px;cursor:pointer}
-        #echo{position:fixed;left:12px;bottom:12px;font:32px system-ui}</style></head><body>
+        <style>html,body{margin:0;height:100%}#hit{position:fixed;left:0;right:0;top:0;bottom:25%;width:100%;font-size:64px;cursor:pointer}
+        #q{position:fixed;left:0;right:0;bottom:0;height:25%;width:100%;font-size:40px;box-sizing:border-box}
+        #echo{position:fixed;left:12px;bottom:26%;font:32px system-ui}</style>
+        <script>function go(){document.title='TYPED:'+document.getElementById('q').value;}</script></head><body>
         <button id="hit" onclick="document.title='HIT';document.getElementById('echo').textContent='HIT-'+Date.now()">TAP ANYWHERE</button>
+        <input id="q" onkeydown="if(event.key==='Enter')go()" placeholder="type here, Enter submits">
         <div id="echo"></div></body></html>`;
       const buf = Buffer.from(html);
       res.writeHead(200, { 'content-type': 'text/html', 'content-length': buf.length });
@@ -494,6 +497,37 @@ export async function handleAgent(req, res, prefix = '/api') {
         const { page } = await ba.ensureSession(slot);
         json(res, 200, { ok: true, url: page.url(), title: await page.title().catch(() => ''), frames: ba.getFrameSeq(slot) });
       } catch (e) { json(res, 200, { ok: false, error: String(e && e.message || e).slice(0, 120) }); }
+      return true;
+    }
+    if (path === '/proxy' && (req.method === 'GET' || req.method === 'POST')) {
+      try {
+        const target = url.searchParams.get('url') || '';
+        if (!/^https?:\/\//i.test(target)) { json(res, 400, { error: 'url must be http(s)' }); return true; }
+        const { fetchUpstream, rewriteHtml } = await import('./proxy.mjs');
+        let body = null, ct = '';
+        if (req.method === 'POST') {
+          const chunks = [];
+          for await (const c of req) chunks.push(c);
+          body = Buffer.concat(chunks);
+          ct = req.headers['content-type'] || '';
+        }
+        const up = await fetchUpstream(target, (await paths()).slot, req.method, body, ct);
+        const ctype = String(up.headers.get?.('content-type') || up.headers['content-type'] || '').toLowerCase();
+        if (ctype.includes('text/html')) {
+          const html = rewriteHtml(up.body.toString('utf8'), up.url);
+          const buf = Buffer.from(html);
+          res.writeHead(up.status === 200 ? 200 : up.status, { 'content-type': 'text/html; charset=utf-8', 'content-length': buf.length, 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
+          res.end(buf);
+        } else {
+          const keep = {};
+          for (const [k, v] of (up.headers.entries ? up.headers.entries() : Object.entries(up.headers))) {
+            if (['content-type', 'content-length'].includes(String(k).toLowerCase())) keep[k] = v;
+          }
+          keep['cache-control'] = 'no-store';
+          res.writeHead(up.status, keep);
+          res.end(up.body);
+        }
+      } catch (e) { json(res, 502, { error: 'proxy failed: ' + String(e && e.message || e).slice(0, 140) }); }
       return true;
     }
     if (path === '/browser/stop' && req.method === 'POST') {

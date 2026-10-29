@@ -32,11 +32,11 @@ if (!skipQa) {
   check(!/^FAIL/m.test(r.out) && /QA: \d+\/\d+ passed/.test(r.out), 'behaviour QA green');
 } else console.log('--- 3/6 behaviour QA SKIPPED ---');
 
-// 4. stream serves real JPEG bytes (not headers-text, not void)
-console.log('--- 4/6 live stream bytes ---');
-r = sh(`curl -s --max-time 14 "${base}/api/browser/stream" -o /tmp/verify-stream.bin && python3 /home/dh/profiles-hackathon/scripts/stream-check.py`, 60000);
+// 4. proxy embeds real pages (framing stripped, links rewritten)
+console.log('--- 4/6 proxy embeds ---');
+r = sh(`curl -s --max-time 25 "${base}/api/proxy?url=https://www.bbc.co.uk/news" -o /tmp/verify-proxy.html -D /tmp/verify-proxy.h; grep -qi "x-frame-options" /tmp/verify-proxy.h && echo HAS_XFRAME || echo NO_XFRAME; grep -c "api/proxy?url=" /tmp/verify-proxy.html; python3 -c "d=open('/tmp/verify-proxy.html',encoding='utf8',errors='replace').read(); print('bytes=%d bbc=%s' % (len(d), 'bbc' in d.lower()))"`, 90000);
 console.log(r.out.trim());
-check(r.code === 0, 'stream carries JPEG frames');
+check(r.out.includes('NO_XFRAME') && /bytes=\d+ bbc=true/i.test(r.out), 'proxy strips framing, keeps content+links');
 
 // 5. click round-trip through the real stack (view -> click center -> title flips)
 console.log('--- 5/6 click round-trip ---');

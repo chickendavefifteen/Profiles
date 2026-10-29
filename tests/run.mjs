@@ -200,7 +200,9 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(js3.includes('profilesSuggestSilenceUntil'), 'ux: dismissing a suggestion silences it 24h');
   ok(html3.includes('id="nameInput"') && html3.includes('id="buddyInput"') && !html3.includes('id="welcomeBar"'), 'ux: name + buddy live in Settings, not forced in chat');
   ok(html3.includes('id="slotA"') && html3.includes('id="slotB"'), 'meta: two profile slots, B is the clean one');
-  ok(html3.includes('id="pane-browser"') && html3.includes('id="browserImg"'), 'browser: clean pass-through — one row, then the page');
+  ok(html3.includes('id="pane-browser"') && html3.includes('id="browserFrame"'), 'browser: native iframe pane — one row, then the page');
+  ok(html3.includes('sandbox="allow-scripts allow-same-origin allow-forms"'), 'browser: sandboxed but same-origin readable');
+  ok(html3.includes('id="browserFallback"'), 'browser: honest fallback with open-external escape, never a void');
   ok(existsSync(join(root, 'scripts', 'fetch-model.mjs')), 'setup: deterministic model fetch script');
   const slots = readFileSync(join(root, 'agent', 'slots.mjs'), 'utf8');
   ok(slots.includes("'A', 'B', 'C', 'D', 'E', 'X'") && slots.includes('slotPaths'), 'isolation: per-slot vault paths A-E + X');
@@ -345,11 +347,9 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('PANE_ICONS'), 'panes: icon-only tabs and headers');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('Adwaita Sans'), 'type: Adwaita Sans semibold base');
   ok(readFileSync(join(root, 'agent', 'system.mjs'), 'utf8').includes('ramUsedPct'), 'system: live RAM/CPU usage for the busy nudge');
-  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/size'), 'browser: pane-size tracking reported to the session');
-  ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/poster'"), 'sidecar: still poster behind the live stream');
-  ok(readFileSync(join(root, 'agent', 'browseract.mjs'), 'utf8').includes('getFrameSeq'), 'browser: frame counter exposes stalls');
-  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('lastFrameAt'), 'browser: frozen frames re-attach automatically');
-  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/stop'), 'browser: stream parks when its pane hides');
+  ok(readFileSync(join(root, 'agent', 'proxy.mjs'), 'utf8').includes('rewriteHtml'), 'proxy: framing stripped, navigations stay inside');
+  ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/proxy'"), 'sidecar: framing-proxy endpoint');
+  ok(!readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('browserImg'), 'browser: no more screenshot polling in the pane');
   const scm = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
   ok(scm.includes("['stage-doc','stage-slides','file-task']"), 'macros: fast-path only for file/stage actions, never tools');
   const al2 = await import('../agent/agentloop.mjs');
