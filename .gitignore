@@ -6,3 +6,4 @@ vault/*/pi-sessions/
 vault/*/staging/browser/
 *.log
 .DS_Store
+worktrees/

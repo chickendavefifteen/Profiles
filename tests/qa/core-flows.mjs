@@ -7,7 +7,7 @@ const headed = process.env.QA_HEADED === '1';
 const results = [];
 function check(name, cond) { results.push([name, !!cond]); console.log((cond ? 'ok' : 'FAIL') + ' - ' + name); }
 const browser = await firefox.launch({ headless: !headed });
-const page = await browser.newPage();
+const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(base + '?mode=lifeful', { waitUntil: 'networkidle' });
