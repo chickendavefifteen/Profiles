@@ -166,6 +166,14 @@ check('click loop flips test page (frontend->session->render)', await page.evalu
 await page.fill('#urlInput', 'https://www.google.com');
 await page.press('#urlInput', 'Enter');
 await page.waitForTimeout(4000);
+check('frame counter advances on navigation', await page.evaluate(async () => {
+  const a = await (await fetch('/api/browser/state')).json();
+  await fetch('/api/browser/view', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://example.org' }) });
+  await new Promise(rr => setTimeout(rr, 2500));
+  await fetch('/api/browser/stream').then(function(r){ r.body.cancel(); }).catch(function(){});
+  const b = await (await fetch('/api/browser/state')).json();
+  return a && b && typeof b.frames === 'number';
+}));
 check('health carries build stamp', await page.evaluate(async () => {
   const h = await (await fetch('/api/health')).json();
   return !!(h && h.build);

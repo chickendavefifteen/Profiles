@@ -347,6 +347,9 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'agent', 'system.mjs'), 'utf8').includes('ramUsedPct'), 'system: live RAM/CPU usage for the busy nudge');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/size'), 'browser: pane-size tracking reported to the session');
   ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/poster'"), 'sidecar: still poster behind the live stream');
+  ok(readFileSync(join(root, 'agent', 'browseract.mjs'), 'utf8').includes('getFrameSeq'), 'browser: frame counter exposes stalls');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('lastFrameAt'), 'browser: frozen frames re-attach automatically');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/stop'), 'browser: stream parks when its pane hides');
   const scm = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
   ok(scm.includes("['stage-doc','stage-slides','file-task']"), 'macros: fast-path only for file/stage actions, never tools');
   const al2 = await import('../agent/agentloop.mjs');

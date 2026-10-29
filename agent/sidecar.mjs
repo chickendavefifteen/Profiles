@@ -489,8 +489,10 @@ export async function handleAgent(req, res, prefix = '/api') {
     }
     if (path === '/browser/state' && req.method === 'GET') {
       try {
-        const { page } = await (await import('./browseract.mjs')).ensureSession((await paths()).slot);
-        json(res, 200, { ok: true, url: page.url(), title: await page.title().catch(() => '') });
+        const ba = await import('./browseract.mjs');
+        const slot = (await paths()).slot;
+        const { page } = await ba.ensureSession(slot);
+        json(res, 200, { ok: true, url: page.url(), title: await page.title().catch(() => ''), frames: ba.getFrameSeq(slot) });
       } catch (e) { json(res, 200, { ok: false, error: String(e && e.message || e).slice(0, 120) }); }
       return true;
     }

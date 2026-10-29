@@ -158,6 +158,8 @@ async function snap(slot) {
    are the real rendered page (not a stale screenshot). Controls land
    on the same page the user sees: one actor, not two. */
 const screencasts = new Map();
+const frameSeq = new Map(); /* slot -> frames emitted (stall detector reads this) */
+export function getFrameSeq(slot) { return frameSeq.get(slot) || 0 };
 function withTimeout(p, ms, what) {
   return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timed out')), ms))]);
 }
@@ -217,6 +219,7 @@ async function buildScreencast(slot) {
   const onFrame = async ({ data, metadata }) => {
     try {
       latest = Buffer.from(data, 'base64');
+      frameSeq.set(slot, (frameSeq.get(slot) || 0) + 1);
       if (stream.writableLength < 1024 * 1024) {
         stream.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${latest.length}\r\n\r\n`);
         stream.write(latest); stream.write('\r\n');
@@ -226,7 +229,7 @@ async function buildScreencast(slot) {
   };
   cdp.on('Page.screencastFrame', onFrame);
   sess.stop = async () => { sess.dead = true; try { cdp.off('Page.screencastFrame', onFrame); await cdp.send('Page.stopScreencast').catch(() => {}); } catch {} };
-  try { await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: 1100, maxHeight: 800, everyNthFrame: 1 }); } catch {}
+  try { await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 68, maxWidth: 1100, maxHeight: 800, everyNthFrame: 3 }); } catch {}
   page.on('close', () => sess.stop());
   return sess;
 }

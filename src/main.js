@@ -195,6 +195,10 @@ function showPaneEl(id, silent){
   if(id==="pane-setup") loadSetup();
 }
 function hidePane(id){
+  if(id==="pane-browser"){
+    try{ var _img=$("browserImg"); if(_img) _img.removeAttribute("src"); }catch(e){}
+    fetch(apiUrl("/api/browser/stop"),{method:"POST"}).catch(function(){});
+  }
   /* everything closable now — including chat. Tabs + Recently closed recover it. */
   var closed=(state.cfg&&state.cfg.closedPanes)||[];
   if(!closed.some(function(c){ return c.id===id; })){
@@ -1088,6 +1092,7 @@ function browserShow(out){
   if(out.url){ $("urlInput").value=out.url; lastBrowserUrl=out.url; }
   browserLoaded=true;
 }
+var lastFrames=-1, lastFrameAt=Date.now();
 setInterval(function(){
   if(document.visibilityState!=="visible" || !paneVisible("pane-browser")) return;
   fetch(apiUrl("/api/browser/state")).then(function(r){ return r.json(); }).then(function(st){
@@ -1096,6 +1101,12 @@ setInterval(function(){
       lastBrowserUrl=st.url;
       $("urlInput").value=st.url;
       browserLive();
+      lastFrames=st.frames; lastFrameAt=Date.now();
+      return;
+    }
+    if(typeof st.frames==="number"){
+      if(st.frames!==lastFrames){ lastFrames=st.frames; lastFrameAt=Date.now(); }
+      else if(Date.now()-lastFrameAt>12000){ lastFrameAt=Date.now(); browserLive(); }
     }
   }).catch(function(){});
 }, 4000);
