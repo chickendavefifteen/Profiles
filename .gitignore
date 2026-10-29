@@ -20,3 +20,5 @@ vault/D/config.json
 vault/E/config.json
 vault/X/config.json
 vault/app.json
+vault/active-slot.json
+vault/*/staging/
