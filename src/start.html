@@ -28,6 +28,8 @@ input:focus{border-color:#b78ae0}
 <body>
 <div class="wrap">
 <div class="mark">Start</div>
+<div id="vw" style="font-size:12px;color:#888;margin-bottom:8px"></div>
+<script>function vw(){try{document.getElementById('vw').textContent='viewport '+window.innerWidth+'x'+window.innerHeight;}catch(e){}}addEventListener('resize',vw);vw();</script>
 <p class="sub">A calm corner of Profiles. Search below, or pick somewhere to go.</p>
 <form id="f">
   <input id="q" type="text" autocomplete="off" placeholder="Search the web, or type a web address…" aria-label="Search or address">
