@@ -9,8 +9,15 @@
 import { viewGo, viewCurrent, viewRead, webSearch } from './browseract.mjs';
 
 const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.co.uk/news',
+  'bc news': 'https://www.bbc.co.uk/news', 'bbc news website': 'https://www.bbc.co.uk/news',
   google: 'https://www.google.com', news: 'https://www.bbc.co.uk/news',
   youtube: 'https://www.youtube.com', github: 'https://github.com', wikipedia: 'https://en.wikipedia.org' };
+function siteFor(target) {
+  const t = target.replace(/\s+(website|site|webpage|page)\s*$/, '').trim();
+  if (SITES[t]) return SITES[t];
+  if (/^bb?c\b/.test(t) || /bbc/.test(t)) return 'https://www.bbc.co.uk/news';
+  return null;
+}
 
 export const AGENT_TOOLS = [
   { name: 'browser_open', description: 'Open a website in the integrated browser pane', input: 'url or site name' },
@@ -23,11 +30,12 @@ export const AGENT_TOOLS = [
 export function decideTool(query) {
   const q = String(query || '');
   const low = q.toLowerCase().trim();
-  let m = low.match(/^(?:please\s+)?(?:open|show|launch|go to|browse|visit)\s+(?:a\s+|the\s+)?(?:browser\s+(?:on|to|for)\s+|brower\s+(?:on|to)\s+)?(.+)$/);
+  let m = low.match(/^(?:please\s+)?(?:open|show|launch|go to|take me to|browse|visit)\s+(?:a\s+|the\s+)?(?:browser\s+(?:on|to|for)\s+|brower\s+(?:on|to)\s+)?(.+)$/);
   if (/^(open|show|launch)\s+(a\s+)?(browser|brower)$/.test(low)) return { tool: 'browser_open', args: { url: 'https://www.google.com' } };
   if (m && !/^(draft|write|file|slides|letter)/.test(low)) {
     let target = m[1].replace(/\s+please\s*$/, '').trim();
-    if (SITES[target]) return { tool: 'browser_open', args: { url: SITES[target] } };
+    const known = siteFor(target);
+    if (known) return { tool: 'browser_open', args: { url: known } };
     if (/^[\w-]+(\.[\w-]+)+/.test(target) || /^https?:/.test(target)) {
       return { tool: 'browser_open', args: { url: /^https?:/.test(target) ? target : 'https://' + target } };
     }

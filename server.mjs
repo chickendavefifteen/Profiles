@@ -12,6 +12,7 @@ const argPort = process.argv.includes('--port')
   ? Number(process.argv[process.argv.indexOf('--port') + 1])
   : NaN;
 const port = Number.isFinite(argPort) ? argPort : Number(process.env.PORT || 8123);
+process.env.PROFILES_SERVER_PORT = String(port);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

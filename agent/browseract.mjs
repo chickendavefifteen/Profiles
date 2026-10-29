@@ -44,7 +44,7 @@ export async function runPrepared(token) {
   await mkdir(shotDir, { recursive: true });
   const results = [];
   let browser;
-  try { browser = await playwright.firefox.launch({ headless: true }); }
+  try { browser = await playwright.chromium.launch({ headless: true, args: ['--disable-blink-features=AutomationControlled'] }); }
   catch (e) { return { ok: false, error: 'browser launch failed: ' + String(e.message || e).slice(0, 160) }; }
   try {
     const page = await browser.newPage();
@@ -73,52 +73,61 @@ export { ALLOWED as BROWSER_ACTIONS };
    clicking the screenshot (their click IS the consent); agent-drive
    above stays token-gated because the agent initiates it. */
 const sessions = new Map();
-function normViewUrl(url) {
-  const u = String(url || '').trim();
-  if (/^https?:\/\//i.test(u)) return u;
-  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return 'https://' + u;
-  if (!u) return 'https://www.google.com';
-  return 'https://www.google.com/search?q=' + encodeURIComponent(u);
+/* Never orphan a Chromium on the profile lock: close contexts with the
+   sidecar. An orphaned context was the "Target page closed" restart bug. */
+export async function closeAllSessions() {
+  for (const [, sess] of sessions) { try { await sess.ctx.close(); } catch {} try { await sess.browser.close(); } catch {} }
+  sessions.clear();
+}
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.once(sig, async () => { await closeAllSessions().catch(() => {}); process.exit(0); });
+}
+async function dismissConsent(page) {
+  /* Presence, not title: the consent wall's page title is just "Google",
+     which is exactly how it slipped past the first version. */
+  try {
+    const btn = page.getByRole('button', { name: /reject all/i });
+    if (await btn.count()) { await btn.first().click({ timeout: 3000 }); await page.waitForTimeout(900); }
+  } catch {}
 }
 async function ensureSession(slot) {
-  const live = sessions.get(slot);
-  if (live) {
-    try {
-      if (live.page.isClosed && live.page.isClosed()) { try { await live.browser.close().catch(() => {}); } catch {} sessions.delete(slot); }
-      else return live;
-    } catch { try { sessions.delete(slot); } catch {} }
+  if (sessions.has(slot)) return sessions.get(slot);
+  const { chromium } = await import('playwright');
+  const p = slotPaths(slot);
+  const profileDir = join(p.root, 'browser-profile-' + (process.env.PROFILES_SERVER_PORT || process.env.PROFILES_AGENT_PORT || 'main'));
+  await mkdir(profileDir, { recursive: true });
+  const opts = { viewport: { width: 1280, height: 800 },
+    args: ['--disable-blink-features=AutomationControlled', '--no-first-run'] };
+  let ctx;
+  try { ctx = await chromium.launchPersistentContext(profileDir, { ...opts, headless: false }); }
+  catch { ctx = await chromium.launchPersistentContext(profileDir, { ...opts, headless: true }); }
+  const page = ctx.pages()[0] || await ctx.newPage();
+  if (!page.url() || page.url() === 'about:blank') {
+    await page.goto('https://www.google.com', { timeout: 25000 }).catch(() => {});
+    await dismissConsent(page);
   }
-  let playwright;
-  try { playwright = await import('playwright'); }
-  catch (e) { throw new Error('playwright not installed (npm i -D playwright)'); }
-  let browser;
-  try { browser = await playwright.firefox.launch({ headless: true }); }
-  catch (e) { throw new Error('browser launch failed: ' + String(e.message || e).slice(0, 160)); }
-  const page = await browser.newPage({ viewport: { width: 1100, height: 750 } });
-  await page.goto('https://www.google.com', { timeout: 15000 }).catch(() => {});
-  const sess = { browser, page };
+  const sess = { browser: ctx, page, ctx };
   sessions.set(slot, sess);
   return sess;
 }
 async function snap(slot) {
-  let sess;
-  try { sess = await ensureSession(slot); }
-  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
-  const { page } = sess;
-  try {
-    const p = slotPaths(slot);
-    const dir = join(p.staging, 'browser');
-    await mkdir(dir, { recursive: true });
-    const file = `view-${slot}.png`;
-    await page.screenshot({ path: join(dir, file), timeout: 10000 });
-    let title = '', url = '';
-    try { title = await page.title(); } catch {}
-    try { url = page.url(); } catch {}
-    return { ok: true, title, url, shot: file };
-  } catch (e) {
-    try { sessions.delete(slot); } catch {}
-    return { ok: false, error: 'snapshot failed: ' + String(e.message || e).slice(0, 160) };
-  }
+  const { page } = await ensureSession(slot);
+  await dismissConsent(page);
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
+  await page.waitForTimeout(500);
+  const p = slotPaths(slot);
+  const dir = join(p.staging, 'browser');
+  await mkdir(dir, { recursive: true });
+  const file = `view-${slot}.png`;
+  await page.screenshot({ path: join(dir, file) });
+  return { ok: true, title: await page.title().catch(() => ''), url: page.url(), shot: file };
+}
+export function normViewUrl(url) {
+  const u = String(url || '').trim();
+  if (!u) return 'https://www.google.com';
+  if (/^https?:\/\//i.test(u)) return u;
+  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return 'https://' + u;
+  return 'https://www.google.com/search?q=' + encodeURIComponent(u);
 }
 export async function viewGo(slot, url) {
   const u = normViewUrl(url);

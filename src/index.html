@@ -295,6 +295,9 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
 .bubble{max-width:88%;padding:10px 14px;border-radius:14px;font-size:.92rem;line-height:1.55;white-space:pre-wrap;word-break:break-word;animation:lineIn .3s var(--ease)}
 .bubble.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
 .bubble.agent{align-self:flex-start;background:var(--bg);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bubble.thinking{opacity:.75;font-style:italic}
+.bubble.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 .bubble.sys{align-self:center;background:transparent;color:var(--muted);font-size:.8rem;text-align:center}
 .chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 10px}
 .chips button{font:inherit;font-size:.76rem;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;min-height:36px}
@@ -419,7 +422,7 @@ body.kids .advancedBlock{display:none!important}
   </div>
   <main class="canvas" id="canvas">
     <section class="pane on" id="pane-chat" aria-label="Chat">
-      <div class="panehead">💬 Chat <span class="small" id="brainBadge">lite agent: checking…</span><button class="closebtn" type="button" data-close="pane-chat" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead">💬 Chat <span class="small" id="brainBadge">lite agent: checking…</span><button class="detailToggle" id="chatDetailToggle" type="button" title="Show or hide agent reasoning">Reasoning</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-chat" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="chatlog" id="chatLog" aria-live="polite"></div>
       <div class="chips" id="macroChips"></div>
       <form class="askrow" id="askForm" style="padding:0 16px 16px;margin:0">
@@ -444,8 +447,8 @@ body.kids .advancedBlock{display:none!important}
         <input id="urlInput" type="text" value="https://www.google.com" aria-label="Web address">
         <button class="sbtn" type="submit" style="min-height:44px">Go</button>
       </form>
-      <div id="browserView" style="flex:1;overflow:hidden;background:#fff;margin:10px 12px 12px;border-radius:10px;min-height:120px">
-        <img id="browserImg" alt="Browser" style="width:100%;height:100%;object-fit:cover;object-position:top center;display:block;cursor:pointer">
+      <div id="browserView" style="flex:1;overflow:hidden;background:var(--card);margin:10px 12px 12px;border-radius:10px;min-height:120px">
+        <img id="browserImg" alt="Browser" style="width:100%;height:100%;object-fit:contain;object-position:top center;display:block;cursor:text;background:var(--card)">
       </div>
     </section>
 

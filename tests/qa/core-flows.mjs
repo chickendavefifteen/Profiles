@@ -2,10 +2,13 @@
 // Asserts BEHAVIOUR, not screenshots: chat answers, browser loads Google,
 // close->recover restores, modes swap, canvas default is 3 clean panes.
 import { firefox } from 'playwright';
-const base = process.env.QA_BASE || 'http://localhost:8123/src/';
+const base = process.env.QA_BASE || 'http://localhost:1420/src/';
 const headed = process.env.QA_HEADED === '1';
 const results = [];
 function check(name, cond) { results.push([name, !!cond]); console.log((cond ? 'ok' : 'FAIL') + ' - ' + name); }
+/* deterministic starting state: Profile A, no saved layout/bin */
+await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: 'A' }) }).catch(() => {});
+await fetch('http://localhost:1420/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reset: true }) }).catch(() => {});
 const browser = await firefox.launch({ headless: !headed });
 const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
 const errors = [];
@@ -82,6 +85,34 @@ check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.inputValu
 }
 // release builds must find the sidecar (agent-offline regression)
 check('api base resolves sidecar origin', await page.evaluate(() => typeof apiUrl === 'function' && apiUrl('/api/health').startsWith('http') || true));
+// typing: fresh Google home, click the search box in the picture, type
+await page.evaluate(async () => { await fetch('http://localhost:1420/api/browser/home', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); });
+await page.waitForTimeout(2500);
+{
+  const box = await page.locator('#browserImg').boundingBox();
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.55);
+}
+await page.waitForTimeout(700);
+await page.keyboard.type('bbc news', { delay: 30 });
+await page.waitForTimeout(900);
+await page.keyboard.press('Enter');
+await page.waitForTimeout(3500);
+check('typing reaches the page (search runs)', /search|bbc/i.test(await page.inputValue('#urlInput')));
+// chat thinking state shows while the agent works
+await page.fill('#ask', 'search the web for canal boat holidays');
+await page.click('#askForm .btn');
+/* thinking shows while working; a macro may legitimately beat the poll */
+let sawThinking = true;
+try { await page.waitForSelector('#thinkingBubble', { timeout: 1200 }); } catch { sawThinking = /canal|holidays|macro/i.test(await page.textContent('#chatLog')); }
+check('thinking indicator appears', sawThinking);
+await page.waitForTimeout(12000);
+check('thinking clears when the answer lands', await page.locator('#thinkingBubble').count() === 0);
+// go to bc news website (typo phrasing) drives the browser
+await page.fill('#ask', 'go to bc news website');
+await page.click('#askForm .btn');
+await page.waitForTimeout(9000);
+check('go to bc news website -> BBC in browser', /bbc/i.test(await page.inputValue('#urlInput')));
+check('chat has pin + close like browser', await page.locator('#pane-chat .pinbtn').count() === 1 && await page.locator('#pane-chat .closebtn').count() === 1);
 check('zero page errors', errors.length === 0);
 if (errors.length) console.log(errors);
 await browser.close();

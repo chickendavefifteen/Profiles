@@ -368,7 +368,7 @@ export async function handleAgent(req, res, prefix = '/api') {
       const slot = (await paths()).slot;
       const ba = await import('./browseract.mjs');
       const fn = { view: () => body.url ? ba.viewGo(slot, body.url) : ba.viewCurrent(slot), home: () => ba.viewHome(slot),
-        click: () => ba.viewClick(slot, body.fx, body.fy), type: () => ba.viewType(slot, body.text, body.enter), back: () => ba.viewBack(slot) }[viewMatch[1]];
+        click: () => ba.viewClick(slot, body.fx, body.fy), type: () => ba.viewType(slot, body.text, body.enter, body.backspace), back: () => ba.viewBack(slot) }[viewMatch[1]];
       json(res, 200, await fn()); return true;
     }
     const shotMatch = path.match(/^\/browser\/shot\/([\w.-]+)$/);

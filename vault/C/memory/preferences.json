@@ -1,0 +1,49 @@
+{
+  "preferredMode": {},
+  "macroCandidates": [
+    {
+      "phrase": "go to bc news website",
+      "count": 14
+    }
+  ],
+  "linkedGroups": [
+    {
+      "panes": [
+        "pane-chat",
+        "pane-doc"
+      ],
+      "count": 22
+    },
+    {
+      "panes": [
+        "pane-browser",
+        "pane-chat"
+      ],
+      "count": 15
+    },
+    {
+      "panes": [
+        "pane-browser",
+        "pane-doc"
+      ],
+      "count": 15
+    },
+    {
+      "panes": [
+        "pane-agent",
+        "pane-chat"
+      ],
+      "count": 7
+    },
+    {
+      "panes": [
+        "pane-agent",
+        "pane-doc"
+      ],
+      "count": 7
+    }
+  ],
+  "lastDismissal": null,
+  "events": 39,
+  "derivedAt": "2026-10-29T09:38:10.743Z"
+}

@@ -315,3 +315,72 @@
 {"at":"2026-10-29T08:39:02.225Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
 {"at":"2026-10-29T08:39:22.230Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
 {"at":"2026-10-29T08:39:54.005Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:40:14.005Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:40:34.005Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:40:54.005Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:41:14.005Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:41:34.006Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:41:54.008Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:42:14.011Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:42:34.016Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:42:54.020Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:43:14.024Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:43:34.028Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:43:54.032Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:44:14.035Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:44:34.040Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:44:54.044Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:45:14.048Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:45:34.051Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:45:54.055Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:46:14.060Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:46:34.064Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:46:54.068Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:47:01.175Z","type":"ask","query":"hey","mode":"Vibes"}
+{"at":"2026-10-29T08:47:10.700Z","type":"ask","query":"go to bbc news website","mode":"Vibes"}
+{"at":"2026-10-29T08:47:14.075Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:47:34.076Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:47:54.080Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:48:14.083Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:48:34.109Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T08:48:54.112Z","type":"context","panes":["pane-chat","pane-browser"],"mode":"Vibes"}
+{"at":"2026-10-29T09:08:04.831Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:08:16.894Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:08:21.618Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:12:36.858Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:12:48.916Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:12:53.656Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:13:33.116Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:13:45.174Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:13:50.116Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:15:46.057Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:15:58.107Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:16:02.807Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:16:40.679Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:16:52.647Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:16:57.542Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:17:59.973Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:18:12.030Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:18:16.973Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:21:50.626Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:22:02.700Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:22:07.645Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:27:54.190Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:28:06.247Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:28:10.994Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:30:14.576Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:30:26.632Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:30:31.351Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:33:40.768Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:33:52.829Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:33:57.523Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:34:48.656Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:35:00.694Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:35:05.416Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:35:59.583Z","type":"ask","query":"search the web for canal boat holidays","mode":"Vibes"}
+{"at":"2026-10-29T09:36:25.649Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:36:37.706Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:36:42.648Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
+{"at":"2026-10-29T09:37:25.075Z","type":"ask","query":"hi r u agentic now","mode":"Vibes"}
+{"at":"2026-10-29T09:37:37.044Z","type":"ask","query":"open a brower on bbc news","mode":"Vibes"}
+{"at":"2026-10-29T09:37:41.933Z","type":"context","panes":["pane-chat","pane-browser","pane-doc"],"mode":"Vibes"}
