@@ -13,7 +13,9 @@
     "dev": "echo 'Day 1: open src/index.html directly, or run: npx tauri dev (after npx tauri init deps)'",
     "pwa": "echo 'Day 1: serve pwa/ with any static server, e.g. npx serve pwa/'",
     "qa": "node tests/qa/core-flows.mjs",
-    "qa:headed": "QA_HEADED=1 node tests/qa/core-flows.mjs"
+    "qa:headed": "QA_HEADED=1 node tests/qa/core-flows.mjs",
+    "qa:gates": "node tests/qa/overnight-gates.mjs",
+    "qa:gates:strict": "node tests/qa/overnight-gates.mjs --strict"
   },
   "license": "UNLICENSED",
   "devDependencies": {
