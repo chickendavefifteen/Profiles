@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:"Adwaita Sans","Noto Sans",system-ui,sans-serif;background:#14101d;color:#ece4f8;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.mark{font-weight:800;font-size:1.6rem;letter-spacing:-.02em;margin-bottom:6px}
+.mark i{font-style:normal}
+.mark i:nth-child(1){color:#b78ae0}.mark i:nth-child(2){color:#7f6fc4}.mark i:nth-child(3){color:#ece4f8}
+.sub{color:#a89cc6;font-size:.9rem;margin:0 0 22px}
+form{width:min(560px,92%);display:flex;gap:8px}
+input{flex:1;font:inherit;font-size:1.05rem;color:#ece4f8;background:#211a2e;border:1.5px solid #352a4c;
+ border-radius:14px;padding:14px 18px;min-height:54px;outline:none}
+input:focus{border-color:#b78ae0}
+.links{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+.links a{font-size:.84rem;color:#a89cc6;background:#211a2e;border:1px solid #352a4c;border-radius:99px;
+ padding:8px 16px;text-decoration:none}
+.links a:hover{color:#ece4f8;border-color:#b78ae0}
+</style>
+<script>window.__API="__API__";</script>
+</head>
+<body>
+<div class="mark">Start</div>
+<p class="sub">A calm corner of Profiles. Search below, or pick somewhere to go.</p>
+<form id="f">
+  <input id="q" type="text" autocomplete="off" placeholder="Search the web, or type a web address…" aria-label="Search or address">
+</form>
+<div class="links">
+  <a href="__API__/api/proxy?url=https%3A%2F%2Fwww.bing.com">Bing</a>
+  <a href="__API__/api/proxy?url=https%3A%2F%2Fwww.bbc.co.uk%2Fnews">BBC News</a>
+  <a href="__API__/api/proxy?url=https%3A%2F%2Fen.wikipedia.org">Wikipedia</a>
+  <a href="__API__/api/proxy?url=https%3A%2F%2Fwww.google.com">Google</a>
+</div>
+<script>
+document.getElementById('f').addEventListener('submit', function(e){
+  e.preventDefault();
+  var q=document.getElementById('q').value.trim();
+  if(!q) return;
+  var url=/^https?:\/\//i.test(q)?q:(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(q)?'https://'+q:'https://www.bing.com/search?q='+encodeURIComponent(q));
+  location.href='__API__/api/proxy?url='+encodeURIComponent(url);
+});
+</script>
+</body>
+</html>

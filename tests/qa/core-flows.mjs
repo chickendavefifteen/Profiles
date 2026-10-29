@@ -34,15 +34,20 @@ await page.waitForTimeout(3500);
 check('chat answer bubble appears', /lite-agentic|agentic/i.test(await page.textContent('#chatLog')));
 // browser actually browses: native iframe, same-origin readable, Bing home rendered
 await page.waitForTimeout(4000);
+check('start page boots (no third-party lottery)', await page.evaluate(() => {
+  const f = document.querySelector('#browserFrame');
+  return !!f && /\/api\/home$/.test(f.src);
+}));
 let _homeOk = false;
 for (let _i = 0; _i < 8; _i++) {
   await page.waitForTimeout(2000);
   _homeOk = await page.evaluate(() => {
     const f = document.querySelector('#browserFrame');
-    if (!f || !f.src.includes('/api/proxy?url=')) return false;
+    if (!f) return false;
     try {
-      const t = f.contentDocument && f.contentDocument.title || '';
-      return /bing|search/i.test(t) && f.contentDocument.body.innerText.length > 500;
+      const d = f.contentDocument;
+      const t = (d && d.title) || '';
+      return /start/i.test(t) && !!d.querySelector('#q');
     } catch { return false; }
   });
   if (_homeOk) break;

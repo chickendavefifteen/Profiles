@@ -530,6 +530,21 @@ export async function handleAgent(req, res, prefix = '/api') {
       } catch (e) { json(res, 502, { error: 'proxy failed: ' + String(e && e.message || e).slice(0, 140) }); }
       return true;
     }
+    if (path === '/home' && req.method === 'GET') {
+      /* Start page with the correct API origin baked in (works under
+         http:// dev servers AND tauri:// bundled windows). */
+      try {
+        const proto = req.headers['x-forwarded-proto'] || 'http';
+        const origin = `${proto}://${req.headers.host}`;
+        let html = await readFile(join(root, 'src', 'start.html'), 'utf8').catch(() => '');
+        if (!html) html = '<!doctype html><body style="background:#14101d;color:#ece4f8;font-family:system-ui"><form method="get" action="__API__/api/proxy"><input name="url" style="width:80%"></form>';
+        html = html.split('__API__').join(origin);
+        const buf = Buffer.from(html);
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': buf.length, 'cache-control': 'no-store' });
+        res.end(buf);
+      } catch { json(res, 500, { error: 'home failed' }); }
+      return true;
+    }
     if (path === '/browser/stop' && req.method === 'POST') {
       try { const { stopScreencast } = await import('./browseract.mjs'); await stopScreencast((await paths()).slot); } catch {}
       json(res, 200, { ok: true }); return true;

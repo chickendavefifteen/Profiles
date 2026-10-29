@@ -1084,6 +1084,7 @@ function normUrl(u){
 var lastBrowserUrl="";
 var browserLoaded=false;
 function proxyFor(url){ return apiUrl("/api/proxy?url="+encodeURIComponent(url)); }
+function homeUrl(){ return apiUrl("/api/home"); }
 function frameRealUrl(){
   try{
     var h=$("browserFrame").contentWindow.location.href || "";
@@ -1094,7 +1095,8 @@ function frameRealUrl(){
 }
 /* Agent navigations land here: the native frame shows the proxied page. */
 function browserShow(out){
-  if(!out || !out.ok || !out.url) return;
+  if(!out || !out.ok) return;
+  if(!out.url){ lastBrowserUrl=""; $("urlInput").value=""; $("browserFrame").src=homeUrl(); hideFallback(); browserLoaded=true; return; }
   lastBrowserUrl=out.url;
   $("urlInput").value=out.url;
   var f=$("browserFrame");
@@ -1130,7 +1132,7 @@ setInterval(function(){
     var real=frameRealUrl();
     if(real && real.indexOf("http")===0 && real!==lastBrowserUrl){
       lastBrowserUrl=real;
-      $("urlInput").value=real;
+      $("urlInput").value=/\/api\/home$/.test(real)?"":real;
     }
   }catch(e){}
 }, 2000);
@@ -1151,11 +1153,13 @@ function nudgeSoon(ms){
 window.addEventListener("resize", function(){ nudgeSoon(400); });
 $("urlForm").addEventListener("submit", function(e){
   e.preventDefault();
-  var u=normUrl($("urlInput").value.trim());
-  lastBrowserUrl=u;
-  $("urlInput").value=u;
+  var raw=$("urlInput").value.trim();
   var f=$("browserFrame");
   hideFallback();
+  if(!raw){ lastBrowserUrl=""; f.src=homeUrl(); browserLoaded=true; return; }
+  var u=normUrl(raw);
+  lastBrowserUrl=u;
+  $("urlInput").value=u;
   try{
     if(f.contentWindow.location.href===proxyFor(u)) f.contentWindow.location.reload();
     else f.src=proxyFor(u);
@@ -1185,10 +1189,9 @@ if($("fallbackRetry")) $("fallbackRetry").addEventListener("click", function(){
 /* boot: clean proxied Google, ready to type in */
 setTimeout(function(){
   if(browserLoaded) return;
-  var home="https://www.bing.com";
-  lastBrowserUrl=home;
-  $("urlInput").value=home;
-  $("browserFrame").src=proxyFor(home);
+  lastBrowserUrl="";
+  $("urlInput").value="";
+  $("browserFrame").src=homeUrl();
   browserLoaded=true;
 }, 600);
 
