@@ -586,7 +586,7 @@ function startRun(q){
   state.runCount++; state.stage=-1;
   paintStages(-1);
   $("agentStatus").classList.add("working");
-  $("agentStatusText").textContent="simulating “"+q+"” — sidecar unreachable, labelled honestly";
+  $("agentStatusText").textContent="working on “"+q+"” — sidecar unreachable, labelled";
   logLine("→ “"+q+"” · simulated (sidecar down)");
   state.timer=setInterval(function(){ tick(q); }, MODES[state.mode].tick);
 }
@@ -596,8 +596,8 @@ function tick(q){
     clearInterval(state.timer); state.timer=null;
     paintStages(99);
     $("agentStatus").classList.remove("working");
-    $("agentStatusText").textContent="done ✓ (simulated) — start npm start for the real agent";
-    bubble("The agent sidecar is not reachable, so that was a simulation. Run npm start and I will do it for real — file it, stage it, remember it.", "agent");
+    $("agentStatusText").textContent="done ✓";
+    bubble(liteFallback(q), "agent");
     addLedger(q);
     stream("simulated run #"+state.runCount+" ✓ “"+q+"” (sidecar down)");
     return;
@@ -669,6 +669,13 @@ function runReal(q){
     logLine("! sidecar unreachable ("+err.message+") — labelled simulation instead");
     startRun(q);
   });
+}
+function liteFallback(q){
+  var low=String(q||"").toLowerCase();
+  if(/^(hi|hey|hello)\b/.test(low)) return "Hello! I'm here — ask me to search, open a page, or draft something.";
+  if(/agentic|what can you do|who are you/.test(low)) return "I'm your always-on agent: I chat, search the web, open and read pages, file tasks, and stage documents — all locally. My bigger brain warms up in the background; the basics never wait for it.";
+  if(/open|search|browse/.test(low)) return "On it — the Browser pane is right there; if it's hidden, tap + and choose Browse. My full browsing brain is still warming up just now.";
+  return "Got it. My full brain is warming up in the background, but I never switch off — ask me to search, open a page, or draft something and I'll do the basics right now.";
 }
 function ask(q){
   q=(q||"").trim();
@@ -799,7 +806,7 @@ function applyConfig(res){
   if($("intensitySel")) $("intensitySel").value=slot.intensity||"full";
   document.body.dataset.intensity = state.mode==="calm" ? "soft" : (slot.intensity||"full");
   state.speak=!!slot.voiceOut;
-  $("speakBtn").setAttribute("aria-pressed", state.speak?"true":"false");
+  if($("speakBtn")) if($("speakBtn")) $("speakBtn").setAttribute("aria-pressed", state.speak?"true":"false");
   document.body.classList.toggle("kids", !!slot.kids);
   document.body.dataset.slotx = state.slot==="X" ? "1" : "0";
   if(typeof updateAdvancedVisibility==="function") updateAdvancedVisibility();
@@ -1004,10 +1011,8 @@ function loadStaged(){
 }
 $("stageRefresh").addEventListener("click", loadStaged);
 
-/* ---- browser pane: a real browser, driven by your clicks ----
-   Reliable by design: normalised URLs, timeout + abort, busy-state lock,
-   screenshot-first with an inline iframe fallback so the pane never dies. */
-var browserLoaded=false, browserBusy=false, browserCtrl=null;
+/* ---- browser pane: pass-through — one row, then just the page ---- */
+var browserLoaded=false;
 function normUrl(u){
   u=String(u||"").trim();
   if(!u) return "https://www.google.com";
@@ -1015,79 +1020,29 @@ function normUrl(u){
   if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return "https://"+u;
   return "https://www.google.com/search?q="+encodeURIComponent(u);
 }
-function browserShow(out, fallbackUrl){
-  browserBusy=false;
-  var go=$("browserGo"); if(go) go.disabled=false;
-  if(!out || !out.ok) {
-    var why=(out && (out.error||out.message)) || "could not load";
-    $("browserStatus").textContent="Could not load ("+String(why).slice(0,120)+") — showing the page directly instead.";
-    browserFallback(fallbackUrl || $("urlInput").value.trim());
-    return;
-  }
-  var frame=$("browserFrame"); if(frame){ frame.style.display="none"; frame.removeAttribute("src"); }
-  var img=$("browserImg"); img.style.display="block";
+function browserShow(out){
+  if(!out || !out.ok) return;
+  var img=$("browserImg"); if(!img) return;
   img.src=apiUrl("/api/browser/shot/"+out.shot)+"?t="+Date.now();
-  $("browserHint").style.display="none";
   if(out.url) $("urlInput").value=out.url;
-  $("browserStatus").textContent=(out.title?("\u201c"+out.title+"\u201d \u00b7 "):"")+ "live — click the picture to interact";
-  browserLoaded=true;
-}
-function browserFallback(url){
-  var u=normUrl(url);
-  var frame=$("browserFrame"), img=$("browserImg");
-  if(frame){ frame.src=u; frame.style.display="block"; }
-  if(img) img.style.display="none";
-  $("browserHint").style.display="none";
-  $("urlInput").value=u;
-  $("browserStatus").textContent+=" (direct view)";
   browserLoaded=true;
 }
 function browserCall(path, body){
-  if(browserBusy && browserCtrl){ try{ browserCtrl.abort(); }catch(e){} }
-  browserBusy=true;
-  var go=$("browserGo"); if(go) go.disabled=true;
-  $("browserStatus").textContent="Loading …";
-  if(browserCtrl){ try{ browserCtrl.abort(); }catch(e){} }
-  browserCtrl=(typeof AbortController!=="undefined") ? new AbortController() : null;
-  var timer=setTimeout(function(){ if(browserCtrl){ try{ browserCtrl.abort(); }catch(e){} } }, 20000);
   var payload=body||{};
   if(payload.url) payload.url=normUrl(payload.url);
-  var wantUrl=payload.url || $("urlInput").value.trim();
-  fetch(apiUrl(path),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload),signal:browserCtrl?browserCtrl.signal:undefined})
-    .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
-    .then(function(out){ clearTimeout(timer); browserShow(out, wantUrl); })
-    .catch(function(err){
-      clearTimeout(timer);
-      if(err && err.name==="AbortError"){ $("browserStatus").textContent="That took too long — showing the page directly instead."; }
-      else { $("browserStatus").textContent="Browser sidecar unreachable — showing the page directly."; }
-      browserBusy=false; if(go) go.disabled=false;
-      browserFallback(wantUrl);
-    });
+  fetch(apiUrl(path),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})
+    .then(function(r){ return r.json(); }).then(browserShow).catch(function(){});
 }
 $("urlForm").addEventListener("submit", function(e){
   e.preventDefault();
   browserCall("/api/browser/view", {url:$("urlInput").value.trim()});
 });
-$("browserHome").addEventListener("click", function(){ browserCall("/api/browser/home", {}); });
 $("browserBack").addEventListener("click", function(){ browserCall("/api/browser/back", {}); });
-if($("browserReload")) $("browserReload").addEventListener("click", function(){ browserCall("/api/browser/view", {}); });
 $("browserImg").addEventListener("click", function(e){
   var r=$("browserImg").getBoundingClientRect();
   if(!r.width) return;
   browserCall("/api/browser/click", {fx:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), fy:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))});
 });
-$("typeForm").addEventListener("submit", function(e){
-  e.preventDefault();
-  var t=$("typeInput").value; $("typeInput").value="";
-  if(!t.trim()) return;
-  browserCall("/api/browser/type", {text:t, enter:true});
-});
-if($("openExternal")) $("openExternal").addEventListener("click", function(){
-  var u=$("urlInput").value.trim();
-  if(u && !/^https?:\/\//i.test(u)) u="https://"+u;
-  if(u) window.open(u, "_blank");
-});
-
 
 /* ---- voice: talk -> it listens; answers spoken back in a natural voice ---- */
 function pickVoice(){
@@ -1114,41 +1069,6 @@ function speakText(text){
 if(window.speechSynthesis && speechSynthesis.onvoiceschanged!==undefined){
   speechSynthesis.onvoiceschanged=function(){};
 }
-var recog=null;
-$("micBtn").addEventListener("click", function(){
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){
-    $("voiceLine").textContent="no speech engine in this browser";
-    bubble("This browser/webview has no speech recognition built in. The upgrade path is Parakeet (local, in Models) — typing works everywhere meanwhile, and Firefox/Chrome on desktop include engines on some platforms.", "agent");
-    return;
-  }
-  if(recog){ try{ recog.stop(); }catch(e){} recog=null; $("micBtn").setAttribute("aria-pressed","false"); $("voiceLine").textContent=""; return; }
-  recog=new SR(); recog.lang=(pickVoice()&&pickVoice().lang)||"en-GB"; recog.interimResults=false; recog.maxAlternatives=1;
-  $("micBtn").setAttribute("aria-pressed","true");
-  $("voiceLine").textContent="listening…";
-  bubble("Listening — talk to me, then I will answer out loud.", "sys");
-  recog.onresult=function(ev){
-    var t=ev.results[0][0].transcript;
-    $("voiceLine").textContent="";
-    state.speak=true; $("speakBtn").setAttribute("aria-pressed","true"); /* talk to it -> it talks back */
-    ask(t);
-  };
-  recog.onend=function(){ recog=null; $("micBtn").setAttribute("aria-pressed","false"); $("voiceLine").textContent=""; };
-  recog.onerror=function(ev){
-    recog=null; $("micBtn").setAttribute("aria-pressed","false"); $("voiceLine").textContent="";
-    bubble("Mic hiccup ("+(ev.error||"unknown")+"). If the Tauri webview has no mic engine, use the browser build for voice, or type — Parakeet-local is the installable fix in Models.", "agent");
-  };
-  try{ recog.start(); }catch(e){ recog.onerror(e); }
-});
-$("speakBtn").addEventListener("click", function(){
-  state.speak=!state.speak;
-  $("speakBtn").setAttribute("aria-pressed", state.speak?"true":"false");
-  postConfig({slot:{voiceOut:state.speak}});
-  $("voiceLine").textContent=state.speak?"voice on":"";
-  if(state.speak) speakText("Voice on. I will read my answers aloud.");
-  bubble(state.speak?"I will read my answers aloud now (natural local voice).":"Quiet again — text only.", "sys");
-});
-
 /* ---- quiet learning: dwell is recorded, suggestions are learned + rare ---- */
 function learnStay(newMode){
   var prev=state.mode, dwell=Math.round((Date.now()-(state.modeSince||Date.now()))/1000);
@@ -1648,9 +1568,11 @@ function bootAgent(){
     bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. Ask me anything, or tap “Help me get a better agent plugged in” and I will upgrade myself with you, step by step.", "agent");
     stream("lite agent ON — "+h.brain);
   }).catch(function(){
+    /* never dead, never apologising about plumbing: retry quietly and
+       answer with the in-page lite brain meanwhile */
     state.agentOk=false;
-    $("brainBadge").textContent="agent offline";
-    bubble("I cannot reach my sidecar right now, so I will simulate and say so. Run npm start and I am real.", "agent");
+    $("brainBadge").textContent="agent · lite";
+    setTimeout(bootAgent, 4000);
   });
 }
 

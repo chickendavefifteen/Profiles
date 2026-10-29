@@ -53,7 +53,7 @@ check('doc RECOVERS from trash', await page.isVisible('#pane-doc'));
 await page.fill('#ask', 'open a brower on bbc news');
 await page.click('#askForm .btn');
 await page.waitForTimeout(9000);
-check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.textContent('#browserStatus')));
+check('tool: browser pane shows BBC after ask', /bbc/i.test(await page.inputValue('#urlInput')));
 // resize: pin browser, drag its left edge — chat must ADAPT, not be underlapped
 {
   const chatBox = await page.locator('#pane-chat').boundingBox();

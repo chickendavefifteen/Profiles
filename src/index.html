@@ -424,9 +424,6 @@ body.kids .advancedBlock{display:none!important}
       <div class="chips" id="macroChips"></div>
       <form class="askrow" id="askForm" style="padding:0 16px 16px;margin:0">
         <input id="ask" type="text" autocomplete="off" placeholder="Ask, search, or tell me to do something…" aria-label="Ask Profiles">
-        <button class="iconbtn" id="micBtn" type="button" title="Voice in (browser speech)" aria-pressed="false">🎙</button>
-        <span class="small" id="voiceLine" style="align-self:center"></span>
-        <button class="iconbtn" id="speakBtn" type="button" title="Read answers aloud" aria-pressed="false">🔊</button>
         <button class="btn" id="askGo" type="submit">Go</button>
       </form>
     </section>
@@ -441,26 +438,14 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-browser" aria-label="Browser">
-      <div class="panehead">🌐 Browser <button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
-      <div class="panebody">
-        <form class="urlrow" id="urlForm">
-          <button class="sbtn ghost" id="browserHome" type="button" title="Home (Google)">⌂</button>
-          <button class="sbtn ghost" id="browserBack" type="button" title="Back">←</button>
-          <button class="sbtn ghost" id="browserReload" type="button" title="Reload this page">⟳</button>
-          <input id="urlInput" type="text" value="https://www.google.com" aria-label="Web address" inputmode="url" autocomplete="off" spellcheck="false">
-          <button class="sbtn" id="browserGo" type="submit">Go</button>
-          <button class="sbtn ghost" id="openExternal" type="button" title="Open this page in my real browser">↗</button>
-        </form>
-        <div id="browserView" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;min-height:200px">
-          <img id="browserImg" alt="Live browser view — click to interact" style="width:100%;display:block;cursor:pointer">
-          <iframe id="browserFrame" title="Browser fallback view" style="width:100%;height:46vh;border:0;display:none;background:#fff"></iframe>
-          <p class="small" id="browserHint" style="padding:10px 12px">Loading Google… this is a real browser — click anything in the picture.</p>
-        </div>
-        <form class="urlrow" id="typeForm" style="margin-top:10px">
-          <input id="typeInput" type="text" placeholder="Type into the page, Enter to submit…" aria-label="Type into page">
-          <button class="sbtn" type="submit">Type</button>
-        </form>
-        <p class="small" id="browserStatus"></p>
+      <div class="panehead">🌐 Browser <button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <form class="urlrow" id="urlForm" style="padding:10px 12px 0;margin:0">
+        <button class="sbtn ghost" id="browserBack" type="button" title="Back" style="min-height:44px">←</button>
+        <input id="urlInput" type="text" value="https://www.google.com" aria-label="Web address">
+        <button class="sbtn" type="submit" style="min-height:44px">Go</button>
+      </form>
+      <div id="browserView" style="flex:1;overflow:hidden;background:#fff;margin:10px 12px 12px;border-radius:10px;min-height:120px">
+        <img id="browserImg" alt="Browser" style="width:100%;height:100%;object-fit:cover;object-position:top center;display:block;cursor:pointer">
       </div>
     </section>
 

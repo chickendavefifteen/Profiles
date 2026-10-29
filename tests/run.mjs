@@ -200,8 +200,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(js3.includes('profilesSuggestSilenceUntil'), 'ux: dismissing a suggestion silences it 24h');
   ok(html3.includes('id="nameInput"') && html3.includes('id="buddyInput"') && !html3.includes('id="welcomeBar"'), 'ux: name + buddy live in Settings, not forced in chat');
   ok(html3.includes('id="slotA"') && html3.includes('id="slotB"'), 'meta: two profile slots, B is the clean one');
-  ok(html3.includes('id="micBtn"') && js3.includes('SpeechRecognition'), 'voice: browser speech in, zero install');
-  ok(html3.includes('id="pane-browser"') && html3.includes('id="openExternal"'), 'browser: in-app view plus open-in-my-browser escape');
+  ok(html3.includes('id="pane-browser"') && html3.includes('id="browserImg"'), 'browser: clean pass-through — one row, then the page');
   ok(existsSync(join(root, 'scripts', 'fetch-model.mjs')), 'setup: deterministic model fetch script');
   const slots = readFileSync(join(root, 'agent', 'slots.mjs'), 'utf8');
   ok(slots.includes("'A', 'B', 'C', 'D', 'E', 'X'") && slots.includes('slotPaths'), 'isolation: per-slot vault paths A-E + X');
@@ -251,8 +250,6 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!html6.includes('🎛 Customise</button>') && html6.includes('⚙</button>'), 'brand: customise is a cog icon');
   ok(!html6.includes('id="meterText"'), 'meter: chip removed entirely, budget implied');
   ok(!js6.includes('sim+(m.sim===1?" lane"'), 'meter: lanes no longer quantified in the chip');
-  ok(js6.includes('state.speak=true') && js6.includes('pickVoice'), 'voice: talk -> speaks back, natural voice picked');
-  ok(js6.includes('Mic hiccup'), 'voice: honest mic errors instead of silent failure');
   ok(js6.includes('window.open(b.dataset.app'), 'work: apps open in the real browser, Profiles stays the layer');
   const sc6 = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
   ok(sc6.includes("path === '/appconfig'"), 'sidecar: appconfig endpoint');
