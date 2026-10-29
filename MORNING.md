@@ -321,3 +321,17 @@ chips, bottom copy, agent-detail in-your-face: gone (agent pane opt-in).
   own Google client creds. Repo: github.com/chickendavefifteen/profiles
   PRIVATE (xtgeorge69 does not exist on GitHub).
 - Tests: unit 197/197, QA 13/13 x2. Everything pushed.
+
+## Structural browser + honest agent (2026-10-29, verified)
+
+Dave's screenshots proved: fake "warming up" answers + blank browser.
+- Agent honesty: simulation path deleted from the codebase. Failed asks
+  retry once, then say so — nothing filed, nothing invented.
+- Router: bare "bbc news"/"sky news" open; bare topics search; spoken
+  domains ("google dot com properly"); "open result N"; Google fallback.
+- Browser architecture: singleflight sessions, headers-first MJPEG,
+  per-request first frame, poster fallback, boot poster, wrapping headers.
+- Pipeline enforced: BUILD stamp + Update pill + scripts/preflight.mjs
+  (build-match, model present, live render) gating every future claim.
+- Proof: unit 261/261, QA 27/27 headless AND headed, wire-decoded live
+  frames read by eye, native window relaunched on desktop 2.

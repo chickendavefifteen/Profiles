@@ -2,6 +2,7 @@
    Lite agent ALWAYS ON (local sidecar); answers land in chat, the Pi-loop
    detail lives in the Agent pane. Pack-wired, governor-enforced. */
 "use strict";
+window.__profilesUiLoaded=new Date().toISOString().slice(11,16)+" UTC";
 function $(id){ return document.getElementById(id); }
 function apiBase(){
   try{
@@ -1221,6 +1222,12 @@ function updateModelLine(){
   if(on){ c.classList.add("on"); c.textContent="Cost preview: ~10 light hops ≈ pennies · 1 heavy ≈ ~$0.02 · cap $2/mo — over cap, tasks queue quietly."; }
   else{ c.classList.remove("on"); c.textContent="Opt in to let Astra pick per hop, with that same cap. Agent suggests, never auto-switches."; }
 }
+function renderBuild(){
+  fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
+    var el=$("buildLine");
+    if(el && h) el.textContent="sidecar build "+(h.build||"?")+" · up "+String(h.startedAt||"").slice(11,16)+" UTC · UI loaded "+window.__profilesUiLoaded;
+  }).catch(function(){});
+}
 function refreshCloud(){
   fetch(apiUrl("/api/cloud/status")).then(function(r){ return r.json(); }).then(function(st){
     $("cloudToggle").checked=!!st.enabled;
@@ -1669,7 +1676,7 @@ applyLayout();
   bindAdaptive(); updateXmaxVisibility();
   bootPacks();
   bootAgent();
-  loadConfig(); loadAppConfig(); loadMacros(); loadNotes();
+  loadConfig(); loadAppConfig(); loadMacros(); loadNotes(); renderBuild();
   var pane=sp.get("pane"); if(pane && PANES.indexOf("pane-"+pane)>=0) showPane("pane-"+pane);
   var q=sp.get("ask");
   if(q) setTimeout(function(){ ask(q.slice(0,120)); }, 600);

@@ -59,6 +59,18 @@ browser pane loads Google clean (consent auto-rejected).
 - Mode colour transitions on body text = unreadable mid-swap -> ink
   never transitions; surfaces do.
 
+## Native rule (the frozen-frontend gotcha, 2026-10-29)
+The Tauri window runs the frontend BUNDLED at binary build time — editing
+src/ does NOT change what the window shows until `cargo build` re-bundles
+and the window relaunches. An entire afternoon of "still broken" reports
+traced to testing a morning binary. Hence, before ANY native claim:
+1. `cargo build` in src-tauri (or `npm run app:build`),
+2. relaunch the window fresh,
+3. read Setup footer: "sidecar build X · up HH:MM · UI loaded HH:MM" —
+   UI-loaded must be NEWER than your last src edit, sidecar-up newer
+   than your last agent/ edit, else you are testing the past.
+Headless QA can never catch this (it always loads live disk files).
+
 ## Release rule
 Commit + push to the private repo only when G0+G1 pass; G2/G3 for
 anything user-visible. "It works via curl" is not a gate.
