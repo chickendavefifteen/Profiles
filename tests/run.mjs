@@ -326,6 +326,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('add.textContent="+"'), 'plus: just a bold plus now');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('max-width:1480px'), 'scale: canvas ~25% wider for big screens');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('updatePill'), 'frontend: stale windows offer Reload on new builds');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/size'), 'browser: pane-size tracking reported to the session');
   ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/poster'"), 'sidecar: still poster behind the live stream');
   const al2 = await import('../agent/agentloop.mjs');
   ok(al2.decideTool('bbc news')?.tool === 'browser_open', 'tools: bare "bbc news" opens');

@@ -179,6 +179,7 @@ document.querySelectorAll("[data-min]").forEach(function(b){
   });
 });
 function showPaneEl(id, silent){
+  if(id==="pane-browser") setTimeout(reportBrowserSize, 400);
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
   if(state.layout.maxed && state.layout.maxed!==id) state.layout.maxed=null;
   applyLayout();
@@ -1630,6 +1631,23 @@ setInterval(function(){
 
 /* ---- agent presence: always on, no toggle, honest badge ---- */
 setTimeout(function(){ if(!browserLoaded && paneVisible("pane-browser")) browserCall("/api/browser/home", {}); }, 1200);
+/* Pane-size tracking: the browser session always renders at exactly the
+   size of the frame on screen — resize the window and the page follows. */
+var browserSizeTimer=null;
+function reportBrowserSize(){
+  var v=$("browserView"); if(!v) return;
+  var r=v.getBoundingClientRect();
+  if(r.width<50 || r.height<50) return;
+  fetch(apiUrl("/api/browser/size"),{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({w:Math.round(r.width), h:Math.round(r.height)})}).catch(function(){});
+}
+if(window.ResizeObserver && $("browserView")){
+  new ResizeObserver(function(){
+    clearTimeout(browserSizeTimer);
+    browserSizeTimer=setTimeout(reportBrowserSize, 500);
+  }).observe($("browserView"));
+}
+setTimeout(reportBrowserSize, 2500);
 var bootBuild=null;
 if($("updatePill")) $("updatePill").addEventListener("click", function(){ location.reload(); });
 function checkBuild(h){

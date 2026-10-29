@@ -128,6 +128,19 @@ check('browser img wired to live stream', await page.evaluate(() => {
   const i = document.querySelector('#browserImg');
   return !!i && /\/api\/browser\/stream/.test(i.src);
 }));
+check('browser tracks pane size (498x400 -> 498x400 frames)', await page.evaluate(async () => {
+  const r = await (await fetch('/api/browser/size', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ w: 498, h: 400 }) })).json();
+  await new Promise(rr => setTimeout(rr, 1500));
+  const p = await (await fetch('/api/browser/poster')).arrayBuffer();
+  const b = new Uint8Array(p);
+  let w = 0, h = 0;
+  if (b[0] === 0x89 && b[1] === 0x50) { w = (b[16] << 24) + (b[17] << 16) + (b[18] << 8) + b[19]; h = (b[20] << 24) + (b[21] << 16) + (b[22] << 8) + b[23]; }
+  else { for (let i = 0; i + 9 < b.length; i++) {
+    if (b[i] === 0xFF && b[i + 1] === 0xC0) { h = (b[i + 5] << 8) + b[i + 6]; w = (b[i + 7] << 8) + b[i + 8]; break; }
+  } }
+  await fetch('/api/browser/home', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  return r && r.ok && w === 498 && h === 400;
+}));
 check('poster is a real JPEG render', await page.evaluate(async () => {
   try {
     const r = await fetch('/api/browser/poster');

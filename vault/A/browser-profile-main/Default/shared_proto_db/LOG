@@ -1,2 +1,3 @@
-2026/10/29-09:33:11.397 294a0f Creating DB /home/dh/profiles-hackathon/vault/A/browser-profile-main/Default/shared_proto_db since it was missing.
-2026/10/29-09:33:11.399 294a0f Reusing MANIFEST /home/dh/profiles-hackathon/vault/A/browser-profile-main/Default/shared_proto_db/MANIFEST-000001
+2026/10/29-12:43:23.973 388cd2 Reusing MANIFEST /home/dh/profiles-hackathon/vault/A/browser-profile-main/Default/shared_proto_db/MANIFEST-000001
+2026/10/29-12:43:23.973 388cd2 Recovering log #3
+2026/10/29-12:43:23.973 388cd2 Reusing old log /home/dh/profiles-hackathon/vault/A/browser-profile-main/Default/shared_proto_db/000003.log 

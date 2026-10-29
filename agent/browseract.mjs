@@ -292,6 +292,29 @@ export async function viewGo(slot, url) {
   return snap(slot);
 }
 export async function viewHome(slot) { return viewGo(slot, 'https://www.google.com'); }
+/* The page always matches the pane: the frontend reports the live pane
+   size and the session resizes its viewport to it (clamped). The stream
+   then maps 1:1 onto the frame — no crop math, no drift, at any window. */
+export async function viewSize(slot, w, h) {
+  const { page } = await ensureSession(slot);
+  w = Math.max(320, Math.min(1920, Math.round(Number(w) || 1280)));
+  h = Math.max(200, Math.min(1200, Math.round(Number(h) || 800)));
+  try {
+    await page.setViewportSize({ width: w, height: h });
+    const sess = screencasts.get(slot);
+    if (sess && !sess.dead) {
+      try { await sess.cdp.send('Page.stopScreencast').catch(() => {}); } catch {}
+      try { await sess.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: w, maxHeight: h, everyNthFrame: 1 }); } catch {}
+    }
+    try {
+      const p = slotPaths(slot);
+      const dir = join(p.staging, 'browser');
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: join(dir, `view-${slot}.png`) });
+    } catch {}
+    return { ok: true, w, h };
+  } catch (e) { return { ok: false, error: String(e && e.message || e).slice(0, 140) }; }
+}
 export async function viewBack(slot) {
   let sess;
   try { sess = await ensureSession(slot); }

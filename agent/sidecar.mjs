@@ -455,6 +455,12 @@ export async function handleAgent(req, res, prefix = '/api') {
       json(res, 200, await keysAct((await paths()).slot, body.kind, body.key, body.text));
       return true;
     }
+    if (path === '/browser/size' && req.method === 'POST') {
+      let b = ''; for await (const c of req) b += c;
+      const body = JSON.parse(b || '{}');
+      const { viewSize } = await import('./browseract.mjs');
+      json(res, 200, await viewSize((await paths()).slot, body.w, body.h)); return true;
+    }
     if (path === '/browser/stop' && req.method === 'POST') {
       try { const { stopScreencast } = await import('./browseract.mjs'); await stopScreencast((await paths()).slot); } catch {}
       json(res, 200, { ok: true }); return true;
