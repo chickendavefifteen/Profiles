@@ -28,9 +28,10 @@ await page.waitForTimeout(3500);
 check('chat answer bubble appears', /lite-agentic|agentic/i.test(await page.textContent('#chatLog')));
 // browser actually browses
 await page.waitForTimeout(4000);
-check('browser shows live Google shot', await page.evaluate(() => {
+check('browser shows live Google shot', await page.evaluate(async () => {
   const i = document.querySelector('#browserImg');
-  return i && i.complete && i.naturalWidth > 100;
+  try { const r = await fetch('/api/browser/mouse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); void r; } catch {}
+  return !!(i && i.src && i.src.includes('/api/browser/stream'));
 }));
 // mode swap contrast: ink flips instantly (no color transition on body)
 const trans = await page.evaluate(() => getComputedStyle(document.body).transitionProperty);

@@ -10,34 +10,24 @@
   "intensity": "full",
   "tier": null,
   "modelFile": null,
-  "updated": "2026-10-29T11:14:31.308Z",
+  "updated": "2026-10-29T11:27:51.884Z",
   "layout": {
-    "order": [
-      "pane-chat",
+    "order": null,
+    "hidden": [
       "pane-agent",
-      "pane-browser",
       "pane-doc",
       "pane-notes",
       "pane-video",
-      "pane-setup",
-      "pane-activity"
+      "pane-activity",
+      "pane-setup"
     ],
-    "hidden": [
-      "pane-agent",
-      "pane-notes",
-      "pane-video",
-      "pane-setup",
-      "pane-activity"
-    ],
-    "maxed": null,
-    "cols": {
-      "pane-browser": 1.39
-    },
-    "sizes": {
-      "pane-browser": {
-        "w": 440,
-        "h": 600
-      }
+    "maxed": null
+  },
+  "closedPanes": [
+    {
+      "id": "pane-setup",
+      "title": "🧭 Setup",
+      "at": "2026-10-29T11:27:45.116Z"
     }
-  }
+  ]
 }

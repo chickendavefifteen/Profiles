@@ -117,15 +117,80 @@ async function ensureSession(slot) {
 }
 async function snap(slot) {
   const { page } = await ensureSession(slot);
-  await dismissConsent(page);
-  await page.waitForLoadState('domcontentloaded').catch(() => {});
-  await page.waitForTimeout(500);
-  const p = slotPaths(slot);
-  const dir = join(p.staging, 'browser');
-  await mkdir(dir, { recursive: true });
-  const file = `view-${slot}.png`;
-  await page.screenshot({ path: join(dir, file) });
-  return { ok: true, title: await page.title().catch(() => ''), url: page.url(), shot: file };
+  try {
+    await page.waitForLoadState('domcontentloaded', { timeout: 4000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const title = await page.title().catch(() => '');
+    return { ok: true, title, url: page.url(), shot: null };
+  } catch (e) { return { ok: false, error: 'page closed: ' + String(e && e.message || e).slice(0, 80) }; }
+}
+/* ---- live view: one CDP screencast per slot, MJPEG over HTTP ----
+   Chromium here is headless=false with xvfb-run, so screencast frames
+   are the real rendered page (not a stale screenshot). Controls land
+   on the same page the user sees: one actor, not two. */
+const screencasts = new Map();
+export async function ensureScreencast(slot) {
+  if (screencasts.has(slot)) { const sess = screencasts.get(slot); if (!sess.dead) return sess; }
+  const { page } = await ensureSession(slot);
+  const { PassThrough } = await import('node:stream');
+  const cdp = await page.context().newCDPSession(page);
+  const boundary = 'profileframe' + Math.random().toString(36).slice(2);
+  const stream = new PassThrough();
+  let latest = null;
+  const sess = { cdp, dead: false, boundary, stream, latest: () => latest };
+  const onFrame = async ({ data, metadata }) => {
+    try {
+      latest = Buffer.from(data, 'base64');
+      if (stream.writableLength < 1024 * 1024) {
+        stream.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${latest.length}\r\n\r\n`);
+        stream.write(latest); stream.write('\r\n');
+      }
+    } catch {}
+    try { await cdp.send('Page.screencastFrameAck', { sessionId: metadata.sessionId }); } catch {}
+  };
+  cdp.on('Page.screencastFrame', onFrame);
+  sess.stop = async () => { sess.dead = true; try { cdp.off('Page.screencastFrame', onFrame); await cdp.send('Page.stopScreencast').catch(() => {}); } catch {} };
+  try { await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: 1100, maxHeight: 800, everyNthFrame: 1 }); } catch {}
+  page.on('close', () => sess.stop());
+  screencasts.set(slot, sess);
+  return sess;
+}
+export async function stopScreencast(slot) { const sess = screencasts.get(slot); if (sess) { screencasts.delete(slot); await sess.stop(); } }
+export async function mouseAct(slot, kind, fx, fy, w, h) {
+  const { page } = await ensureSession(slot);
+  try {
+    if (kind === 'move') await page.mouse.move(fx * w, fy * h);
+    else if (kind === 'down') await page.mouse.down();
+    else if (kind === 'up') await page.mouse.up();
+    else if (kind === 'click') await page.mouse.click(fx * w, fy * h);
+    else if (kind === 'dblclick') await page.mouse.dblclick(fx * w, fy * h);
+    else if (kind === 'wheel') await page.mouse.wheel(0, fy || 120);
+    return { ok: true };
+  } catch (e) { return { ok: false, error: String(e && e.message || e).slice(0, 140) }; }
+}
+export async function keysAct(slot, kind, key, text) {
+  const { page } = await ensureSession(slot);
+  try {
+    if (kind === 'type' && text) await page.keyboard.type(String(text).slice(0, 500), { delay: 8 });
+    else if (kind === 'press' && key) await page.keyboard.press(key);
+    else if (kind === 'down' && key) await page.keyboard.down(key);
+    else if (kind === 'up' && key) await page.keyboard.up(key);
+    return { ok: true };
+  } catch (e) { return { ok: false, error: String(e && e.message || e).slice(0, 140) }; }
+}
+/* Temporary compat: old type/click callers -> unified live path. */
+export async function viewType(slot, text, enter, backspace) {
+  if (backspace) await keysAct(slot, 'press', 'Backspace');
+  if (text) await keysAct(slot, 'type', null, text);
+  if (enter) await keysAct(slot, 'press', 'Enter');
+  return snap(slot);
+}
+export async function viewClick(slot, fx, fy) {
+  const { page } = await ensureSession(slot);
+  const vp = page.viewportSize() || { width: 1280, height: 800 };
+  const r = await mouseAct(slot, 'click', fx, fy, vp.width, vp.height);
+  await page.waitForTimeout(700).catch(() => {});
+  return { ...(await snap(slot)), click: r };
 }
 export function normViewUrl(url) {
   const u = String(url || '').trim();
@@ -152,32 +217,6 @@ export async function viewGo(slot, url) {
   return snap(slot);
 }
 export async function viewHome(slot) { return viewGo(slot, 'https://www.google.com'); }
-export async function viewClick(slot, fx, fy) {
-  let sess;
-  try { sess = await ensureSession(slot); }
-  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
-  try {
-    const { page } = sess;
-    const vp = page.viewportSize() || { width: 1100, height: 750 };
-    const cx = Math.max(0, Math.min(1, Number(fx) || 0)) * vp.width;
-    const cy = Math.max(0, Math.min(1, Number(fy) || 0)) * vp.height;
-    await page.mouse.click(cx, cy);
-    await page.waitForTimeout(900);
-  } catch (e) { return { ok: false, error: 'click failed: ' + String(e.message || e).slice(0, 160) }; }
-  return snap(slot);
-}
-export async function viewType(slot, text, enter) {
-  let sess;
-  try { sess = await ensureSession(slot); }
-  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
-  try {
-    const { page } = sess;
-    await page.keyboard.type(String(text || '').slice(0, 300), { delay: 12 });
-    if (enter) await page.keyboard.press('Enter');
-    await page.waitForTimeout(900);
-  } catch (e) { return { ok: false, error: 'typing failed: ' + String(e.message || e).slice(0, 160) }; }
-  return snap(slot);
-}
 export async function viewBack(slot) {
   let sess;
   try { sess = await ensureSession(slot); }

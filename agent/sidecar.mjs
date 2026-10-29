@@ -373,11 +373,46 @@ export async function handleAgent(req, res, prefix = '/api') {
     }
     const shotMatch = path.match(/^\/browser\/shot\/([\w.-]+)$/);
     if (shotMatch && req.method === 'GET') {
-      const slot = (await paths()).slot;
-      const file = join(slotPaths(slot).staging, 'browser', shotMatch[1]);
-      try { const buf = await readFile(file); res.writeHead(200, { 'content-type': 'image/png', 'content-length': buf.length }); res.end(buf); }
-      catch { json(res, 404, { error: 'no shot' }); }
+      /* compat shim: old frontend asked for stills; live view streams now */
+      res.writeHead(410, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'stills retired — the Browser pane streams live now' }));
       return true;
+    }
+    const streamMatch = path.match(/^\/browser\/stream$/);
+    if (streamMatch && req.method === 'GET') {
+      const slot = (await paths()).slot;
+      try {
+        const { ensureScreencast } = await import('./browseract.mjs');
+        const sess = await ensureScreencast(slot);
+        if (!sess || !sess.cdp || !sess.stream) throw new Error('screencast unavailable');
+        res.writeHead(200, { 'content-type': 'multipart/x-mixed-replace; boundary=' + sess.boundary,
+          'cache-control': 'no-cache, no-store, max-age=0', connection: 'keep-alive', 'access-control-allow-origin': '*' });
+        sess.stream.on('data', (chunk) => { try { res.write(chunk); } catch {} });
+        req.on('close', () => {});
+        return true;
+      } catch (e) { json(res, 503, { error: 'live view unavailable: ' + String(e && e.message || e).slice(0, 140) }); return true; }
+    }
+    const mouseMatch = path.match(/^\/browser\/mouse$/);
+    if (mouseMatch && req.method === 'POST') {
+      let b = ''; for await (const c of req) b += c;
+      const body = JSON.parse(b || '{}');
+      const { page } = await (await import('./browseract.mjs')).ensureSession((await paths()).slot);
+      const vp = page.viewportSize() || { width: 1280, height: 800 };
+      const { mouseAct } = await import('./browseract.mjs');
+      json(res, 200, await mouseAct((await paths()).slot, body.kind || 'click', body.fx ?? 0.5, body.fy ?? 0.5, vp.width, vp.height));
+      return true;
+    }
+    const keysMatch = path.match(/^\/browser\/keys$/);
+    if (keysMatch && req.method === 'POST') {
+      let b = ''; for await (const c of req) b += c;
+      const body = JSON.parse(b || '{}');
+      const { keysAct } = await import('./browseract.mjs');
+      json(res, 200, await keysAct((await paths()).slot, body.kind, body.key, body.text));
+      return true;
+    }
+    if (path === '/browser/stop' && req.method === 'POST') {
+      try { const { stopScreencast } = await import('./browseract.mjs'); await stopScreencast((await paths()).slot); } catch {}
+      json(res, 200, { ok: true }); return true;
     }
     if (path === '/learn' && req.method === 'POST') {
       let b = ''; for await (const c of req) b += c;

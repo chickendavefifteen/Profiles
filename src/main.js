@@ -1026,12 +1026,31 @@ function normUrl(u){
   return "https://www.google.com/search?q="+encodeURIComponent(u);
 }
 function browserShow(out){
-  if(!out || !out.ok) return;
-  var img=$("browserImg"); if(!img) return;
-  img.src=apiUrl("/api/browser/shot/"+out.shot)+"?t="+Date.now();
+  if(!out || !out.ok) { browserHungry(); return; }
   if(out.url) $("urlInput").value=out.url;
   browserLoaded=true;
 }
+/* Live view: MJPEG stream straight into the pane — the page, not a still. */
+var browserObj=null;
+function browserLive(){
+  var img=$("browserImg"); if(!img) return;
+  if(browserObj) URL.revokeObjectURL(browserObj.src);
+  var src=apiUrl("/api/browser/stream");
+  browserObj=img;
+  img.alt="Live browser";
+  img.onerror=function(){ setTimeout(function(){ img.src=src; }, 1500); }; img.src=src;
+}
+var browserHungryTimer=null;
+function browserHungry(){
+  clearTimeout(browserHungryTimer);
+  browserHungryTimer=setTimeout(function(){
+    if(document.visibilityState!=="visible") return;
+    browserCall("/api/browser/home", {});
+  }, 400);
+}
+setInterval(function(){
+  if(browserLoaded && (!$("browserImg") || !$("browserImg").src || $("browserImg").src==="")) browserLive();
+}, 3000);
 function browserCall(path, body){
   var payload=body||{};
   if(payload.url) payload.url=normUrl(payload.url);
@@ -1047,28 +1066,38 @@ var browserFocus=false, typeQueue="", typeTimer=null;
 function flushType(enter){
   if(!typeQueue && !enter) return;
   var t=typeQueue; typeQueue="";
-  browserCall("/api/browser/type", {text:t, enter:!!enter});
+  fetch(apiUrl("/api/browser/keys"),{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({kind:"type", text:t})}).then(function(){ if(enter) fetch(apiUrl("/api/browser/keys"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"press", key:"Enter"})}); }).catch(function(){});
+}
+function paneFrac(e){
+  /* Exact map for object-fit: cover in a box of the same ratio: the full
+     1280x800 page maps 1:1 onto the frame, no letterbox math needed. */
+  var r=$("browserImg").getBoundingClientRect();
+  return {fx:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), fy:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))};
 }
 $("browserImg").addEventListener("click", function(e){
-  var img=$("browserImg"), r=img.getBoundingClientRect();
-  if(!r.width || !img.naturalWidth) return;
-  /* object-fit: contain letterboxes — map through the REAL image rect,
-     not the element box (cover-cropping was why clicks landed wrong) */
-  var scale=Math.min(r.width/img.naturalWidth, r.height/img.naturalHeight);
-  var w=img.naturalWidth*scale, h=img.naturalHeight*scale;
-  var ox=r.left+(r.width-w)/2, oy=r.top+(r.height-h)/2;
-  var fx=(e.clientX-ox)/w, fy=(e.clientY-oy)/h;
-  browserFocus=true;
-  if(fx<0||fx>1||fy<0||fy>1) return;
-  browserCall("/api/browser/click", {fx:fx, fy:fy});
+  var f=paneFrac(e); browserFocus=true;
+  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({kind:"click", fx:f.fx, fy:f.fy})}).catch(function(){});
 });
+$("browserImg").addEventListener("mousemove", function(e){
+  if(e.buttons!==1) return; /* hold-drag pans exactly like a real browser */
+  var f=paneFrac(e);
+  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({kind:"move", fx:f.fx, fy:f.fy})}).catch(function(){});
+});
+$("browserImg").addEventListener("wheel", function(e){
+  e.preventDefault();
+  fetch(apiUrl("/api/browser/mouse"),{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({kind:"wheel", fy:e.deltaY})}).catch(function(){});
+}, {passive:false});
 document.addEventListener("keydown", function(e){
-  if(!browserFocus) return;
+  if(!browserFocus || !paneVisible("pane-browser")) return;
   var t=e.target;
   if(t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.tagName==="SELECT")) return;
   if(e.metaKey||e.ctrlKey||e.altKey) return;
   if(e.key==="Enter"){ e.preventDefault(); flushType(true); }
-  else if(e.key==="Backspace"){ e.preventDefault(); browserCall("/api/browser/type", {text:"", backspace:true}); }
+  else if(e.key==="Backspace"){ e.preventDefault(); fetch(apiUrl("/api/browser/keys"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"press", key:"Backspace"})}).catch(function(){}); }
   else if(e.key.length===1){ typeQueue+=e.key; clearTimeout(typeTimer); typeTimer=setTimeout(function(){ flushType(false); }, 450); }
 });
 document.addEventListener("pointerdown", function(e){
