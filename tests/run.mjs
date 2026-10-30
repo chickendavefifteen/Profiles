@@ -293,6 +293,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   const scp = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
   ok(scp.includes("action: 'pi-brain'") && scp.includes('privateMode'), 'X: sidecar routes X to pi; private mode gates recording');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="privateToggle"'), 'privacy: per-profile private mode toggle');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="privacyLine"'), 'privacy: in-app synthetic-data + contributor-training notice');
   ok(html6.includes('class="ppp"') && html6.includes('id="avatarPath"'), 'brand: PPP shades + shaded avatar silhouette in the colour-mix circle');
   ok(js6.includes('AVATAR_PATHS') && js6.includes('skull') && js6.includes('robot'), 'brand: avatar is a shaded silhouette (person/animal/robot/skull), never a coloured drawing');
   ok(html6.includes('id="trashBtn"') && html6.includes('id="trashPop"'), 'trash: bottom-right icon + popup inspector');
