@@ -213,6 +213,14 @@ check('actor click works invisibly', await page.evaluate(async () => {
   const v = await (await fetch('/api/browser/view', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
   return v && v.title === 'HIT';
 }));
+check('frame viewport tracks element (no squash)', await page.evaluate(() => {
+  const f = document.querySelector('#browserFrame');
+  try {
+    const elW = f.getBoundingClientRect().width;
+    const iw = f.contentWindow.innerWidth;
+    return elW > 100 && Math.abs(iw - elW) < 12;
+  } catch { return false; }
+}));
 check('health carries build stamp', await page.evaluate(async () => {
   const h = await (await fetch('/api/health')).json();
   return !!(h && h.build);

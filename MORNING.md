@@ -398,3 +398,9 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
 - Rework verified in the native window: Start page renders natively,
   trash+sessions far right, no Go buttons, Calm dots live.
 - Bing default home; proxy cookies persist; links stay in pane.
+
+## Squash solved: stale bundle, not the engine (2026-10-29)
+- The 300x150 viewport was real — but caused by a window two commits
+  behind (hand-launches skipped rebuilds). Viewport beacon proved it.
+- launch-app.sh now enforces build+stamp-match+relaunch in one step.
+  Verified: full-width Start page in the native window.

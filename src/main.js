@@ -213,11 +213,10 @@ function fitBrowserView(){
        first-paint size; a same-origin read proves it, one reload heals it */
     try{
       var iw=fr.contentWindow.innerWidth||0;
-      if(vw>50 && Math.abs(iw-vw)>8 && !fr.dataset.vwFixed){
-        fr.dataset.vwFixed="1";
+      var lastHeal=Number(fr.dataset.vwHealAt||0);
+      if(vw>50 && Math.abs(iw-vw)>8 && Date.now()-lastHeal>15000){
+        fr.dataset.vwHealAt=String(Date.now());
         fr.contentWindow.location.reload();
-      } else if(vw>50 && Math.abs(iw-vw)<=8 && fr.dataset.vwFixed){
-        delete fr.dataset.vwFixed;
       }
     }catch(e){}
   }
