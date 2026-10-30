@@ -58,7 +58,7 @@ export function decideTool(query) {
   }
   if (/\b(latest|today'?s?)\s+(news|headlines)\b/.test(low)) return { tool: 'web_search', args: { query: 'BBC News headlines today' } };
   const bare = low.replace(/\s+(please|properly|for me)\s*$/g, '').trim();
-  if (bare && !/^(hi|hey|hello|yo|thanks|thank you|ok|okay|yes|no|bye)\b/.test(bare)
+  if (bare && !/^(hi|hey|hello|yo|hiya|heya|howdy|sup|thanks|thank you|ok|okay|yes|no|bye)\b/.test(bare)
       && !/\?\s*$/.test(bare) && !/^(what|why|how|when|who|can|could|do|does|is|are|will|would|should|am)\b/.test(bare)
       && !/^(draft|write|make|create|file|save|log|add|send|delete|remind|schedule|help me get|reply|repeat|say |echo|tell me)/.test(bare)) {
     const known = siteFor(bare);

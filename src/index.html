@@ -318,6 +318,8 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
  transition:background-color .45s ease,border-color .45s ease;min-height:200px}
 .pane.on{display:block;animation:pageIn .3s var(--ease)}
 .panehead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:.84rem;font-weight:600}
+.zoomTiny{font:inherit;font-size:.74rem;font-weight:700;color:var(--muted);background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;min-width:38px;min-height:34px}
+.zoomTiny:hover{color:var(--ink);border-color:var(--accent)}
 .paneicon{display:inline-flex;color:var(--muted);margin-right:2px}
 .paneicon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .pinbtn{margin-left:auto;font:inherit;font-size:.8rem;background:none;border:1px solid transparent;border-radius:8px;cursor:pointer;min-height:34px;min-width:38px;opacity:.65}
@@ -507,7 +509,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-browser" aria-label="Browser">
-      <div class="panehead"><span class="paneicon" title="Browser" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.8" ry="8.5"/><path d="M3.5 12h17"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Browser" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.8" ry="8.5"/><path d="M3.5 12h17"/></svg></span><button class="zoomTiny" type="button" data-zoom="-0.1" title="Zoom page out" aria-label="Zoom page out">A−</button><button class="zoomTiny" type="button" data-zoom="+0.1" title="Zoom page in" aria-label="Zoom page in">A+</button><button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <form class="urlrow" id="urlForm" style="padding:10px 12px 0;margin:0">
         <button class="sbtn ghost" id="browserBack" type="button" title="Back" style="min-height:44px">←</button>
         <input id="urlInput" type="text" value="" placeholder="Search or type a web address…" aria-label="Web address">

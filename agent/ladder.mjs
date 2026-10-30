@@ -26,7 +26,7 @@ export function classifyIntent(query) {
   if (/\b(better agent|plug\w* in|upgrade|set ?up|install|connect)\b.*\b(agent|model|brain)\b/i.test(q) || /help me get a better agent/i.test(q))
     return { kind: 'setup', risk: 'low', needsConfirm: false };
   if (IRREVERSIBLE.test(q)) return { kind: 'irreversible', risk: 'high', needsConfirm: true, escalateTo: 'cloud' };
-  if (/^(hi|hey|hello|yo|hiya)\b/i.test(q.trim()) || /\b(are|r) (you|u)\b/i.test(q) || /\bwho are you\b/i.test(q)
+  if (/^(hi|hey|hello|yo|hiya|heya|howdy)\b/i.test(q.trim()) || /\b(are|r) (you|u)\b/i.test(q) || /\bwho are you\b/i.test(q)
       || /\bwhat can you do\b/i.test(q) || /\bagentic\b/i.test(q))
     return { kind: 'chat', risk: 'low', needsConfirm: false };
   if (/^\s*(file|save|log|add)\b/i.test(q)) return { kind: 'file-task', risk: 'low', needsConfirm: false };

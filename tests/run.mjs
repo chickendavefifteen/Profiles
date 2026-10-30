@@ -350,6 +350,10 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('profilesZoom'), 'zoom: Ctrl+wheel scales app, persisted per device');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('profilesPaneZoom'), 'zoom: per-pane independent scaling persisted');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('applyPaneZoom'), 'zoom: cursor-in-pane scales that pane only');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('data-zoom'), 'zoom: deterministic A-/A+ page controls');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('profilesPageZoom'), 'zoom: page zoom persisted');
+  const lb2 = await import('../agent/ladder.mjs');
+  ok(lb2.classifyIntent('heya').kind === 'chat', 'greetings (heya/hiya) stay chat, never search');
   ok(!readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('vwHealAt'), 'resize: no reload-heal timers (stateless nudge only)');
   ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="askGo"'), 'simplicity: no Go buttons, Enter submits');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="calmDots"'), 'calm: breathing dots invite');

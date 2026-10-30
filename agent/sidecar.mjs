@@ -546,10 +546,18 @@ export async function handleAgent(req, res, prefix = '/api') {
       return true;
     }
     if (path === '/search' && req.method === 'GET') {
-      /* Native results page: clean cards rendered from real extracted
-         results — no third-party CSS lottery, readable in any engine. */
+      /* Feeling-lucky first: an obvious destination goes straight there
+         (this is what "bbc news" means); anything else gets the clean
+         native results list. */
       try {
         const q = (url.searchParams.get('q') || '').slice(0, 200);
+        const { decideTool } = await import('./agentloop.mjs');
+        const dt = decideTool(q);
+        if (dt && dt.tool === 'browser_open' && dt.args && dt.args.url) {
+          res.writeHead(302, { location: '/api/proxy?url=' + encodeURIComponent(dt.args.url) });
+          res.end();
+          return true;
+        }
         const { webSearch } = await import('./browseract.mjs');
         const slot = (await paths()).slot;
         const out = await webSearch(slot, q);

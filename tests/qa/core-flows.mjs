@@ -119,11 +119,11 @@ check('start search box submits to native results', await page.evaluate(async ()
   const doc = document.querySelector('#browserFrame').contentDocument;
   const box = doc.querySelector('#q');
   if (!box) return false;
-  box.value = 'bbc news';
+  box.value = 'canal boat holidays';
   box.form.requestSubmit();
-  await new Promise(rr => setTimeout(rr, 6000));
+  await new Promise(rr => setTimeout(rr, 9000));
   const d2 = document.querySelector('#browserFrame').contentDocument;
-  return d2.body.innerText.includes('Results for') && (d2.body.innerText.match(/bbc|BBC/) || []).length > 0;
+  return d2.body.innerText.includes('Results for') && /canal|boat|holiday/i.test(d2.body.innerText);
 }));
 // typing: native click into a real field + real keystrokes + Enter (the exact user gesture)
 await page.fill('#urlInput', 'http://localhost:1420/api/test/click-target');
@@ -233,10 +233,11 @@ check('ctrl+wheel zooms app with badge', await page.evaluate(() => {
   const b = document.querySelector('#zoomBadge');
   return parseFloat(z) > 1 && b && !b.hidden && /%$/.test(b.textContent);
 }));
-await page.mouse.click(200, 200);
+await page.mouse.move(1200, 40);
+await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
 await page.keyboard.press('Control+0');
 await page.waitForTimeout(400);
-check('ctrl+0 resets zoom', await page.evaluate(() => String(document.body.style.zoom) === '' || Number(document.body.style.zoom) === 1));
+check('ctrl+0 resets zoom', await page.evaluate(() => (String(document.body.style.zoom) === '' || Number(document.body.style.zoom) === 1) && !document.querySelector('#pane-chat').style.zoom));
 // per-pane zoom: wheel over chat scales the pane, chrome scales the app
 await page.mouse.move(200, 500);
 await page.keyboard.down('Control');
@@ -253,6 +254,13 @@ await page.mouse.wheel(0, -240);
 await page.keyboard.up('Control');
 await page.waitForTimeout(500);
 check('chrome zoom independent', await page.evaluate(() => Number(document.body.style.zoom) > 1));
+// deterministic page zoom buttons work without gestures
+await page.click('[data-zoom="+0.1"]');
+await page.waitForTimeout(400);
+check('A+ zooms the page', await page.evaluate(() => {
+  try { return Number(document.querySelector('#browserFrame').contentDocument.body.style.zoom) > 1; }
+  catch { return false; }
+}));
 await page.mouse.click(200, 200);
 await page.keyboard.press('Control+0');
 await page.waitForTimeout(400);

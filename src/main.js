@@ -273,10 +273,21 @@ document.addEventListener("keydown", function(e){
   var t=e.target;
   if(t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.tagName==="SELECT")) return;
   e.preventDefault();
-  if(e.key==="0"){ appZoom=1; paneZoom={}; applyAllPaneZooms(); try{ localStorage.setItem("profilesPaneZoom","{}"); }catch(e2){} }
-  else if(e.key==="-"||e.key==="_") appZoom=Math.max(0.5,appZoom-0.1);
-  else appZoom=Math.min(2,appZoom+0.1);
-  applyZoom(true);
+  if(e.key==="0"){
+    appZoom=1; paneZoom={}; pageZoom=1;
+    applyAllPaneZooms();
+    try{ localStorage.setItem("profilesPaneZoom","{}"); }catch(e2){}
+    applyZoom(true);
+    try{ var _doc=$("browserFrame").contentDocument; if(_doc&&_doc.body) _doc.body.style.zoom=1; }catch(e3){}
+    return;
+  }
+  var d=(e.key==="-"||e.key==="_")?-0.1:0.1;
+  if(activePane==="pane-browser"){ pageZoom=Math.min(2,Math.max(0.5,Math.round((pageZoom+d)*10)/10)); applyPageZoom(true); }
+  else if(activePane && paneEl(activePane)){
+    var z=Math.min(2,Math.max(0.5,Math.round(((paneZoom[activePane]||1)+d)*10)/10));
+    paneZoom[activePane]=z; applyPaneZoom(activePane, true);
+  }
+  else { appZoom=Math.min(2,Math.max(0.5,Math.round((appZoom+d)*10)/10)); applyZoom(true); }
 });
 applyZoom(false);
 window.addEventListener("resize", function(){ setTimeout(fitBrowserView, 120); });
@@ -1209,6 +1220,7 @@ function showFallback(msg, realUrl){
 function hideFallback(){ var fb=$("browserFallback"); if(fb) fb.hidden=true; }
 $("browserFrame").addEventListener("load", function(){
   nudgeSoon(900);
+  try{ var doc=$("browserFrame").contentDocument; if(doc&&doc.body) doc.body.style.zoom=pageZoom; }catch(e){}
   /* proxy errors come back tiny: surface the escape instead of a void */
   hideFallback();
   try{
@@ -1268,6 +1280,31 @@ if($("openExternal")) $("openExternal").addEventListener("click", function(){
   var u=$("urlInput").value.trim()||lastBrowserUrl;
   if(u) window.open(u, "_blank");
 });
+/* Deterministic page zoom: same-origin frame document zoomed directly.
+   Works everywhere regardless of gesture support; persisted per device. */
+var pageZoom = 1;
+try{ pageZoom = Math.min(2, Math.max(0.5, Number(localStorage.getItem("profilesPageZoom") || 1) || 1)); }catch(e){}
+function applyPageZoom(showBadge){
+  try{
+    var doc = $("browserFrame").contentDocument;
+    if(doc && doc.body) doc.body.style.zoom = pageZoom;
+  }catch(e){}
+  try{ localStorage.setItem("profilesPageZoom", String(pageZoom)); }catch(e){}
+  if(showBadge) zoomBadge("Page " + Math.round(pageZoom * 100) + "%");
+}
+document.querySelectorAll("[data-zoom]").forEach(function(b){
+  b.addEventListener("click", function(){
+    pageZoom = Math.min(2, Math.max(0.5, Math.round((pageZoom + Number(b.dataset.zoom)) * 10) / 10));
+    applyPageZoom(true);
+  });
+});
+/* track the pane your pointer is in: Ctrl+=/- zooms the active pane's
+   page when it is the browser, else the active pane, else the app */
+var activePane = null;
+document.addEventListener("pointerdown", function(e){
+  var p = e.target && e.target.closest ? e.target.closest(".pane") : null;
+  if(p && p.id) activePane = p.id;
+}, true);
 if($("fallbackOpen")) $("fallbackOpen").addEventListener("click", function(){
   var u=$("urlInput").value.trim()||lastBrowserUrl;
   if(u) window.open(u, "_blank");
