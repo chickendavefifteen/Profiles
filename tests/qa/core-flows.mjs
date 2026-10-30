@@ -221,6 +221,41 @@ check('frame viewport tracks element (no squash)', await page.evaluate(() => {
     return elW > 100 && Math.abs(iw - elW) < 12;
   } catch { return false; }
 }));
+// zoom: Ctrl+wheel over chrome scales the app (over a pane scales the pane)
+await page.evaluate(() => { window.scrollTo(0, 0); });
+await page.mouse.move(1200, 40);
+await page.keyboard.down('Control');
+await page.mouse.wheel(0, -240);
+await page.keyboard.up('Control');
+await page.waitForTimeout(600);
+check('ctrl+wheel zooms app with badge', await page.evaluate(() => {
+  const z = document.body.style.zoom;
+  const b = document.querySelector('#zoomBadge');
+  return parseFloat(z) > 1 && b && !b.hidden && /%$/.test(b.textContent);
+}));
+await page.mouse.click(200, 200);
+await page.keyboard.press('Control+0');
+await page.waitForTimeout(400);
+check('ctrl+0 resets zoom', await page.evaluate(() => String(document.body.style.zoom) === '' || Number(document.body.style.zoom) === 1));
+// per-pane zoom: wheel over chat scales the pane, chrome scales the app
+await page.mouse.move(200, 500);
+await page.keyboard.down('Control');
+await page.mouse.wheel(0, -240);
+await page.keyboard.up('Control');
+await page.waitForTimeout(500);
+check('pane zoom independent', await page.evaluate(() => {
+  const c = document.querySelector('#pane-chat');
+  return c && Number(c.style.zoom) > 1 && Number(document.body.style.zoom || 1) === 1;
+}));
+await page.mouse.move(200, 60);
+await page.keyboard.down('Control');
+await page.mouse.wheel(0, -240);
+await page.keyboard.up('Control');
+await page.waitForTimeout(500);
+check('chrome zoom independent', await page.evaluate(() => Number(document.body.style.zoom) > 1));
+await page.mouse.click(200, 200);
+await page.keyboard.press('Control+0');
+await page.waitForTimeout(400);
 check('health carries build stamp', await page.evaluate(async () => {
   const h = await (await fetch('/api/health')).json();
   return !!(h && h.build);

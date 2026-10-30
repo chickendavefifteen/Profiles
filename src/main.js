@@ -213,10 +213,8 @@ function fitBrowserView(){
        first-paint size; a same-origin read proves it, one reload heals it */
     try{
       var iw=fr.contentWindow.innerWidth||0;
-      var lastHeal=Number(fr.dataset.vwHealAt||0);
-      if(vw>50 && Math.abs(iw-vw)>8 && Date.now()-lastHeal>15000){
-        fr.dataset.vwHealAt=String(Date.now());
-        fr.contentWindow.location.reload();
+      if(vw>50 && Math.abs(iw-vw)>8){
+        fr.contentWindow.dispatchEvent(new fr.contentWindow.Event("resize"));
       }
     }catch(e){}
   }
@@ -224,6 +222,63 @@ function fitBrowserView(){
 if(window.ResizeObserver){
   new ResizeObserver(function(){ fitBrowserView(); }).observe(document.body);
 }
+/* Zoom: Ctrl/Cmd + wheel (trackpad pinch sends the same) scales the whole
+   app for readability; pages inside the browser pane zoom natively.
+   Per-device (localStorage), 50–200%, Ctrl+0 resets. */
+var appZoom=1;
+var paneZoom={};
+try{ appZoom=Math.min(2, Math.max(0.5, Number(localStorage.getItem("profilesZoom")||1)||1)); }catch(e){}
+try{ paneZoom=JSON.parse(localStorage.getItem("profilesPaneZoom")||"{}")||{}; }catch(e){ paneZoom={}; }
+function paneEl(id){ return document.getElementById(id); }
+function applyPaneZoom(id, showBadge){
+  var z=paneZoom[id]||1;
+  var el=paneEl(id);
+  if(el) el.style.zoom=z;
+  try{ localStorage.setItem("profilesPaneZoom", JSON.stringify(paneZoom)); }catch(e){}
+  if(showBadge) zoomBadge((PANE_LABELS[id]||id)+" "+Math.round(z*100)+"%");
+}
+function applyAllPaneZooms(){ Object.keys(paneZoom).forEach(function(id){ applyPaneZoom(id, false); }); }
+function applyZoom(showBadge){
+  document.body.style.zoom=appZoom;
+  try{ localStorage.setItem("profilesZoom", String(appZoom)); }catch(e){}
+  if(showBadge) zoomBadge(Math.round(appZoom*100)+"%");
+}
+function zoomBadge(text){
+  var b=$("zoomBadge"); if(!b) return;
+  b.textContent=text;
+  b.hidden=false;
+  clearTimeout(b._t);
+  b._t=setTimeout(function(){ b.hidden=true; }, 1200);
+}
+document.addEventListener("wheel", function(e){
+  if(!(e.ctrlKey||e.metaKey)) return;
+  var t=e.target;
+  var pane=t && t.closest ? t.closest(".pane") : null;
+  if(pane && pane.id==="pane-browser") return; /* pages zoom natively */
+  e.preventDefault();
+  var d=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
+  if(!d) return;
+  if(pane && pane.id){
+    var z=Math.min(2, Math.max(0.5, Math.round(((paneZoom[pane.id]||1)+d)*10)/10));
+    paneZoom[pane.id]=z;
+    applyPaneZoom(pane.id, true);
+  } else {
+    appZoom=Math.min(2, Math.max(0.5, Math.round((appZoom+d)*10)/10));
+    applyZoom(true);
+  }
+}, {passive:false});
+document.addEventListener("keydown", function(e){
+  if(!(e.ctrlKey||e.metaKey)) return;
+  if(e.key!=="0" && e.key!=="=" && e.key!=="+" && e.key!=="-" && e.key!=="_") return;
+  var t=e.target;
+  if(t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.tagName==="SELECT")) return;
+  e.preventDefault();
+  if(e.key==="0"){ appZoom=1; paneZoom={}; applyAllPaneZooms(); try{ localStorage.setItem("profilesPaneZoom","{}"); }catch(e2){} }
+  else if(e.key==="-"||e.key==="_") appZoom=Math.max(0.5,appZoom-0.1);
+  else appZoom=Math.min(2,appZoom+0.1);
+  applyZoom(true);
+});
+applyZoom(false);
 window.addEventListener("resize", function(){ setTimeout(fitBrowserView, 120); });
 function showPaneEl(id, silent){
   if(id==="pane-browser"){ nudgeSoon(500); setTimeout(fitBrowserView, 150); }
@@ -1914,7 +1969,7 @@ applyLayout();
   bindAdaptive(); updateXmaxVisibility();
   bootPacks();
   bootAgent();
-  loadConfig(); loadAppConfig(); loadMacros(); loadNotes(); renderBuild();
+  loadConfig(); loadAppConfig(); loadMacros(); loadNotes(); renderBuild(); applyZoom(false); applyAllPaneZooms();
   var pane=sp.get("pane"); if(pane && PANES.indexOf("pane-"+pane)>=0) showPane("pane-"+pane);
   var q=sp.get("ask");
   if(q) setTimeout(function(){ ask(q.slice(0,120)); }, 600);

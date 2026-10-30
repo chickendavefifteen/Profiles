@@ -347,6 +347,10 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('add.textContent="+"'), 'plus: just a bold plus now');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('max-width:1480px'), 'scale: canvas ~25% wider for big screens');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('updatePill'), 'frontend: stale windows offer Reload on new builds');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('profilesZoom'), 'zoom: Ctrl+wheel scales app, persisted per device');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('profilesPaneZoom'), 'zoom: per-pane independent scaling persisted');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('applyPaneZoom'), 'zoom: cursor-in-pane scales that pane only');
+  ok(!readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('vwHealAt'), 'resize: no reload-heal timers (stateless nudge only)');
   ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="askGo"'), 'simplicity: no Go buttons, Enter submits');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="calmDots"'), 'calm: breathing dots invite');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('inviteJiggle') || readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('inviteJiggle'), 'babylite: playful jiggle invite');

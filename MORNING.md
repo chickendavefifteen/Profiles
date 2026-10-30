@@ -404,3 +404,8 @@ Dave's screenshots proved: fake "warming up" answers + blank browser.
   behind (hand-launches skipped rebuilds). Viewport beacon proved it.
 - launch-app.sh now enforces build+stamp-match+relaunch in one step.
   Verified: full-width Start page in the native window.
+
+## Viewport heal (2026-10-29)
+- Expanded panes left iframe viewports stuck small: self-healing reload
+  with 15s backoff + viewport-tracks-element QA check. Verified full-
+  width native render. launch-app.sh remains the only launch path.
