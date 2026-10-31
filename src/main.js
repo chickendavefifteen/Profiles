@@ -108,15 +108,25 @@ function applyLayout(){
 function renderPaneTabs(){
   var bar=$("paneTabs"); if(!bar) return;
   bar.textContent="";
+  var minimised=state.layout.minimised||[];
   (state.layout.order||PANES).forEach(function(id){
-    if(!paneVisible(id)) return;
-    var b=document.createElement("button"); b.type="button"; b.title=PANE_LABELS[id]; b.setAttribute("aria-label",PANE_LABELS[id]);
+    var isMin=minimised.indexOf(id)>=0;
+    var isVis=paneVisible(id);
+    if(!isVis && !isMin) return;
+    var b=document.createElement("button"); b.type="button";
+    b.title=PANE_LABELS[id]+(isMin?" (minimised — click to restore)":"");
+    b.setAttribute("aria-label",PANE_LABELS[id]);
+    b.classList.toggle("minTab",isMin);
+    b.setAttribute("aria-selected",isVis?"true":"false");
     var lab=document.createElement("span"); lab.className="paneicon"; lab.innerHTML=PANE_ICONS[id]||PANE_LABELS[id];
     var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Close pane (reopen any time)";
     x.addEventListener("click", function(ev){ ev.stopPropagation(); hidePane(id); });
     b.appendChild(lab); b.appendChild(x);
     b.style.zIndex=String(1000-bar.children.length);
-    b.addEventListener("click", function(){ focusPane(id); });
+    b.addEventListener("click", function(){
+      if(isMin) unminimisePane(id);
+      else focusPane(id);
+    });
     b.addEventListener("dblclick", function(){ toggleMax(id); });
     bar.appendChild(b);
   });
@@ -285,30 +295,29 @@ function zoomBadge(text){
 }
 document.addEventListener("wheel", function(e){
   if(!(e.ctrlKey||e.metaKey)) return;
-  var t=e.target;
-  var pane=t && t.closest ? t.closest(".pane") : null;
-  if(pane && pane.id==="pane-browser"){
-    /* over browser chrome: zoom the page itself (in-page wheels are captured on the frame window; see attachPageWheel) */
-    e.preventDefault();
-    var pd=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
-    if(!pd) return;
-    pageZoom=Math.min(2, Math.max(0.5, Math.round((pageZoom+pd)*10)/10));
-    applyPageZoom(true);
-    return;
-  }
   e.preventDefault();
+  var t=e.target;
+  var pane=t && t.closest ? t.closest(".pane") : (activePane ? $(activePane) : null);
   var d=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
   if(!d) return;
   if(pane && pane.id){
     var z=Math.min(2, Math.max(0.5, Math.round(((paneZoom[pane.id]||1)+d)*10)/10));
     paneZoom[pane.id]=z;
     applyPaneZoom(pane.id, true);
+    if(pane.id==="pane-browser"){
+      pageZoom=z;
+      applyPageZoom(true);
+    }
   } else {
     appZoom=Math.min(2, Math.max(0.5, Math.round((appZoom+d)*10)/10));
     applyZoom(true);
   }
 }, {passive:false});
 document.addEventListener("keydown", function(e){
+  if(e.ctrlKey || e.metaKey){
+    var fr=$("browserFrame");
+    if(fr) fr.style.pointerEvents="none";
+  }
   if(!(e.ctrlKey||e.metaKey)) return;
   if(e.key!=="0" && e.key!=="=" && e.key!=="+" && e.key!=="-" && e.key!=="_") return;
   var t=e.target;
@@ -323,24 +332,42 @@ document.addEventListener("keydown", function(e){
     return;
   }
   var d=(e.key==="-"||e.key==="_")?-0.1:0.1;
-  if(activePane==="pane-browser"){ pageZoom=Math.min(2,Math.max(0.5,Math.round((pageZoom+d)*10)/10)); applyPageZoom(true); }
-  else if(activePane && paneEl(activePane)){
-    var z=Math.min(2,Math.max(0.5,Math.round(((paneZoom[activePane]||1)+d)*10)/10));
-    paneZoom[activePane]=z; applyPaneZoom(activePane, true);
+  var targetPane = (activePane && paneEl(activePane)) ? activePane : null;
+  if(targetPane){
+    var z=Math.min(2,Math.max(0.5,Math.round(((paneZoom[targetPane]||1)+d)*10)/10));
+    paneZoom[targetPane]=z; applyPaneZoom(targetPane, true);
+    if(targetPane==="pane-browser"){
+      pageZoom=z;
+      applyPageZoom(true);
+    }
+  } else {
+    appZoom=Math.min(2,Math.max(0.5,Math.round((appZoom+d)*10)/10));
+    applyZoom(true);
   }
-  else { appZoom=Math.min(2,Math.max(0.5,Math.round((appZoom+d)*10)/10)); applyZoom(true); }
+});
+window.addEventListener("keyup", function(e){
+  if(!e.ctrlKey && !e.metaKey){
+    var fr=$("browserFrame");
+    if(fr) fr.style.pointerEvents="";
+  }
+});
+window.addEventListener("blur", function(){
+  var fr=$("browserFrame");
+  if(fr) fr.style.pointerEvents="";
 });
 applyZoom(false);
 window.addEventListener("resize", function(){ setTimeout(fitBrowserView, 120); });
 function showPaneEl(id, silent){
   if(id==="pane-browser"){ nudgeSoon(500); setTimeout(fitBrowserView, 150); }
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
+  state.layout.minimised=(state.layout.minimised||[]).filter(function(x){ return x!==id; });
   if(state.layout.maxed && state.layout.maxed!==id) state.layout.maxed=null;
   applyLayout();
   if(id==="pane-doc") loadStaged();
   if(id==="pane-setup") loadSetup();
 }
 function hidePane(id){
+  state.layout.minimised=(state.layout.minimised||[]).filter(function(x){ return x!==id; });
   /* everything closable now — including chat. Tabs + Recently closed recover it. */
   var closed=(state.cfg&&state.cfg.closedPanes)||[];
   if(!closed.some(function(c){ return c.id===id; })){
@@ -352,11 +379,32 @@ function hidePane(id){
   if(state.layout.maxed===id) state.layout.maxed=null;
   applyLayout();
 }
+function minimisePane(id){
+  state.layout.minimised = state.layout.minimised || [];
+  if(state.layout.minimised.indexOf(id)<0) state.layout.minimised.push(id);
+  if(state.layout.hidden.indexOf(id)<0) state.layout.hidden.push(id);
+  if(state.layout.maxed===id) state.layout.maxed=null;
+  applyLayout();
+  bubble((PANE_LABELS[id]||id)+" minimised to tabs above. Tap its tab to reopen.", "sys");
+  stream("layout — " + (PANE_LABELS[id]||id) + " minimised to tabs");
+}
+function unminimisePane(id){
+  state.layout.minimised = (state.layout.minimised||[]).filter(function(x){ return x!==id; });
+  showPaneEl(id, true);
+  focusPane(id);
+  stream("layout — " + (PANE_LABELS[id]||id) + " restored from tabs");
+}
 function toggleMax(id){
   state.layout.maxed = state.layout.maxed===id ? null : id;
   applyLayout();
 }
 function showPane(id){ focusPane(id); }
+document.querySelectorAll("[data-min]").forEach(function(b){
+  b.addEventListener("click", function(e){
+    e.stopPropagation();
+    minimisePane(b.dataset.min);
+  });
+});
 document.querySelectorAll("[data-add]").forEach(function(b){
   b.addEventListener("click", function(){
     $("addMenu").hidden=true;
@@ -1515,14 +1563,17 @@ document.addEventListener("pointerdown", function(e){
   var p = e.target && e.target.closest ? e.target.closest(".pane") : null;
   if(p && p.id) activePane = p.id;
 }, true);
-/* click-then-ctrl+/- follows the click: keyboard focus tracks the pane too
-   (pointerdown alone misses tab/field focus), and the frame element maps
-   back to pane-browser. The wheel path above stays target-based. */
 document.addEventListener("focusin", function(e){
   var p=e.target && e.target.closest ? e.target.closest(".pane") : null;
   if(p && p.id) activePane=p.id;
 });
-if($("browserFrame")) $("browserFrame").addEventListener("focus", function(){ activePane="pane-browser"; });
+document.querySelectorAll(".pane").forEach(function(p){
+  p.addEventListener("mouseenter", function(){ activePane=p.id; });
+});
+if($("browserFrame")){
+  $("browserFrame").addEventListener("mouseenter", function(){ activePane="pane-browser"; });
+  $("browserFrame").addEventListener("focus", function(){ activePane="pane-browser"; });
+}
 if($("fallbackOpen")) $("fallbackOpen").addEventListener("click", function(){
   var u=$("urlInput").value.trim()||lastBrowserUrl;
   if(u) window.open(u, "_blank");

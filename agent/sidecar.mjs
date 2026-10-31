@@ -521,8 +521,29 @@ export async function handleAgent(req, res, prefix = '/api') {
     }
     if (path === '/proxy' && (req.method === 'GET' || req.method === 'POST')) {
       try {
-        const target = url.searchParams.get('url') || '';
+        let target = url.searchParams.get('url') || '';
+        if (!target && url.searchParams.has('__proxy_target')) {
+          target = decodeURIComponent(url.searchParams.get('__proxy_target') || '');
+        }
+        if (!target && req.headers['referer']) {
+          try {
+            const refUrl = new URL(req.headers['referer']);
+            const refTarget = refUrl.searchParams.get('url') || refUrl.searchParams.get('__proxy_target');
+            if (refTarget) target = refTarget;
+          } catch {}
+        }
         if (!/^https?:\/\//i.test(target)) { json(res, 400, { error: 'url must be http(s)' }); return true; }
+        if (req.method === 'GET') {
+          try {
+            const parsedTarget = new URL(target);
+            for (const [k, v] of url.searchParams.entries()) {
+              if (k !== 'url' && k !== '__proxy_target' && !parsedTarget.searchParams.has(k)) {
+                parsedTarget.searchParams.set(k, v);
+              }
+            }
+            target = parsedTarget.toString();
+          } catch {}
+        }
         const { fetchUpstream, rewriteHtml } = await import('./proxy.mjs');
         let body = null, ct = '';
         if (req.method === 'POST') {
@@ -585,14 +606,40 @@ export async function handleAgent(req, res, prefix = '/api') {
         const items = (out.results || []).map((r, i) => `
           <a class="hit" href="/api/proxy?url=${encodeURIComponent(r.href)}">
             <span class="n">${i + 1}</span>
-            <span><b>${esc(r.title)}</b><small>${esc(r.href.replace(/^https?:\/\//, '').split('/')[0])}</small><p>${esc(r.snippet)}</p></span>
+            <div class="meta">
+              <b>${esc(r.title)}</b>
+              <small>${esc(r.href)}</small>
+              <p>${esc(r.snippet)}</p>
+            </div>
           </a>`).join('');
         const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(q)} — results</title>
-          <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#14101d;color:#ece4f8;padding:28px 22px;line-height:1.5}
-          h1{font-size:1.05rem;font-weight:600;color:#a89cc6;margin:0 0 16px}.hit{display:flex;gap:12px;text-decoration:none;color:inherit;background:#211a2e;border:1px solid #352a4c;border-radius:12px;padding:13px 15px;margin-bottom:10px;max-width:720px}
-          .hit:hover{border-color:#b78ae0}.n{color:#b78ae0;font-weight:700}.hit b{display:block;font-size:.98rem}.hit small{color:#a89cc6;font-size:.76rem}.hit p{margin:6px 0 0;font-size:.85rem;color:#cfc6e4}.empty{color:#a89cc6}</style></head><body>
-          <h1>Results for &ldquo;${esc(q)}&rdquo;</h1>
-          ${items || '<p class="empty">Nothing came back — try different words.</p>'}</body></html>`;
+          <style>
+          *{box-sizing:border-box}
+          body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#101022;color:#f0efff;padding:24px 20px 60px;line-height:1.5}
+          .wrap{max-width:960px;margin:0 auto;width:100%}
+          .searchform{display:flex;gap:10px;margin-bottom:24px}
+          .searchform input{flex:1;font:inherit;font-size:1rem;color:#f0efff;background:#181830;border:1.5px solid #2c2c52;border-radius:12px;padding:12px 16px;min-height:48px}
+          .searchform input:focus{border-color:#22d3ee;outline:none}
+          .searchform button{font:inherit;font-weight:600;font-size:.9rem;background:#ff3ea5;color:#fff;border:none;border-radius:12px;padding:0 22px;cursor:pointer;min-height:48px}
+          h1{font-size:1.15rem;font-weight:700;color:#9d9bd0;margin:0 0 16px}
+          .hit{display:flex;gap:14px;text-decoration:none;color:inherit;background:#181830;border:1.5px solid #2c2c52;border-radius:14px;padding:16px 18px;margin-bottom:12px;transition:border-color .2s,background .2s}
+          .hit:hover{border-color:#22d3ee;background:#202042}
+          .n{color:#22d3ee;font-weight:800;font-size:1.1rem;min-width:24px;line-height:1.3}
+          .meta{flex:1;min-width:0}
+          .hit b{display:block;font-size:1.05rem;color:#fff;margin-bottom:4px;word-break:break-word}
+          .hit small{color:#22d3ee;font-size:.8rem;word-break:break-all;display:block;margin-bottom:6px}
+          .hit p{margin:0;font-size:.9rem;color:#cfc6e4;line-height:1.55}
+          .empty{color:#9d9bd0;font-size:1rem;padding:30px 0}
+          </style></head><body>
+          <div class="wrap">
+            <form class="searchform" action="/api/search" method="get">
+              <input name="q" type="text" value="${esc(q)}" placeholder="Search the web…" autocomplete="off">
+              <button type="submit">Search</button>
+            </form>
+            <h1>Results for &ldquo;${esc(q)}&rdquo;</h1>
+            ${items || '<p class="empty">Nothing came back — try different words.</p>'}
+          </div>
+          </body></html>`;
         const buf = Buffer.from(html);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': buf.length, 'cache-control': 'no-store' });
         res.end(buf);

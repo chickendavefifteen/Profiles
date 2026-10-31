@@ -259,7 +259,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(html6.includes('id="extraSlotsToggle"'), 'strip: D/E are a setting, not a default');
   ok(js6.includes('loadAppConfig') && js6.includes('/api/appconfig'), 'strip: app-level showX/extraSlots config');
   ok(html6.includes('data-close="pane-chat"'), 'window manners: even chat can be closed');
-  ok(!html6.includes('data-min='), 'window manners: minimise removed while behaviour is rethought');
+  ok(html6.includes('data-min="pane-chat"') && js6.includes('minimisePane'), 'window manners: minimise shifts pane to tabs');
   ok(js6.includes('renderTrash') && js6.includes('Recently closed'), 'window manners: closed panes recoverable with titles');
   ok(html6.includes('id="brandMenu"') && html6.includes('data-menu="setup"'), 'brand: Profiles logo opens a simple menu');
   ok(!html6.includes('id="customiseBtn"'), 'chrome: header cog removed — menu lives in the brand mark');

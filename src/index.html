@@ -281,6 +281,8 @@ body[data-tools="off"] #agentLog li[data-kind="tool"]{display:none}
 .panetabs button .x{opacity:.55;border:none;background:none;color:inherit;cursor:pointer;font:inherit;padding:2px 5px}
 .panetabs button:hover{color:var(--ink);border-color:var(--accent)}
 .panetabs button.flash{border-color:var(--accent);color:var(--ink)}
+.panetabs button.minTab{opacity:.55;border-style:dashed;background:transparent}
+.panetabs button.minTab:hover{opacity:1;background:var(--card);border-style:solid}
 .canvas{gap:14px}
 .canvas .pane{display:block}
 .canvas .pane.hiddenPane{display:none}
@@ -389,10 +391,10 @@ body[data-view="canvas"] .canvas{grid-template-columns:repeat(auto-fit,minmax(33
 .urlrow input{flex:1;font:inherit;font-size:.88rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
 .browserframe{width:100%;height:46vh;border:1px solid var(--line);border-radius:10px;background:#fff}
 /* unified canvas: browser, notes/sketch and chat share one quiet rhythm */
-#browserView{background:#fff}
+#browserView{background:var(--card)}
 #browserImg{-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
-#browserImg{background:#fff}
-#browserFrame{background:#fff}
+#browserImg{background:var(--card)}
+#browserFrame{background:var(--card)}
 #browserStatus:empty{display:none}
 #sketchCanvas{display:block;background:#fff}
 .sketchbar .sbtn{min-height:36px;padding:6px 14px}
@@ -530,7 +532,7 @@ body.kids .advancedBlock{display:none!important}
   </div>
   <main class="canvas" id="canvas">
     <section class="pane on" id="pane-chat" aria-label="Chat">
-      <div class="panehead"><span class="paneicon" title="Chat" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="4"/><path d="M8 17l-3 4v-4"/></svg></span><button class="detailToggle" id="brainBadge" type="button" title="Which brain answered — tap for detail">lite agent</button><button class="detailToggle" id="tracesToggle" type="button" aria-pressed="true" title="Show or hide the reasoning chain in the Agent pane">Traces</button><button class="detailToggle" id="toolsToggle" type="button" aria-pressed="false" title="Show or hide tool calls in the Agent pane">Tools</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-chat" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Chat" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="4"/><path d="M8 17l-3 4v-4"/></svg></span><button class="detailToggle" id="brainBadge" type="button" title="Which brain answered — tap for detail">lite agent</button><button class="detailToggle" id="tracesToggle" type="button" aria-pressed="true" title="Show or hide the reasoning chain in the Agent pane">Traces</button><button class="detailToggle" id="toolsToggle" type="button" aria-pressed="false" title="Show or hide tool calls in the Agent pane">Tools</button><button class="minbtn" type="button" data-min="pane-chat" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-chat" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="chatlog" id="chatLog" aria-live="polite"></div>
       <div class="chips" id="macroChips"></div>
       <form class="askrow" id="askForm" style="padding:0 16px 16px;margin:0">
@@ -540,7 +542,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane on" id="pane-agent" aria-label="Agent detail">
-      <div class="panehead"><span class="paneicon" title="Agent detail" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></span><button class="detailToggle" id="agentTracesToggle" type="button" aria-pressed="true" title="Show or hide the reasoning chain">Traces</button><button class="detailToggle" id="agentToolsToggle" type="button" aria-pressed="false" title="Show or hide tool calls">Tools</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-agent" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Agent detail" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></span><button class="detailToggle" id="agentTracesToggle" type="button" aria-pressed="true" title="Show or hide the reasoning chain">Traces</button><button class="detailToggle" id="agentToolsToggle" type="button" aria-pressed="false" title="Show or hide tool calls">Tools</button><button class="minbtn" type="button" data-min="pane-agent" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-agent" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="status" id="agentStatus" style="border-bottom:1px solid var(--line)"><span class="pulse" aria-hidden="true"></span><span id="agentStatusText">idle — the lite agent is always on</span></div>
       <div class="stages" id="stages" aria-hidden="true">
         <span data-stage="sense">sense</span><span data-stage="plan">plan</span><span data-stage="act">act</span><span data-stage="verify">verify</span><span data-stage="remember">remember</span>
@@ -549,7 +551,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-browser" aria-label="Browser">
-      <div class="panehead"><span class="paneicon" title="Browser" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.8" ry="8.5"/><path d="M3.5 12h17"/></svg></span><button class="zoomTiny" type="button" data-zoom="-0.1" title="Zoom page out" aria-label="Zoom page out">A−</button><button class="zoomTiny" type="button" data-zoom="+0.1" title="Zoom page in" aria-label="Zoom page in">A+</button><button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Browser" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.8" ry="8.5"/><path d="M3.5 12h17"/></svg></span><button class="zoomTiny" type="button" data-zoom="-0.1" title="Zoom page out" aria-label="Zoom page out">A−</button><button class="zoomTiny" type="button" data-zoom="+0.1" title="Zoom page in" aria-label="Zoom page in">A+</button><button class="minbtn" type="button" data-min="pane-browser" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-browser" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <form class="urlrow" id="urlForm" style="padding:10px 12px 0;margin:0">
         <button class="sbtn ghost" id="browserBack" type="button" title="Back" style="min-height:44px">←</button>
         <input id="urlInput" type="text" value="" placeholder="Search or type a web address…" aria-label="Web address">
@@ -569,7 +571,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-doc" aria-label="Documents and staging">
-      <div class="panehead"><span class="paneicon" title="Documents" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-doc" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Documents" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></svg></span><button class="minbtn" type="button" data-min="pane-doc" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-doc" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <p class="costline">Work apps:</p>
         <div class="chips" style="padding:0 0 10px">
@@ -595,7 +597,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-setup" aria-label="Setup and my Profiles">
-      <div class="panehead"><span class="paneicon" title="Setup" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="17" r="2"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-setup" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Setup" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="17" r="2"/></svg></span><button class="minbtn" type="button" data-min="pane-setup" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-setup" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <div id="setupSteps"><p class="small">Ask “help me get a better agent plugged in” and the steps appear here. Deterministic scripts, nothing runs without your tap.</p></div>
         <h3 style="font-size:.9rem;margin:16px 0 6px">About you (this profile)</h3>
@@ -681,7 +683,7 @@ body.kids .advancedBlock{display:none!important}
     </section>
 
     <section class="pane" id="pane-notes" aria-label="Notes">
-      <div class="panehead"><span class="paneicon" title="Notes" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Notes" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><button class="minbtn" type="button" data-min="pane-notes" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-notes" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <textarea id="notesArea" rows="8" style="width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:12px" placeholder="Notes for THIS profile only — saved locally as you type…" aria-label="Profile notes"></textarea>
         <p class="small" id="notesLine">Saved to this profile's own notes. Linked automatically when you watch + note + ask (the agent notices co-use, locally).</p>
@@ -698,7 +700,7 @@ body.kids .advancedBlock{display:none!important}
       </div>
     </section>
     <section class="pane" id="pane-video" aria-label="Video">
-      <div class="panehead"><span class="paneicon" title="Video" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-video" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Video" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg></span><button class="minbtn" type="button" data-min="pane-video" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-video" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <form class="urlrow" id="videoForm">
           <input id="videoInput" type="text" placeholder="YouTube link or .mp4 URL…" aria-label="Video address">
@@ -708,7 +710,7 @@ body.kids .advancedBlock{display:none!important}
       </div>
     </section>
     <section class="pane" id="pane-activity" aria-label="Activity">
-      <div class="panehead"><span class="paneicon" title="Activity" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-activity" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
+      <div class="panehead"><span class="paneicon" title="Activity" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span><button class="minbtn" type="button" data-min="pane-activity" title="Minimise to tabs" aria-label="Minimise pane">−</button><button class="pinbtn" type="button" title="Pin: click to unlock and move/resize this pane" aria-label="Pin or unpin pane">📌</button><button class="closebtn" type="button" data-close="pane-activity" title="Close (recoverable from Recently closed)" aria-label="Close pane">✕</button></div>
       <div class="panebody">
         <ul class="stream" id="stream"></ul>
         <h3 style="font-size:.9rem;margin:14px 0 6px">Task ledger · checkpoints</h3>

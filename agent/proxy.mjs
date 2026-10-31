@@ -87,9 +87,14 @@ export function rewriteHtml(html, pageUrl) {
   });
   /* rewritten links stay in the pane (no forced new tabs) */
   out = out.replace(/<a\b([^>]*?)>/gi, (tag) => tag.replace(/\s+target\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, ''));
-  out = out.replace(/(<form\b[^>]*?\baction\s*=\s*["'])([^"']*)(["'])/gi, (m, pre, act, post) => {
+  out = out.replace(/(<form\b[^>]*?\baction\s*=\s*["'])([^"']*)(["'])([^>]*>)/gi, (m, pre, act, post, rest) => {
     if (/^(#|javascript:|mailto:|data:)/i.test(act.trim())) return m;
-    return pre + '/api/proxy?url=' + encodeURIComponent(absolutize(act, pageUrl)) + post;
+    const abs = absolutize(act, pageUrl);
+    return pre + '/api/proxy?url=' + encodeURIComponent(abs) + post + rest +
+      `<input type="hidden" name="__proxy_target" value="${encodeURIComponent(abs)}">`;
+  });
+  out = out.replace(/<form\b(?![^>]*\baction\b)([^>]*>)/gi, (m, rest) => {
+    return `<form action="/api/proxy?url=${encodeURIComponent(pageUrl)}"${rest}<input type="hidden" name="__proxy_target" value="${encodeURIComponent(pageUrl)}">`;
   });
   // everything else loads direct, absolutized
   out = out.replace(/(<(?:img|script|link|source|video|audio|iframe)\b[^>]*?\b(?:src|href)\s*=\s*["'])([^"']*)(["'])/gi,
