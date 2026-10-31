@@ -22,8 +22,9 @@ const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.
   e4: 'https://www.channel4.com/collection/e4', film4: 'https://www.film4.com' };
 const GOOGLE_TLD = { germany: 'de', france: 'fr', spain: 'es', italy: 'it', uk: 'co.uk', japan: 'co.jp', canada: 'ca', australia: 'com.au', brazil: 'com.br', india: 'co.in', netherlands: 'nl', ireland: 'ie', sweden: 'se' };
 function siteFor(target) {
-  let t = target.replace(/\s+(website|site|webpage|page)\s*$/, '')
-    .replace(/\s+(properly|please|for me)\s*$/, '')
+  let t = target.replace(/^(?:the\s+)?(?:website|site|webpage|page)\s+(?:of\s+|for\s+)?/i, '')
+    .replace(/\s+(?:website|site|webpage|page)\s*$/i, '')
+    .replace(/\s+(properly|please|for me)\s*$/i, '')
     .replace(/\s+dot\s+/g, '.').replace(/\sdot\s/g, '.').trim();
   t = t.replace(/\bsk\s+y\b/gi, 'sky').replace(/\bch\s*annel\b/gi, 'channel');
   if (SITES[t]) return SITES[t];
@@ -76,7 +77,11 @@ export function decideTool(query) {
   let m = low.match(/^(?:please\s+)?(?:open|show|launch|go to|take me to|browse|visit)\s+(?:a\s+|the\s+)?(?:browser\s+(?:on|to|for)\s+|brower\s+(?:on|to)\s+)?(.+)$/);
   if (/^(open|show|launch)\s+(a\s+)?(browser|brower)$/.test(low)) return { tool: 'browser_open', args: { url: 'https://www.google.com' } };
   if (m && !/^(draft|write|file|slides|letter)/.test(low)) {
-    let target = m[1].replace(/\s+please\s*$/, '').trim();
+    let rawTarget = m[1].replace(/\s+please\s*$/, '').trim();
+    let target = rawTarget.replace(/^(?:the\s+)?(?:website|site|webpage|page)\s+(?:of\s+|for\s+)?/i, '')
+      .replace(/\s+(?:website|site|webpage|page)\s*$/i, '')
+      .trim();
+    if (!target) target = rawTarget;
     const known = siteFor(target);
     if (known) return { tool: 'browser_open', args: { url: known } };
     const spoken = target.replace(/\s+dot\s+/g, '.').replace(/\s+(properly|please)\s*$/, '').trim();

@@ -102,6 +102,30 @@ export function rewriteHtml(html, pageUrl) {
   // meta CSP frame-ancestors would re-block the embed
   out = out.replace(/(<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy["']?[^>]*content\s*=\s*["'])([^"']*)(["'])/gi,
     (m, pre, csp, post) => pre + csp.replace(/frame-ancestors[^;]*;?/gi, '') + post);
+  const bridgeScript = `<script id="__profiles_frame_bridge">
+(function(){
+  try{
+    window.addEventListener('wheel', function(e){
+      if(e.ctrlKey || e.metaKey){
+        e.preventDefault(); e.stopPropagation();
+        var d = e.deltaY < 0 ? 0.1 : (e.deltaY > 0 ? -0.1 : 0);
+        window.parent.postMessage({ type: 'browser_zoom_step', step: d }, '*');
+      }
+    }, { passive: false, capture: true });
+    window.addEventListener('keydown', function(e){
+      if(e.ctrlKey || e.metaKey){
+        if(e.key === '=' || e.key === '+' || e.key === '-' || e.key === '_' || e.key === '0'){
+          e.preventDefault();
+          var step = (e.key === '-' || e.key === '_') ? -0.1 : (e.key === '0' ? 0 : 0.1);
+          window.parent.postMessage({ type: 'browser_zoom_key', step: step }, '*');
+        }
+      }
+    }, true);
+  }catch(err){}
+})();
+</script>`;
+  if(/<\/body>/i.test(out)) out = out.replace(/<\/body>/i, bridgeScript + '</body>');
+  else out += bridgeScript;
   return out;
 }
 

@@ -312,10 +312,6 @@ document.addEventListener("wheel", function(e){
   }
 }, {passive:false});
 document.addEventListener("keydown", function(e){
-  if(e.ctrlKey || e.metaKey){
-    var fr=$("browserFrame");
-    if(fr) fr.style.pointerEvents="none";
-  }
   if(!(e.ctrlKey||e.metaKey)) return;
   if(e.key!=="0" && e.key!=="=" && e.key!=="+" && e.key!=="-" && e.key!=="_") return;
   var t=e.target;
@@ -1543,13 +1539,29 @@ if($("openExternal")) $("openExternal").addEventListener("click", function(){
 var pageZoom = 1;
 try{ pageZoom = Math.min(2, Math.max(0.5, Number(localStorage.getItem("profilesPageZoom") || 1) || 1)); }catch(e){}
 function applyPageZoom(showBadge){
+  var fr = $("browserFrame");
+  if(fr) fr.style.zoom = pageZoom;
   try{
-    var doc = $("browserFrame").contentDocument;
-    if(doc && doc.body) doc.body.style.zoom = pageZoom;
+    var doc = fr && fr.contentDocument;
+    if(doc){
+      if(doc.documentElement) doc.documentElement.style.zoom = pageZoom;
+      if(doc.body) doc.body.style.zoom = pageZoom;
+    }
   }catch(e){}
   try{ localStorage.setItem("profilesPageZoom", String(pageZoom)); }catch(e){}
-  if(showBadge) zoomBadge("Page " + Math.round(pageZoom * 100) + "%");
+  if(showBadge) zoomBadge("Browser " + Math.round(pageZoom * 100) + "%");
 }
+window.addEventListener("message", function(e){
+  if(e.data && e.data.type === "browser_zoom_step"){
+    pageZoom = Math.min(2, Math.max(0.5, Math.round((pageZoom + e.data.step) * 10) / 10));
+    applyPageZoom(true);
+  }
+  if(e.data && e.data.type === "browser_zoom_key"){
+    if(e.data.step === 0) pageZoom = 1;
+    else pageZoom = Math.min(2, Math.max(0.5, Math.round((pageZoom + e.data.step) * 10) / 10));
+    applyPageZoom(true);
+  }
+});
 document.querySelectorAll("[data-zoom]").forEach(function(b){
   b.addEventListener("click", function(){
     pageZoom = Math.min(2, Math.max(0.5, Math.round((pageZoom + Number(b.dataset.zoom)) * 10) / 10));

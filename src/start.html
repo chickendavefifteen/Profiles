@@ -51,6 +51,22 @@ document.getElementById('f').addEventListener('submit', function(e){
     location.href=window.__API+'/api/search?q='+encodeURIComponent(q);
   }
 });
+window.addEventListener('wheel', function(e){
+  if(e.ctrlKey || e.metaKey){
+    e.preventDefault(); e.stopPropagation();
+    var d = e.deltaY < 0 ? 0.1 : (e.deltaY > 0 ? -0.1 : 0);
+    window.parent.postMessage({ type: 'browser_zoom_step', step: d }, '*');
+  }
+}, { passive: false, capture: true });
+window.addEventListener('keydown', function(e){
+  if(e.ctrlKey || e.metaKey){
+    if(e.key === '=' || e.key === '+' || e.key === '-' || e.key === '_' || e.key === '0'){
+      e.preventDefault();
+      var step = (e.key === '-' || e.key === '_') ? -0.1 : (e.key === '0' ? 0 : 0.1);
+      window.parent.postMessage({ type: 'browser_zoom_key', step: step }, '*');
+    }
+  }
+}, true);
 </script>
 </body>
 </html>
