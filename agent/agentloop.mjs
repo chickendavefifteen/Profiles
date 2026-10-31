@@ -22,13 +22,15 @@ const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.
   e4: 'https://www.channel4.com/collection/e4', film4: 'https://www.film4.com' };
 const GOOGLE_TLD = { germany: 'de', france: 'fr', spain: 'es', italy: 'it', uk: 'co.uk', japan: 'co.jp', canada: 'ca', australia: 'com.au', brazil: 'com.br', india: 'co.in', netherlands: 'nl', ireland: 'ie', sweden: 'se' };
 function siteFor(target) {
-  const t = target.replace(/\s+(website|site|webpage|page)\s*$/, '')
+  let t = target.replace(/\s+(website|site|webpage|page)\s*$/, '')
     .replace(/\s+(properly|please|for me)\s*$/, '')
     .replace(/\s+dot\s+/g, '.').replace(/\sdot\s/g, '.').trim();
+  t = t.replace(/\bsk\s+y\b/gi, 'sky').replace(/\bch\s*annel\b/gi, 'channel');
   if (SITES[t]) return SITES[t];
   const gm = t.match(/^google\s+([a-z]+)$/);
   if (gm && GOOGLE_TLD[gm[1]]) return 'https://www.google.' + GOOGLE_TLD[gm[1]] + '/';
   if (/^bb?c\b/.test(t) || /bbc/.test(t)) return 'https://www.bbc.co.uk/news';
+  if (/^sk\s*y\b/i.test(t)) return SITES['sky news'];
   return null;
 }
 
@@ -118,6 +120,15 @@ export async function runTool(slot, decision) {
   switch (decision.tool) {
     case 'browser_open': {
       const out = await viewGo(slot, decision.args.url);
+      const isBlocked = /Access Denied|403 Forbidden|Reference #[0-9a-f.]+|Attention Required|Security Check/i.test(out.title || '');
+      if (isBlocked) {
+        return {
+          tool: decision.tool,
+          ok: false,
+          observation: `This site blocked embedded viewing (${out.title || 'Access Denied'}). It cannot be displayed inside the pane — use ↗ in the Browser header to open it in your real browser.`,
+          ui: { showPane: 'pane-browser', browser: out }
+        };
+      }
       if (!out.ok) {
         return { tool: decision.tool, ok: false, observation: `Browser could not snapshot (${out.error || 'unavailable'}) — opening ${out.url || decision.args.url} directly in the Browser pane instead.`,
           ui: { showPane: 'pane-browser', browser: out } };

@@ -1435,9 +1435,9 @@ $("browserFrame").addEventListener("load", function(){
   hideFallback();
   try{
     var doc=$("browserFrame").contentDocument;
-    var t=(doc && doc.body && doc.body.innerText || "").trim();
-    if(/^\{"error"/.test(t) || /^(too many redirects|page too large)/i.test(t)){
-      showFallback("This page would not embed ("+t.slice(0,120)+").", lastBrowserUrl);
+    var t=(doc && ((doc.title || "") + " " + (doc.body && doc.body.innerText || ""))).trim();
+    if(/^\{"error"/.test(t) || /^(too many redirects|page too large)/i.test(t) || /Access Denied|403 Forbidden|Reference #[0-9a-f.]+|Attention Required/i.test(t)){
+      showFallback("This site blocks embedded viewing (" + (doc && doc.title ? doc.title : "Access Denied") + "). Use ↗ at the top right to open it in your browser.", lastBrowserUrl);
     }
   }catch(e){}
 });
