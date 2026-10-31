@@ -9,7 +9,7 @@
     "palette": "high-contrast-light",
     "animation_level": 0
   },
-  "sensory_budget": { "max_animation": 0.1, "flash_hz": 0, "max_simultaneous": 1 },
+  "sensory_budget": { "max_animation": 0, "flash_hz": 0, "max_simultaneous": 0 },
   "input": {
     "modes": ["pointer", "touch", "voice"],
     "keybinds": {},

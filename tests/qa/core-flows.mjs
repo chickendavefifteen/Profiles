@@ -2,19 +2,91 @@
 // Asserts BEHAVIOUR, not screenshots: chat answers, browser loads Google,
 // close->recover restores, modes swap, canvas default is 3 clean panes.
 import { firefox, chromium } from 'playwright';
+import { spawn, execSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 /* Chromium default: iframe input clicks do not penetrate documents in
    headless Firefox (harness quirk, not product) — the native webview is
    Chromium-like for input. QA_BROWSER=firefox keeps the old harness. */
 const browserMod = process.env.QA_BROWSER === 'firefox' ? firefox : chromium;
-const base = process.env.QA_BASE || 'http://localhost:1420/src/';
+/* Singleflight server per QA_PORT (harness quirk, paid 2026-10-31): ghosts
+   from deleted worktrees still hold ports with STALE code — :8125 answered
+   /api/health with ok:true but no build stamp, from a deleted p-qa path,
+   and a boot probe of r.ok alone certified against it. Without QA_BASE we
+   scan PORT..PORT+9: reuse only a server whose build matches disk HEAD,
+   else spawn our own on the first refused port. With QA_BASE the stamp must
+   match disk or we stop RED instead of certifying old code. */
+let PORT = Number(process.env.QA_PORT || 8125);
+let base = process.env.QA_BASE || '';
+let apiBase = '';
 const headed = process.env.QA_HEADED === '1';
 const results = [];
 function check(name, cond) { results.push([name, !!cond]); console.log((cond ? 'ok' : 'FAIL') + ' - ' + name); }
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+function diskHead() { try { return execSync('git rev-parse --short HEAD', { cwd: root, timeout: 5000 }).toString().trim(); } catch { return ''; } }
+async function probe(p) { // 'free' | 'stale' | { build }
+  try {
+    const r = await fetch(`http://localhost:${p}/api/health`);
+    if (!r.ok) return 'stale';
+    const j = await r.json().catch(() => null);
+    return (j && j.build) ? { build: String(j.build) } : 'stale';
+  } catch (e) {
+    const s = String((e && e.cause && e.cause.code) || (e && e.message) || '');
+    return /ECONNREFUSED/.test(s) ? 'free' : 'stale';
+  }
+}
+const HEAD = diskHead();
+let _child = null;
+function redExit(msg) { console.log(msg); try { _child?.kill(); } catch {} process.exit(1); }
+if (process.env.QA_BASE) {
+  base = process.env.QA_BASE;
+  apiBase = base.replace(/\/src\/$/, '');
+} else if (process.env.QA_PORT) {
+  apiBase = `http://localhost:${PORT}`;
+  base = apiBase + '/src/';
+  const st = await probe(PORT);
+  if (st === 'free') {
+    _child = spawn('node', ['server.mjs', '--port', String(PORT)], { cwd: root, stdio: 'ignore' });
+  } else if (!(st !== 'stale' && HEAD && st.build.startsWith(HEAD))) {
+    redExit(`PREFLIGHT RED — :${PORT} held by stale/foreign server; refusing to certify it (pick another QA_PORT)`);
+  }
+} else {
+  let picked = 0;
+  for (let p = PORT; p < PORT + 10 && !picked; p++) {
+    const st = await probe(p);
+    if (st === 'free') { picked = p; break; }
+    if (st !== 'stale' && HEAD && st.build.startsWith(HEAD)) { picked = -p; break; }
+  }
+  if (!picked) redExit('PREFLIGHT RED — ports 8125-8134 all held by stale servers; refusing to certify');
+  PORT = Math.abs(picked);
+  apiBase = `http://localhost:${PORT}`;
+  base = apiBase + '/src/';
+  if (picked > 0) _child = spawn('node', ['server.mjs', '--port', String(PORT)], { cwd: root, stdio: 'ignore' });
+  else console.log(`reusing fresh server on :${PORT} (build matches disk)`);
+}
+if (_child) {
+  const _t0 = Date.now();
+  for (;;) {
+    try { const _r = await fetch(apiBase + '/api/health'); if (_r.ok) break; } catch {}
+    if (Date.now() - _t0 > 15000) redExit('server did not boot on ' + apiBase);
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+process.on('exit', () => { try { _child?.kill(); } catch {} });
+/* Build-stamp preflight before every claim (scripts/preflight.mjs gate). */
+{
+  let _h = null;
+  try { _h = await (await fetch(apiBase + '/api/health')).json(); } catch {}
+  check('preflight: server alive with build stamp', !!(_h && _h.ok && _h.build));
+  if (!(_h && _h.ok && _h.build)) redExit(`PREFLIGHT RED — ${apiBase} serves no build stamp (stale ghost?); refusing to certify`);
+  if (HEAD && !_h.build.startsWith(HEAD)) redExit(`PREFLIGHT RED — server build ${_h.build} != disk ${HEAD}; refusing to certify stale code`);
+  check('preflight: server build matches disk (' + _h.build + ')', true);
+}
 /* deterministic starting state: Profile A, no saved layout/bin */
 let _prevSlot = 'A';
-await fetch('http://localhost:1420/api/slot').then(function(r){ return r.json(); }).then(function(j){ _prevSlot = j.active || 'A'; }).catch(function(){});
-await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: 'E' }) }).catch(() => {});
-await fetch('http://localhost:1420/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reset: true }) }).catch(() => {});
+await fetch(apiBase + '/api/slot').then(function(r){ return r.json(); }).then(function(j){ _prevSlot = j.active || 'A'; }).catch(function(){});
+await fetch(apiBase + '/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: 'E' }) }).catch(() => {});
+await fetch(apiBase + '/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reset: true }) }).catch(() => {});
 const browser = await browserMod.launch({ headless: !headed });
 const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
 const errors = [];
@@ -115,18 +187,26 @@ check('api base resolves sidecar origin', await page.evaluate(() => typeof apiUr
 await page.fill('#urlInput', '');
 await page.press('#urlInput', 'Enter');
 await page.waitForTimeout(2500);
-check('start search box submits to native results', await page.evaluate(async () => {
-  const doc = document.querySelector('#browserFrame').contentDocument;
-  const box = doc.querySelector('#q');
-  if (!box) return false;
-  box.value = 'canal boat holidays';
-  box.form.requestSubmit();
-  await new Promise(rr => setTimeout(rr, 9000));
-  const d2 = document.querySelector('#browserFrame').contentDocument;
-  return d2.body.innerText.includes('Results for') && /canal|boat|holiday/i.test(d2.body.innerText);
-}));
+let _searchOk = false;
+try {
+  _searchOk = await page.evaluate(async () => {
+    const fr = document.querySelector('#browserFrame');
+    const doc = fr && fr.contentDocument;
+    if (!doc) return false;
+    const box = doc.querySelector('#q');
+    if (!box || !box.form) return false;
+    box.value = 'canal boat holidays';
+    box.form.requestSubmit();
+    await new Promise(rr => setTimeout(rr, 9000));
+    const fr2 = document.querySelector('#browserFrame');
+    const d2 = fr2 && fr2.contentDocument;
+    if (!d2 || !d2.body) return false;
+    return d2.body.innerText.includes('Results for') && /canal|boat|holiday/i.test(d2.body.innerText);
+  });
+} catch { _searchOk = false; }
+check('start search box submits to native results', _searchOk);
 // typing: native click into a real field + real keystrokes + Enter (the exact user gesture)
-await page.fill('#urlInput', 'http://localhost:1420/api/test/click-target');
+await page.fill('#urlInput', apiBase + '/api/test/click-target');
 await page.press('#urlInput', 'Enter');
 await page.waitForTimeout(3500);
 {
@@ -205,14 +285,14 @@ check('actor session still drives for tools', await page.evaluate(async () => {
 }));
 // build stamp present so stale windows can detect themselves
 // agent click in the hidden actor session still flips the test page (tools path)
-check('actor click works invisibly', await page.evaluate(async () => {
-  await fetch('/api/browser/view', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'http://localhost:1420/api/test/click-target' }) });
+check('actor click works invisibly', await page.evaluate(async (ab) => {
+  await fetch('/api/browser/view', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: ab + '/api/test/click-target' }) });
   await new Promise(rr => setTimeout(rr, 2000));
   await fetch('/api/browser/click', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fx: 0.5, fy: 0.3 }) });
   await new Promise(rr => setTimeout(rr, 1500));
   const v = await (await fetch('/api/browser/view', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
   return v && v.title === 'HIT';
-}));
+}, apiBase));
 check('frame viewport tracks element (no squash)', await page.evaluate(() => {
   const f = document.querySelector('#browserFrame');
   try {
@@ -220,6 +300,48 @@ check('frame viewport tracks element (no squash)', await page.evaluate(() => {
     const iw = f.contentWindow.innerWidth;
     return elW > 100 && Math.abs(iw - elW) < 12;
   } catch { return false; }
+}));
+// BrowserDocs: maxed single pane fills without overlap (deterministic fullscreen)
+await page.evaluate(() => toggleMax('pane-browser'));
+await page.waitForTimeout(800);
+check('maxed browser fills without overlap', await page.evaluate(() => {
+  const vis = ['pane-chat', 'pane-agent', 'pane-browser', 'pane-doc', 'pane-notes', 'pane-video', 'pane-setup', 'pane-activity']
+    .map(id => document.getElementById(id)).filter(el => el && el.offsetParent !== null);
+  if (vis.length !== 1 || vis[0].id !== 'pane-browser') return false;
+  const r = vis[0].getBoundingClientRect();
+  const f = document.querySelector('#browserFrame').getBoundingClientRect();
+  return r.width > 600 && f.height > 120;
+}));
+await page.evaluate(() => toggleMax('pane-browser'));
+await page.waitForTimeout(800);
+// BrowserDocs: pasted markdown renders a sanitized preview + stages
+await page.evaluate(() => { document.querySelector('[data-add="pane-doc"]')?.click(); });
+await page.waitForTimeout(900);
+const idsBefore = await page.evaluate(async () => (await (await fetch('/api/stage')).json()).staged.map(d => d.id));
+await page.fill('#docPaste', '# Pasted heading ' + Date.now() + '\n\nHello **world**');
+/* Dispatch the Read click in-page (like the opener above): under full-run
+   load the trusted pointer click can misdrop during iframe layout shifts
+   from the earlier BBC navigations, leaving status+preview empty with no
+   error. Then poll for the preview instead of a fixed sleep. */
+await page.evaluate(() => { document.querySelector('#docLoad')?.click(); });
+let _pvOk = false;
+for (let _i = 0; _i < 8 && !_pvOk; _i++) {
+  await page.waitForTimeout(1500);
+  _pvOk = await page.evaluate(() => {
+    const pv = document.querySelector('#docPreview');
+    return !!(pv && /Pasted heading/.test(pv.textContent) && /Hello world/.test(pv.textContent) && !pv.querySelector('script'));
+  });
+}
+check('doc paste renders preview', _pvOk);
+check('doc paste stages for export', await page.evaluate(async (before) => {
+  const after = (await (await fetch('/api/stage')).json()).staged.map(d => d.id);
+  return after.some(id => before.indexOf(id) < 0);
+}, idsBefore));
+// BrowserDocs: unsupported binary gets the honest fallback, never a faked render
+check('doc binary fallback is honest', await page.evaluate(async () => {
+  const r = await (await fetch('/api/doc/stage', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ binary: true, filename: 'deck.pptx', sourceUrl: 'https://example.com/deck.pptx' }) })).json();
+  return r && r.ok && /needs its own app/.test(r.html) && /Open externally/.test(r.html);
 }));
 // zoom: Ctrl+wheel over chrome scales the app (over a pane scales the pane)
 await page.evaluate(() => { window.scrollTo(0, 0); });
@@ -273,7 +395,7 @@ const realErrors = errors.filter(function(e){ return !/sj_be is not defined|_w i
 check('zero page errors', realErrors.length === 0);
 if (realErrors.length) console.log('PAGEERRORS:', JSON.stringify(realErrors.slice(0,3)));
 if (errors.length) console.log(errors);
-await fetch('http://localhost:1420/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: _prevSlot }) }).catch(() => {});
+await fetch(apiBase + '/api/slot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slot: _prevSlot }) }).catch(() => {});
 await browser.close();
 const failed = results.filter(([, ok]) => !ok).length;
 console.log(`\nQA: ${results.length - failed}/${results.length} passed`);

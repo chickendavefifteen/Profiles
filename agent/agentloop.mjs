@@ -31,7 +31,16 @@ export const AGENT_TOOLS = [
   { name: 'browser_read', description: 'Read the current browser page (title + text)', input: 'none' },
   { name: 'web_search', description: 'Search the web through the integrated browser', input: 'query' },
   { name: 'browser_current', description: 'Show what the browser is currently on', input: 'none' },
+  { name: 'doc_open', description: 'Open a pasted text/markdown/HTML document link in the Document pane (staged)', input: 'document url' },
 ];
+
+/* Document links route to the Document pane, never the browser: pasted
+   text/markdown/HTML renders a sanitized preview + stages; heavy binaries
+   get the honest fallback. Pure, tested. */
+export function isDocUrl(u) {
+  const s = String(u || '').replace(/\s+dot\s+/gi, '.').trim();
+  return /\.(md|markdown|txt|text|html?)([?#/]|$)/i.test(s);
+}
 
 /** Deterministic tool decision. Returns {tool, args} or null. */
 export function decideTool(query) {
@@ -39,6 +48,23 @@ export function decideTool(query) {
   const low = q.toLowerCase().trim();
   let rm0 = low.match(/^(?:open|show|go to)\s+result\s+(\d{1,2})$/);
   if (rm0) return { tool: 'open_result', args: { n: Number(rm0[1]) } };
+  /* "open this doc <url>" / "paste this doc" routes to the Document pane;
+     browser_open stays the browser pane. No URL and no paste visible here
+     means an honest pointer, never a faked open. */
+  const pm = low.match(/^(?:please\s+)?paste\s+(this\s+|that\s+|the\s+)?(doc|document|draft|pasted?\s+document|paste|it)\b\s*(.*)$/);
+  if (pm) {
+    const urlm = /https?:\/\/\S+/.exec(q);
+    if (urlm) return { tool: 'doc_open', args: { url: urlm[0].replace(/[.,;!?)]+$/, '') } };
+    return { tool: 'doc_paste_hint', args: {} };
+  }
+  const dm = low.match(/^(?:please\s+)?(?:open|show)\s+(?:this\s+|that\s+|the\s+)?(?:doc|document|draft|pasted?\s+document|paste)\b\s*(.*)$/);
+  if (dm) {
+    const urlm = /https?:\/\/\S+/.exec(q);
+    if (urlm) return { tool: 'doc_open', args: { url: urlm[0].replace(/[.,;!?)]+$/, '') } };
+    const rest = (dm[1] || '').replace(/^(at|from)\s+/, '').trim();
+    if (rest && isDocUrl(rest)) return { tool: 'doc_open', args: { url: /^https?:/.test(rest) ? rest : 'https://' + rest } };
+    return { tool: 'doc_paste_hint', args: {} };
+  }
   let m = low.match(/^(?:please\s+)?(?:open|show|launch|go to|take me to|browse|visit)\s+(?:a\s+|the\s+)?(?:browser\s+(?:on|to|for)\s+|brower\s+(?:on|to)\s+)?(.+)$/);
   if (/^(open|show|launch)\s+(a\s+)?(browser|brower)$/.test(low)) return { tool: 'browser_open', args: { url: 'https://www.google.com' } };
   if (m && !/^(draft|write|file|slides|letter)/.test(low)) {
@@ -46,6 +72,9 @@ export function decideTool(query) {
     const known = siteFor(target);
     if (known) return { tool: 'browser_open', args: { url: known } };
     const spoken = target.replace(/\s+dot\s+/g, '.').replace(/\s+(properly|please)\s*$/, '').trim();
+    if (isDocUrl(spoken)) {
+      return { tool: 'doc_open', args: { url: /^https?:/.test(spoken) ? spoken : 'https://' + spoken.replace(/^www\./, '') } };
+    }
     if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(spoken) || /^https?:/.test(spoken)) {
       return { tool: 'browser_open', args: { url: /^https?:/.test(spoken) ? spoken : 'https://www.' + spoken.replace(/^www\./, '') } };
     }
@@ -105,6 +134,73 @@ export async function runTool(slot, decision) {
       }
       return { tool: decision.tool, ok: true, observation: `Page “${out.title}” (${out.url}):\n${String(out.text || '').slice(0, 1200)}`, pageText: out.text };
     }
+    case 'doc_paste_hint': {
+      return { tool: decision.tool, ok: true,
+        observation: 'I can\u2019t see your clipboard from here — paste the text, Markdown, HTML or link into the Document pane\u2019s Read box and hit Read. I\u2019ll render a preview and stage it for export.',
+        ui: { showPane: 'pane-doc' } };
+    }
+    case 'doc_open': {
+      /* Doc-pane fetch: same framing proxy + slot cookie jar as the
+         browser, only the rendering differs (sanitized preview + stage).
+         Heavy binaries get the honest fallback — never a faked render. */
+      const target = String(decision.args.url || '');
+      const { fetchUpstream, docKindForUrl, sanitizeDocHtml } = await import('./proxy.mjs');
+      const { makePastedDoc, markdownToHtml, binaryFallbackHtml } = await import('./staging.mjs');
+      const { slotPaths } = await import('./slots.mjs');
+      const { mkdir, writeFile } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const saveDoc = async (draft) => {
+        const p = slotPaths(slot);
+        await mkdir(p.staging, { recursive: true });
+        await writeFile(join(p.staging, draft.id + '.json'), JSON.stringify(draft, null, 2));
+      };
+      const titleOf = (u) => { try { const segs = new URL(u).pathname.split('/').filter(Boolean); return decodeURIComponent(segs.pop() || new URL(u).host); } catch { return u.slice(0, 80); } };
+      if (!/^https?:\/\//i.test(target)) {
+        return { tool: decision.tool, ok: false,
+          observation: 'That didn\u2019t look like a document link — paste the text or a full https:// link into the Document pane Read box.',
+          ui: { showPane: 'pane-doc' } };
+      }
+      if (docKindForUrl(target) === 'binary') {
+        const draft = makePastedDoc({ title: titleOf(target),
+          markdown: 'Pointer to ' + target + ' — open it in its own app; export here when handy.', sourceUrl: target });
+        await saveDoc(draft);
+        const html = binaryFallbackHtml(titleOf(target), target);
+        return { tool: decision.tool, ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind },
+          observation: `“${draft.title}” needs its own app, so I staged a pointer in the Document pane (export .md/.docx when handy, or open it externally).`,
+          ui: { showPane: 'pane-doc', doc: { id: draft.id, title: draft.title, html } } };
+      }
+      let up;
+      try { up = await fetchUpstream(target, slot); }
+      catch (e) {
+        return { tool: decision.tool, ok: false,
+          observation: `I could not fetch ${target} (${String(e && e.message || e).slice(0, 120)}) — nothing staged, nothing faked.`,
+          ui: { showPane: 'pane-doc' } };
+      }
+      const ctype = String((up.headers && (up.headers.get ? up.headers.get('content-type') : up.headers['content-type'])) || '').toLowerCase();
+      const isText = /text\/|markdown|json|xml|javascript/.test(ctype) || docKindForUrl(target) === 'text';
+      if (!isText || !up.body || !up.body.length) {
+        const draft = makePastedDoc({ title: titleOf(up.url || target),
+          markdown: 'Pointer to ' + (up.url || target) + ' — open it in its own app; export here when handy.', sourceUrl: up.url || target });
+        await saveDoc(draft);
+        const html = binaryFallbackHtml(titleOf(up.url || target), up.url || target);
+        return { tool: decision.tool, ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind },
+          observation: `“${draft.title}” isn\u2019t plain text I can preview, so I staged a pointer in the Document pane (export .md/.docx when handy, or open it externally).`,
+          ui: { showPane: 'pane-doc', doc: { id: draft.id, title: draft.title, html } } };
+      }
+      const raw = up.body.toString('utf8').slice(0, 60000);
+      if (!raw.trim()) {
+        return { tool: decision.tool, ok: false,
+          observation: `I fetched ${up.url || target} but it came back empty — nothing staged, nothing faked.`,
+          ui: { showPane: 'pane-doc' } };
+      }
+      const asHtml = /text\/html/.test(ctype);
+      const draft = makePastedDoc({ title: titleOf(up.url || target), markdown: raw, sourceUrl: up.url || target });
+      await saveDoc(draft);
+      const html = sanitizeDocHtml(asHtml ? raw : markdownToHtml(raw));
+      return { tool: decision.tool, ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind },
+        observation: `“${draft.title}” is previewing in the Document pane and staged for export.`,
+        ui: { showPane: 'pane-doc', doc: { id: draft.id, title: draft.title, html } } };
+    }
     case 'web_search': {
       const out = await webSearch(slot, decision.args.query);
       if (out.ok && out.results && out.results.length) lastResults.set(slot, out.results);
@@ -122,7 +218,7 @@ export async function runTool(slot, decision) {
         ui: { showPane: 'pane-browser' }, results: out.results };
     }
     default: return { tool: decision.tool, ok: false, observation: 'unknown tool' };
-  }
+}
 }
 
 /* ---- MCP: per-profile servers join the registry ---- */

@@ -623,6 +623,38 @@ export async function handleAgent(req, res, prefix = '/api') {
       }
       return true;
     }
+    /* Document paste-through: paste text/markdown/HTML (or a fetched page
+       the pane already pulled through /api/proxy with the slot jar) ->
+       sanitized inline preview + staged draft. Heavy binaries get the
+       honest fallback: a staged pointer + export/open-external, never a
+       faked render. No auth, no websockets, no deep integration. */
+    if (path === '/doc/stage' && req.method === 'POST') {
+      let b = ''; for await (const c of req) b += c;
+      let body = {};
+      try { body = JSON.parse(b || '{}'); } catch { json(res, 400, { error: 'bad json' }); return true; }
+      const { makePastedDoc, markdownToHtml, binaryFallbackHtml } = await import('./staging.mjs');
+      const { sanitizeDocHtml } = await import('./proxy.mjs');
+      if (body.binary) {
+        const name = String(body.filename || (body.sourceUrl || '').split('/').pop() || 'file').slice(0, 120);
+        const draft = makePastedDoc({ title: name,
+          markdown: 'Pointer to ' + (body.sourceUrl || name) + ' — open it in its own app; export here when handy.',
+          sourceUrl: body.sourceUrl || null });
+        await saveStage(draft);
+        json(res, 200, { ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind },
+          html: binaryFallbackHtml(name, body.sourceUrl || null) });
+        return true;
+      }
+      const text = String(body.text || '').slice(0, 60000);
+      if (!text.trim()) { json(res, 400, { error: 'nothing to stage — paste text or a link first' }); return true; }
+      const fmt = body.format === 'html' || body.format === 'markdown' ? body.format
+        : (/<\s*(html|body|h[1-4]|p|ul|ol|div|article|section)[\s>]/.test(text) ? 'html' : 'markdown');
+      const title = String(body.title || (body.sourceUrl || '').split('/').filter(Boolean).pop() || 'Pasted document').slice(0, 120);
+      const draft = makePastedDoc({ title, markdown: text, sourceUrl: body.sourceUrl || null });
+      await saveStage(draft);
+      const html = fmt === 'html' ? sanitizeDocHtml(text) : sanitizeDocHtml(markdownToHtml(text));
+      json(res, 200, { ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind }, html });
+      return true;
+    }
     if (path === '/ask' && req.method === 'POST') {
       let body = '';
       for await (const chunk of req) body += chunk;

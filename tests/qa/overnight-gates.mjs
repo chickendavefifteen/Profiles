@@ -10,8 +10,12 @@
 // Exit code: nonzero iff any pin fails. `--strict` also fails on gates
 // (for post-merge CI). QA_BASE reuses a running server, otherwise one is
 // spawned on QA_PORT (default 8124).
-import { firefox } from 'playwright';
-import { spawn } from 'node:child_process';
+import { firefox, chromium } from 'playwright';
+/* Chromium default: headless-Firefox synthetic clicks do not penetrate iframe
+   documents (harness quirk, QUALITY-GATES.md) — the native webview is
+   Chromium-like for input. QA_BROWSER=firefox keeps the old harness. */
+const browserMod = process.env.QA_BROWSER === 'firefox' ? firefox : chromium;
+import { spawn, execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
@@ -19,21 +23,57 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const strict = process.argv.includes('--strict');
-const PORT = Number(process.env.QA_PORT || 8124);
-const base = process.env.QA_BASE || `http://localhost:${PORT}/src/`;
 const headed = process.env.QA_HEADED === '1';
-
+/* Ghost-aware singleflight (harness quirk, paid 2026-10-31): deleted-worktree
+   servers still hold :8124/:8125 with stale code. Reuse only a server whose
+   build matches disk HEAD, else spawn on the first refused port in range. */
+let PORT = Number(process.env.QA_PORT || 8124);
+let base = process.env.QA_BASE || '';
+function diskHead() { try { return execSync('git rev-parse --short HEAD', { cwd: root, timeout: 5000 }).toString().trim(); } catch { return ''; } }
+async function probe(p) {
+  try {
+    const r = await fetch(`http://localhost:${p}/api/health`);
+    if (!r.ok) return 'stale';
+    const j = await r.json().catch(() => null);
+    return (j && j.build) ? { build: String(j.build) } : 'stale';
+  } catch (e) {
+    const s = String((e && e.cause && e.cause.code) || (e && e.message) || '');
+    return /ECONNREFUSED/.test(s) ? 'free' : 'stale';
+  }
+}
+const HEAD = diskHead();
 let child = null;
+function redExit(msg) { console.log(msg); try { child?.kill(); } catch {} process.exit(1); }
 async function ensureServer() {
-  if (process.env.QA_BASE) return;
-  child = spawn('node', ['server.mjs', '--port', String(PORT)], { cwd: root, stdio: 'ignore' });
+  if (process.env.QA_BASE) { base = process.env.QA_BASE; return; }
+  let spawnIt = true;
+  if (process.env.QA_PORT) {
+    base = `http://localhost:${PORT}/src/`;
+    const st = await probe(PORT);
+    if (st === 'free') { /* fall through to spawn */ }
+    else if (!(st !== 'stale' && HEAD && st.build.startsWith(HEAD))) {
+      redExit(`PREFLIGHT RED — :${PORT} held by stale/foreign server (build ${st === 'stale' ? 'unknown' : st.build}); pick another QA_PORT`);
+    } else { console.log(`reusing fresh server on :${PORT} (build matches disk)`); spawnIt = false; }
+  } else {
+    let picked = 0;
+    for (let p = PORT; p < PORT + 10 && !picked; p++) {
+      const st = await probe(p);
+      if (st === 'free') { picked = p; break; }
+      if (st !== 'stale' && HEAD && st.build.startsWith(HEAD)) { picked = -p; break; }
+    }
+    if (!picked) redExit('PREFLIGHT RED — ports 8124-8133 all held by stale servers; refusing to certify');
+    PORT = Math.abs(picked);
+    if (picked < 0) { console.log(`reusing fresh server on :${PORT} (build matches disk)`); spawnIt = false; }
+  }
+  base = `http://localhost:${PORT}/src/`;
+  if (spawnIt) child = spawn('node', ['server.mjs', '--port', String(PORT)], { cwd: root, stdio: 'ignore' });
   const t0 = Date.now();
   for (;;) {
     try {
       const r = await fetch(base);
       if (r.ok) return;
     } catch {}
-    if (Date.now() - t0 > 15000) throw new Error('server did not boot on ' + base);
+    if (Date.now() - t0 > 15000) redExit('server did not boot on ' + base);
     await new Promise((r) => setTimeout(r, 250));
   }
 }
@@ -56,7 +96,7 @@ async function pillsText(page) { return page.evaluate(() => document.querySelect
 async function ensureHidden(page, sel) { await page.evaluate((s) => { const el = document.querySelector(s); if (el) el.hidden = true; }, sel); }
 
 await ensureServer();
-const browser = await firefox.launch({ headless: !headed });
+const browser = await browserMod.launch({ headless: !headed });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
@@ -142,9 +182,12 @@ await page.waitForTimeout(1200);
     });
     gate('Adaptive toggle is a labelled checkbox', /adaptive/i.test(label), 'worker-2-modes');
     const pos = await page.evaluate(() => {
-      const t = document.getElementById('adaptiveToggle').getBoundingClientRect();
-      const p = document.querySelector('.pills').getBoundingClientRect();
-      return t.right <= p.left + 4;
+      /* Landed design: the toggle is the FIRST pill in the row (shingle
+         order = visual order), not a box outside .pills — probe DOM order. */
+      const pills = document.querySelector('.pills');
+      const t = document.getElementById('adaptiveToggle');
+      const first = pills && pills.firstElementChild;
+      return !!(pills && t && first && (first === t || first.contains(t)));
     });
     gate('Adaptive sits left of the profile pills', pos, 'worker-2-modes');
     await page.evaluate(() => document.getElementById('adaptiveToggle').click());
@@ -185,13 +228,17 @@ gate('key 6 selects the 6th mode (xMAX, X-only)', new Set(seen).size === 6, 'wor
   const pills = await pillsText(page);
   gate('pills read babylite/chill/FOCUSMAX/Vibes/xMAX/calm', /babylite/i.test(pills) && /FOCUSMAX/.test(pills) && /Vibes/.test(pills) && /xMAX/.test(pills) && /calm/i.test(pills), 'worker-2-modes');
 }
-// xMAX exclusivity
+// xMAX exclusivity (leave X first: profileXOn() is slot==="X"||showX, so an
+// X-active world correctly keeps xMAX visible regardless of the toggle)
+await post('/slot', { slot: 'A' });
+await page.waitForTimeout(500);
 await post('/appconfig', { showX: false });
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(1000);
 {
-  const pills = await pillsText(page);
-  gate('xMAX hidden while X is off', !/xMAX/.test(pills), 'worker-2-modes');
+  /* updateXmaxVisibility hides the button (hidden attr); its label stays in
+     textContent, so probe the attribute, not the text. */
+  gate('xMAX hidden while X is off', await page.evaluate(() => { const b = document.querySelector('.pills button[data-profile="xMAX"]'); return !!b && b.hidden === true; }), 'worker-2-modes');
 }
 await post('/appconfig', { showX: true });
 await post('/slot', { slot: 'X' });
@@ -330,6 +377,17 @@ pin('staged docs export (.md + .docx)', await page.evaluate(() => {
   }
 }
 pin('zero page errors in gate5', errors.length === 0);
+/* ---- gate5b: doc paste-through (BrowserDocs lane, 2026-10-31 review) ----
+   Pasted content must render in pane-doc (no silent drop); binary pastes
+   must get an honest can't-preview fallback, never faked text. Proven live
+   in core-flows QA (paste renders preview + stages, binary honest); these
+   gates pin the mechanism textually. */
+{
+  const mainJs = await readFile(join(root, 'src', 'main.js'), 'utf8');
+  const stagingJs = await readFile(join(root, 'agent', 'staging.mjs'), 'utf8');
+  gate('doc paste-through renders pasted content', /docPaste/.test(mainJs) && /stageDocPayload/.test(mainJs) && /renderDocPreview/.test(mainJs), 'browser-docs');
+  gate('binary paste gets an honest no-preview fallback', /binaryFallbackHtml/.test(stagingJs) && /needs its own app/.test(stagingJs), 'browser-docs');
+}
 if (errors.length) console.log(errors);
 
 /* ================= cleanup + verdict ================= */

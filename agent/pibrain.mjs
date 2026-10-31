@@ -17,7 +17,7 @@ export async function piBrainAnswer(query, slot = "main", profile = {}) {
   const slotName = String(slot || "main");
   const slotRoot = join(root, "vault", slotName);
   const home = homedir();
-  const cwd = profile.wholeMachine ? home : slotRoot;
+  /* cwd declared once above (line 16): wholeMachine ? homedir() : xRoot — ringfenced default */
   const sessDir = join(slotRoot, "pi-sessions");
   await mkdir(sessDir, { recursive: true }).catch(() => {});
   

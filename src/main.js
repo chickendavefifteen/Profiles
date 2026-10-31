@@ -31,8 +31,8 @@ function canonicalMode(id){
   return null;
 }
 var MODES={
-  babylite:{label:"babylite · soft + simple",   motion:60, sim:1, tick:900,  speech:"terse",
-             note:"babylite — soft baby-blue, big targets, one thing, always asks. Governor: motion 60%, 1 simultaneous, flash 0/s (capped). Agent simple/asks-first, parallelism 1."},
+  babylite:{label:"babylite · soft + simple",   motion:0,  sim:0, tick:900,  speech:"terse",
+             note:"babylite — soft baby-blue, big targets, one thing, always asks. Governor: motion 0%, 0 simultaneous, flash 0/s (capped). Agent simple/asks-first, parallelism 1."},
   chill:   {label:"chill · warm and slow",      motion:35, sim:1, tick:2600, speech:"sparse",
              note:"chill — warm, slow, rest reminders. Governor: motion 35%, 1 simultaneous, flash 0/s (capped). Agent brief/checkpointed, parallelism 1."},
   FOCUSMAX:{label:"FOCUSMAX · mono-task",       motion:10, sim:1, tick:1000, speech:"terse",
@@ -66,7 +66,7 @@ function setAvatar(buddy){
   p.setAttribute("d", AVATAR_PATHS[buddy] || AVATAR_PATHS.person);
   var av=document.querySelector(".avatarCircle"); if(av) av.title="";
 }
-var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", layout:{order:null,hidden:["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
+var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", expectSlot:null, layout:{order:null,hidden:["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
   stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null};
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
@@ -115,6 +115,7 @@ function renderPaneTabs(){
     var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Close pane (reopen any time)";
     x.addEventListener("click", function(ev){ ev.stopPropagation(); hidePane(id); });
     b.appendChild(lab); b.appendChild(x);
+    b.style.zIndex=String(1000-bar.children.length);
     b.addEventListener("click", function(){ focusPane(id); });
     b.addEventListener("dblclick", function(){ toggleMax(id); });
     bar.appendChild(b);
@@ -133,6 +134,7 @@ function renderPaneTabs(){
       menu.hidden=false;
     } else menu.hidden=true;
   });
+  add.style.zIndex="1";
   bar.appendChild(add);
 }
 function focusPane(id){
@@ -189,6 +191,25 @@ document.querySelectorAll("[data-min]").forEach(function(b){
 /* Pixel-definite view height: this engine resolves iframe percentages
    against thin air (300x150 default), so the pane measures real pixels
    and sets them explicitly. No percentages left to misread. */
+/* Shared live-size path: the pane reports its measured frame size and the
+   session resizes its viewport to it (POST /api/browser/size, debounced)
+   so the view maps 1:1 with no crop math. The doc pane needs no live
+   viewport — its preview is in-flow sanitized HTML — but its web loads go
+   through the same /api/proxy + slot jar. */
+var sizeReportTimer=null;
+function reportViewSize(w, h){
+  clearTimeout(sizeReportTimer);
+  sizeReportTimer=setTimeout(function(){
+    if(!paneVisible("pane-browser")) return;
+    fetch(apiUrl("/api/browser/size"),{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({w:Math.round(w), h:Math.round(h)})}).catch(function(){});
+  }, 800);
+}
+/* Viewport-stuck heal with backoff: a same-origin read proves the freeze,
+   resize nudges usually heal it; a persistent freeze reloads the frame at
+   most once per 20s (never a reload loop). No transform on #pane-browser
+   (software-render rule) — sizing is pixels only. */
+var browserHeal={n:0,last:0};
 function fitBrowserView(){
   var pane=$("pane-browser"), view=$("browserView");
   if(!pane || !view) return;
@@ -209,18 +230,30 @@ function fitBrowserView(){
     var vh=Math.round(view.getBoundingClientRect().height);
     if(vw>50) fr.setAttribute("width", String(vw));
     if(vh>50) fr.setAttribute("height", String(vh));
+    if(vw>50 && vh>50) reportViewSize(vw, vh);
     /* viewport-stuck guard: this engine can freeze an iframe viewport at
        first-paint size; a same-origin read proves it, one reload heals it */
     try{
       var iw=fr.contentWindow.innerWidth||0;
       if(vw>50 && Math.abs(iw-vw)>8){
         fr.contentWindow.dispatchEvent(new fr.contentWindow.Event("resize"));
-      }
+        browserHeal.n++;
+        var now=Date.now();
+        if(browserHeal.n>=4 && now-browserHeal.last>20000){
+          browserHeal.last=now; browserHeal.n=0;
+          var s=fr.src; fr.src=s;
+        }
+      } else browserHeal.n=0;
     }catch(e){}
   }
 }
 if(window.ResizeObserver){
-  new ResizeObserver(function(){ fitBrowserView(); }).observe(document.body);
+  /* one observer, both panes: browser refits its frame + reports the live
+     size; the doc preview is in-flow and needs no viewport tracking. */
+  var paneRO=new ResizeObserver(function(){ fitBrowserView(); });
+  paneRO.observe(document.body);
+  if($("pane-browser")) paneRO.observe($("pane-browser"));
+  if($("pane-doc")) paneRO.observe($("pane-doc"));
 }
 /* Zoom: Ctrl/Cmd + wheel (trackpad pinch sends the same) scales the whole
    app for readability; pages inside the browser pane zoom natively.
@@ -525,8 +558,8 @@ document.addEventListener("keydown", function(e){
         pane.style.cursor=hov ? (CURSORS[hov]||"nwse-resize") : "";
       }
       dragId=pane.id;
-      if(!moved){ startX=e.clientX; startY=e.clientY; moved=true; }
-      if(!moved && Math.hypot(e.clientX-startX, e.clientY-startY)<7) return;
+      if(!moved){ startX=e.clientX; startY=e.clientY; moved=true; return; } /* anchor first: no FLIP churn on hover jitter */
+      if(Math.hypot(e.clientX-startX, e.clientY-startY)<7) return; /* 7px glide threshold — small-screen friendly */
       moved=true;
       var under=document.elementFromPoint(e.clientX, e.clientY);
       var target=under && under.closest ? under.closest(".pane") : null;
@@ -567,9 +600,22 @@ document.addEventListener("keydown", function(e){
     if(el){ el.style.cursor=""; rememberSize(rid); }
     persistLayout();
   }, true);
+  /* outside-land: mouse re-pins on press (instant); touch/pen re-pins on
+     tap (press + lift within 12px) so a scroll gesture starting outside
+     never yanks a just-unlocked pane away on small touchscreens. */
+  var downPos=null;
   document.addEventListener("pointerdown", function(e){
     if(resizing) return; /* let the resize finish on pointerup, don't re-pin mid-drag */
-    if(unpinned && !e.target.closest("#"+unpinned)) land();
+    downPos={x:e.clientX, y:e.clientY, type:e.pointerType||"mouse"};
+    var outside=!(e.target.closest && e.target.closest("#"+unpinned));
+    if(unpinned && outside && downPos.type==="mouse") land();
+  }, true);
+  document.addEventListener("pointerup", function(e){
+    if(resizing || !unpinned){ downPos=null; return; }
+    var t=e.pointerType||(downPos&&downPos.type)||"mouse";
+    var outsideUp=!(e.target.closest && e.target.closest("#"+unpinned));
+    if(t!=="mouse" && downPos && Math.hypot(e.clientX-downPos.x, e.clientY-downPos.y)<12 && outsideUp) land();
+    downPos=null;
   }, true);
 })();
 
@@ -614,16 +660,24 @@ function setMode(mode, why, opts){
     return;
   }
   var segway=opts&&opts.segway;
+  var explicit=!!(opts&&opts.explicit);
+  /* STICKY-CALM: calm is a manual panic button. Leaving it takes an explicit
+     hand (pill click / keys 1-6); adaptive, learned-auto, slot-settle,
+     pack-engine and boot-restore never pull out. Entering calm always works. */
+  if(state.mode==="calm" && mode!==state.mode && !explicit) return; /* sticky-calm: guard */
+  var prevMode=state.mode;
   if(segway){ document.body.classList.add("segwaying"); }
   if(invitesAllowed() || mode==="calm" || mode==="babylite" || mode==="chill"){
     var still=(mode==="calm"||mode==="babylite");
     document.body.classList.toggle("mode-cut", still);
     document.body.classList.toggle("mode-settle", mode==="chill");
-    if(!still && mode!=="chill"){
+    if(!still && mode!=="chill" && !document.hidden){
       var vis=(state.layout.order||PANES).filter(paneVisible);
       vis.forEach(function(id, i){
         var el=$(id); if(!el) return;
-        setTimeout(function(){ el.classList.add("celebrate"); setTimeout(function(){ el.classList.remove("celebrate"); }, 650); }, i*90);
+        /* Vibes-class celebration, capped: first 4 panes stagger at most 270ms,
+           hidden tabs never animate (Chromebook envelope). */
+        setTimeout(function(){ el.classList.add("celebrate"); setTimeout(function(){ el.classList.remove("celebrate"); }, 650); }, Math.min(i,3)*90);
       });
       var tabs=$("paneTabs"); if(tabs){ tabs.classList.add("shimmer"); setTimeout(function(){ tabs.classList.remove("shimmer"); }, 900); }
     }
@@ -633,7 +687,7 @@ function setMode(mode, why, opts){
   var m=MODES[mode];
   document.body.dataset.mode=mode;
   document.body.dataset.intensity = mode==="calm" ? "soft" : ((state.cfg&&state.cfg.intensity)||"full");
-  document.body.classList.toggle("gov-freeze", m.motion===0);
+  document.body.classList.toggle("gov-freeze", still || m.motion===0);
   document.querySelectorAll(".pills button").forEach(function(b){
     b.setAttribute("aria-pressed", b.dataset.profile===mode ? "true":"false");
   });
@@ -642,7 +696,10 @@ function setMode(mode, why, opts){
   stream("profile → "+m.label+(why?" ("+why+")":"")+" — budget motion "+m.motion+"%, flash 0/s, simult "+m.sim);
   updateModelLine();
   updateXmaxVisibility();
-  learnStay(mode);
+  learnStay(mode, prevMode);
+  /* STICKY-PERSIST: an explicit hand owns the slot's memory — save it so
+     reload / loadConfig / pack-engine settle restores the pick, not Vibes. */
+  if(explicit && mode!==prevMode) postConfig({slot:{metaMode:mode}}); /* sticky-calm: persist */
   if(segway){ setTimeout(function(){ document.body.classList.remove("segwaying"); }, 700); }
   if(why && why.indexOf("opening")!==0 && why.indexOf("pack engine")!==0 && why.indexOf("learned")!==0 && why.indexOf("adaptive")!==0) checkLearned();
 }
@@ -654,13 +711,13 @@ function updateXmaxVisibility(){
   if(!on && state.mode==="xMAX") setMode("Vibes","xMAX hidden — Profile X off, back to Vibes");
 }
 document.querySelectorAll(".pills button").forEach(function(b){
-  b.addEventListener("click", function(){ setMode(b.dataset.profile, "you switched"); });
+  b.addEventListener("click", function(){ setMode(b.dataset.profile, "you switched", {explicit:true}); });
 });
 document.addEventListener("keydown", function(e){
   if(e.target && (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")) return;
   if(e.metaKey||e.ctrlKey||e.altKey) return;
   var map={"1":"babylite","2":"chill","3":"FOCUSMAX","4":"Vibes","5":"calm","6":"xMAX"};
-  if(map[e.key]){ setMode(map[e.key], "key "+e.key, {segway:true}); return; }
+  if(map[e.key]){ setMode(map[e.key], "key "+e.key, {segway:true,explicit:true}); return; }
   var k=String(e.key||"").toLowerCase();
   var slotMap={a:"A",b:"B",c:"C",x:"X"};
   if(slotMap[k]){ switchSlot(slotMap[k]); stream("profile → "+slotMap[k]+" (key "+k+")"); return; }
@@ -756,7 +813,8 @@ function runReal(q, isRetry){
         bubble(res.chat || res.result || "Done.", "agent");
         if(res.ui && res.ui.showPane){
           showPaneEl(res.ui.showPane, true);
-          if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded) browserShow({ok:true, url:"https://www.bing.com"}); }, 600);
+          if(res.ui.doc){ try{ renderDocPreview(res.ui.doc); }catch(e){} try{ loadStaged(); }catch(e){} }
+          else if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded) browserShow({ok:true, url:"https://www.bing.com"}); }, 600);
           else { try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
         }
         if(res.setup){ renderSetup(res.setup, res.capabilities); showPane("pane-setup"); }
@@ -897,6 +955,10 @@ function loadSetup(){
 /* ---- meta-profiles: slots, reset, snapshots (easy unstitch/rollback) ---- */
 function applyConfig(res){
   if(!res || !res.profile) return;
+  /* STALE-SLOT RACE: a loadConfig/postConfig round-trip started under slot A
+     may land after the user switched to B — never let it clobber B's world. */
+  if(state.expectSlot && res.slot && res.slot!==state.expectSlot) return; /* sticky-calm: stale-slot */
+  if(res.slot && res.slot===state.expectSlot) state.expectSlot=null;
   var slotChanged = state.slot && res.slot && res.slot!==state.slot;
   state.slot=res.slot || state.slot;
   state.cfg=res.profile;
@@ -935,7 +997,11 @@ function applyConfig(res){
     applyLayout();
   }
   var canonMeta=canonicalMode(slot.metaMode);
-  if(canonMeta && canonMeta!==state.mode && !state.urlMode) setMode(canonMeta, "this profile settles here");
+  /* BOOT ORDER: ?mode= wins once (one-shot), then the slot's own persisted
+     memory, then the Vibes default. calm is sticky — slot-settle never
+     pulls out of it, even on a world switch. */
+  if(canonMeta && canonMeta!==state.mode && !state.urlMode && state.mode!=="calm") setMode(canonMeta, "this profile settles here"); /* sticky-calm: settle */
+  state.urlMode=false; /* sticky-calm: one-shot — ?mode= is consumed by the first config sighting */
   updateXmaxVisibility();
   if(slotChanged) resetWorldView(slot);
   if(slotChanged && state.slot==="X") bubble("⚡ Profile X — ringfenced power world. Extensible pi + durable, deeper access where this device allows, advised brain: PC-standard or better. A and B cannot see or touch any of this, and X cannot touch them.", "agent");
@@ -957,9 +1023,10 @@ function postConfig(patch){
 }
 function switchSlot(slot){
   if(slot===state.slot) return;
+  state.expectSlot=slot; /* sticky-calm: stale-slot */
   fetch(apiUrl("/api/slot"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({slot:slot})})
     .then(function(r){ return r.json(); }).then(function(){ loadConfig(); })
-    .catch(function(){ bubble("Could not switch profiles — is npm start running?", "sys"); });
+    .catch(function(){ state.expectSlot=null; bubble("Could not switch profiles — is npm start running?", "sys"); });
 }
 ["A","B","C","D","E","X"].forEach(function(L){
   var b=$("slot"+L); if(b) b.addEventListener("click", function(){ switchSlot(L); });
@@ -1170,12 +1237,79 @@ function loadStaged(){
       pre.textContent=(d.sections||[]).map(function(x){ return x.heading+": "+x.body; }).join("\n");
       var a1=document.createElement("a"); a1.href="/api/stage/"+d.id+"/export?format=md"; a1.textContent="Export .md";
       var a2=document.createElement("a"); a2.href="/api/stage/"+d.id+"/export?format=docx"; a2.textContent="Export .docx (Word / Google Docs)";
-      div.appendChild(h); div.appendChild(pre); div.appendChild(a1); div.appendChild(a2); div.appendChild(pb);
+      var pv=document.createElement("button"); pv.className="sbtn ghost"; pv.type="button"; pv.textContent="Preview";
+      pv.addEventListener("click", (function(draft){ return function(){
+        renderDocPreview({title:draft.title, html:"<pre>"+escHtml((draft.sections||[]).map(function(x){ return x.heading+"\n\n"+x.body; }).join("\n\n---\n\n"))+"</pre>"});
+      }; })(d));
+      div.appendChild(h); div.appendChild(pre); div.appendChild(a1); div.appendChild(a2); div.appendChild(pv);
       box.appendChild(div);
     });
   }).catch(function(){});
 }
 $("stageRefresh").addEventListener("click", loadStaged);
+/* ---- document Read/Write: paste text/markdown/HTML/URL -> sanitized
+   preview + staged draft. URL loads go through /api/proxy (same framing
+   proxy + slot cookie jar as the browser); heavy .pdf/.docx/.pptx get the
+   honest fallback (staged pointer + export/open-external), never a faked
+   render. No auth, no websockets. Work-app tiles stay shell links that
+   open inside the Browser pane. */
+function renderDocPreview(doc){
+  if(!doc) return;
+  showPaneEl("pane-doc", true);
+  var pv=$("docPreview"); if(pv) pv.innerHTML=doc.html||"";
+  var st=$("docStatus");
+  if(st) st.textContent="\u201c"+(doc.title||"document")+"\u201d previewing — staged below, export .md/.docx when happy.";
+}
+function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function docExtKind(u){
+  var m=/\.([a-z0-9]+)([?#]|$)/i.exec(String(u||"").split(/[?#]/)[0] || String(u||""));
+  var ext=(m&&m[1]||"").toLowerCase();
+  if(/^(md|markdown|txt|text|html?)$/.test(ext)) return "text";
+  if(/^(pdf|docx|pptx|ppt|xls|xlsx)$/.test(ext)) return "binary";
+  return "other";
+}
+function stageDocPayload(payload, st){
+  fetch(apiUrl("/api/doc/stage"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})
+  .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+  .then(function(r){
+    if(!r.ok || !r.j || !r.j.ok){ if(st) st.textContent="That did not stage ("+((r.j&&r.j.error)||"unknown")+") — nothing filed, nothing faked."; return; }
+    renderDocPreview({title:r.j.staged.title, html:r.j.html});
+    loadStaged();
+  }).catch(function(){ if(st) st.textContent="The sidecar is unreachable — is npm start running? Nothing staged."; });
+}
+if($("docLoad")) $("docLoad").addEventListener("click", function(){
+  var st=$("docStatus");
+  var pasted=(($("docPaste")||{}).value||"").trim();
+  var link=(($("docUrl")||{}).value||"").trim();
+  if(pasted){
+    stageDocPayload({title: link ? link.split("/").filter(Boolean).pop().slice(0,120) : "Pasted document",
+      text:pasted, format: pasted.charAt(0)==="<" ? "html" : "markdown", sourceUrl: link||null}, st);
+    return;
+  }
+  if(!link){ if(st) st.textContent="Paste text or a link first — then Read."; return; }
+  if(st) st.textContent="Reading\u2026";
+  if(docExtKind(link)==="binary"){
+    stageDocPayload({binary:true, filename:link.split("/").filter(Boolean).pop(), sourceUrl:link}, st);
+    return;
+  }
+  fetch(proxyFor(link)).then(function(r){
+    var ct=(r.headers.get("content-type")||"").toLowerCase();
+    if(!r.ok || !/text\/|markdown|json|xml|javascript/.test(ct)){
+      stageDocPayload({binary:true, filename:link.split("/").filter(Boolean).pop(), sourceUrl:link}, st);
+      return null;
+    }
+    return r.text();
+  }).then(function(t){
+    if(t===null) return;
+    if(!String(t).trim()){ if(st) st.textContent="That link came back empty — nothing staged, nothing faked."; return; }
+    stageDocPayload({title:link.split("/").filter(Boolean).pop().slice(0,120), text:String(t).slice(0,60000),
+      format:String(t).trim().charAt(0)==="<"?"html":"markdown", sourceUrl:link}, st);
+  }).catch(function(){ if(st) st.textContent="I could not fetch that link — nothing staged, nothing faked."; });
+});
+if($("docOpenExt")) $("docOpenExt").addEventListener("click", function(){
+  var u=(($("docUrl")||{}).value||"").trim();
+  if(u) window.open(u, "_blank");
+});
 
 /* ---- browser pane: pass-through — one row, then just the page ---- */
 var browserLoaded=false;
@@ -1355,8 +1489,10 @@ if(window.speechSynthesis && speechSynthesis.onvoiceschanged!==undefined){
   speechSynthesis.onvoiceschanged=function(){};
 }
 /* ---- quiet learning: dwell is recorded, suggestions are learned + rare ---- */
-function learnStay(newMode){
-  var prev=state.mode, dwell=Math.round((Date.now()-(state.modeSince||Date.now()))/1000);
+function learnStay(newMode, prevMode){
+  /* prevMode is captured in setMode BEFORE state.mode flips; falling back to
+     state.mode keeps the invariant (prev!==new) when called directly. */
+  var prev=(typeof prevMode==="string")?prevMode:state.mode, dwell=Math.round((Date.now()-(state.modeSince||Date.now()))/1000);
   state.modeSince=Date.now();
   if(dwell>=30 && prev && prev!==newMode){
     fetch(apiUrl("/api/learn"),{method:"POST",headers:{"content-type":"application/json"},
@@ -1366,6 +1502,7 @@ function learnStay(newMode){
 var pendingSuggest=null;
 function checkLearned(){
   if(state.suggestChecked) return;
+  if(state.mode==="calm") return; /* sticky-calm: learned — never suggest away from the panic button */
   state.suggestChecked=true;
   try{
     var until=Number(localStorage.getItem("profilesSuggestSilenceUntil")||0);
@@ -1374,7 +1511,8 @@ function checkLearned(){
   fetch(apiUrl("/api/preferences?current="+encodeURIComponent(state.mode))).then(function(r){ return r.json(); }).then(function(res){
     var sug=res && res.suggestion;
     if(!sug || sug.to===state.mode) return;
-    if(state.auto){ stream("auto profile → "+MODES[sug.to].label+" ("+sug.why+")"); setMode(sug.to,"learned auto: "+sug.why); return; }
+    if(state.mode==="calm") return; /* sticky-calm: learned — mode changed under the fetch */
+    if(state.auto){ if(canonicalMode(sug.to)==="calm") return; stream("auto profile → "+MODES[sug.to].label+" ("+sug.why+")"); setMode(sug.to,"learned auto: "+sug.why); return; }
     pendingSuggest=sug.to;
     $("suggestText").textContent="Suggestion: switch to "+MODES[sug.to].label.split(" ·")[0]+"? "+sug.why+".";
     $("suggestBar").hidden=false;
@@ -1401,6 +1539,7 @@ $("autoToggle").addEventListener("change", function(e){
    Calm and babylite modes mean stillness: no invite animations at all there.
    Everywhere else the pills gently remind you they exist. */
 function invitesAllowed(){
+  try{ if(document.hidden) return false; }catch(e){} /* hidden tab: zero invite work (Chromebook envelope) */
   if(state.mode==="calm" || state.mode==="babylite") return false;
   if(document.body.classList.contains("gov-freeze")) return false;
   try{ if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return false; }catch(e){}
@@ -1435,6 +1574,7 @@ setInterval(function(){
 }, 45000);
 /* machine-busy poll (feeds the babylite nudge, nothing else) */
 setInterval(function(){
+  if(document.hidden) return; /* hidden tab: no network wakeups for a nudge feed */
   fetch(apiUrl("/api/capabilities")).then(function(r){ return r.json(); }).then(function(c){
     state.busy = !!(c && c.busy);
   }).catch(function(){});
@@ -1636,6 +1776,7 @@ function adaptiveContext(){
   return {idleSec:idleSec,swapRate:swapRate,cpuLoad:cpuLoad,memPressure:memPressure,focusedSinglePane:focused,current:state.mode};
 }
 function adaptiveTick(){
+  if(state.mode==="calm") return; /* sticky-calm: adaptive — Adaptive never pulls out of the panic button */
   if(!state.adaptive||document.visibilityState!=="visible") return;
   var d=decideAdaptiveLocal(adaptiveContext());
   if(!d||d.to===state.mode) return;
@@ -1728,8 +1869,14 @@ document.querySelectorAll("[data-home]").forEach(function(b){
 });
 document.querySelectorAll("[data-app]").forEach(function(b){
   b.addEventListener("click", function(){
-    window.open(b.dataset.app, "_blank");
-    bubble(b.textContent+" opened in your real browser — Profiles stays on top as your layer (ask, notes, staging all still work). If you would rather keep it inside, paste the address into the Browser pane instead.", "agent");
+    /* shell links land in the Browser pane (framing proxy, honest fallback
+       + open-external escape if the app refuses to embed) */
+    var app=b.dataset.app;
+    showPaneEl("pane-browser", true);
+    lastBrowserUrl=app; $("urlInput").value=app;
+    try{ $("browserFrame").src=proxyFor(app); }catch(e){}
+    hideFallback(); browserLoaded=true;
+    bubble(b.textContent+" is loading in the Browser pane — if it refuses to embed, use \u2197 up top to open it in your real browser.", "agent");
   });
 });
 if($("driveBtn")) $("driveBtn").addEventListener("click", function(){

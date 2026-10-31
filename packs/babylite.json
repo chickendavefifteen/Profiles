@@ -10,9 +10,9 @@
     "animation_level": 0
   },
   "sensory_budget": {
-    "max_animation": 0.1,
+    "max_animation": 0,
     "flash_hz": 0,
-    "max_simultaneous": 1
+    "max_simultaneous": 0
   },
   "input": {
     "modes": [

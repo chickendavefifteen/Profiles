@@ -185,3 +185,31 @@ export async function fetchUpstream(url, slot, method = 'GET', body = null, cont
 export function proxyUrl(url) {
   return '/api/proxy?url=' + encodeURIComponent(url);
 }
+
+/* ---- document paste-through: safe preview helpers (pure, tested) ----
+   Doc-pane URL loads reuse this same framing proxy + slot cookie jar
+   (fetchUpstream below); only the rendering differs: sanitized inline
+   HTML for text kinds, an honest fallback for heavy binaries. */
+const DOC_TEXT_EXT = ['md', 'markdown', 'txt', 'text', 'html', 'htm'];
+const DOC_BINARY_EXT = ['pdf', 'docx', 'pptx', 'ppt', 'xls', 'xlsx'];
+/** Classify a document URL: 'text' (renderable), 'binary' (honest
+   fallback), or 'other'. Pure. */
+export function docKindForUrl(raw) {
+  const u = String(raw || '').split(/[?#]/)[0].toLowerCase();
+  const m = /\.([a-z0-9]+)$/.exec(u.trim());
+  if (!m) return 'other';
+  if (DOC_TEXT_EXT.includes(m[1])) return 'text';
+  if (DOC_BINARY_EXT.includes(m[1])) return 'binary';
+  return 'other';
+}
+/** Sanitize pasted/fetched HTML for inline preview: no scripts, no
+   handlers, no javascript: links, no embedded frames or forms. Pure. */
+export function sanitizeDocHtml(html) {
+  let out = String(html || '');
+  out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
+  out = out.replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, '');
+  out = out.replace(/<(\/?)(iframe|frame|object|embed|form|input|button|select|textarea|meta|link|base)\b[^>]*>/gi, '');
+  out = out.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  out = out.replace(/(<a\b[^>]*?\bhref\s*=\s*["'])\s*javascript:[^"']*(["'])/gi, '$1#$2');
+  return out;
+}

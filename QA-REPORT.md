@@ -54,3 +54,41 @@ Sibling branches (`feature/profile-x-core`, `feature/modes-adaptive`,
 beyond the shared base at check time — nothing to merge yet. This branch is
 base + one QA commit, fast-forwardable into master with no conflicts
 (app code untouched: only `package.json` scripts + new test files).
+
+## 2026-10-31 Chromebook review fallout (QA lane, master worktree)
+
+Method: pins (hold today) vs gates (target contracts, may stay open with owner).
+Headless only (Chromium default, `QA_BROWSER=firefox` escape), muted, software
+rendering. Every claim behind `scripts/preflight.mjs` stamp-match; both suites
+self-spawn on probed-free private ports (see gotcha).
+
+Results:
+- G0 `npm test` → **371 passed, 0 failed** (includes mode-stickiness, header
+  order, shingle overlap, babylite luminance/contrast, browser-fit mechanism,
+  perf opacity-only keyframes, X-widening load-proof, BrowserDocs/Mode/Perf blocks).
+- `node tests/qa/core-flows.mjs` → **44/44** (headless Chromium, self-spawned
+  private port, build stamp matches disk).
+- `node tests/qa/overnight-gates.mjs` → **25/25 pins**; `--strict` → **19/24
+  gates**, 5 open (all ownerless lanes — BLOCKED list below, file:line evidence).
+- Native G3 BLOCKED: `src-tauri/target/{debug,release}/profiles` predate the
+  worktree (release 4.25MB Oct 30); rebuild + relaunch only after final reconcile.
+
+BLOCKED (strict-gate opens, no active owner lane):
+- `activating X verifies a private git rollback repo` — neither `vault/X/.git`
+  nor `vault/.git` exists on disk; creation is activation-lazy (`agent/profilex.mjs`
+  `ensureXGitRepo`), gate checks without activating. Needs X-core lane decision.
+- `border drag resizes the unlocked pane` (`tests/qa/overnight-gates.mjs` gate3)
+  — mechanism present (`src/main.js` `addHandles`/`startResize`/`applyResize`),
+  8 handles attach, zero page errors, but the gate gesture (+80px east drag)
+  yields −35px width in isolation probe. Needs ui lane triage of resize math.
+- sketch ×3 (`native sketch canvas lives in the doc pane`, `mouse stroke lands
+  pixels`, `survives reload`) — canvas landed in pane-notes (`src/index.html`
+  ~L693, inside `#pane-notes` 680–697), gates expect pane-doc. Design question
+  for owner; no canvas lane active.
+
+Quirks paid this run (also one-lined in QUALITY-GATES.md): ghost servers from
+deleted worktrees holding ports with stale code (`:8125`, deleted p-qa path,
+health without build stamp — probe BUILD, scan PORT..+9, never trust `r.ok`
+alone); trusted clicks misdropping under iframe layout shift (in-page dispatch
++ poll); deterministic staging ids + persistent vault breaking count-growth
+asserts (assert id-presence, unique payload per run).

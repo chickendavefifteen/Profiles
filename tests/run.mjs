@@ -259,7 +259,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!html6.includes('id="customiseBtn"'), 'chrome: header cog removed — menu lives in the brand mark');
   ok(html6.includes('id="trashBtn"') && html6.includes('class="headbtn"'), 'chrome: trash sits top-right in the header');
   ok(html6.includes('id="sessBtn"') && html6.includes('id="sessPop"'), 'sessions: stacked-folders button + popup in header');
-  ok(html6.includes('flex:1') && html6.indexOf('id="sessBtn"') > html6.indexOf('id="slotX"'), 'chrome: trash+sessions far right, away from profiles');
+  ok(html6.includes('flex:1') && html6.indexOf('id="sessBtn"') > html6.indexOf('id="slotX"') && html6.indexOf('id="sessBtn"') < html6.indexOf('id="trashBtn"'), 'chrome: sessions left of bin, bin top-right last');
   ok(html6.includes('fill="var(--deck1)"') && html6.includes('fill="var(--front)"'), 'sessions: 3 overlapping coloured folders');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('lastBrowserUrl'), 'browser: session-truth sync heals stale views');
   ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/state'"), 'sidecar: lightweight truth endpoint');
@@ -270,7 +270,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('adaptiveWrap pilllike') || readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('pilllike'), 'modes: adaptive sits in the row, same styling');
   ok(!html6.includes('id="meterText"'), 'meter: chip removed entirely, budget implied');
   ok(!js6.includes('sim+(m.sim===1?" lane"'), 'meter: lanes no longer quantified in the chip');
-  ok(js6.includes('window.open(b.dataset.app'), 'work: apps open in the real browser, Profiles stays the layer');
+  ok(js6.includes('$("browserFrame").src=proxyFor(app)'), 'work: app tiles open inside the Browser pane (proxy + open-external escape)');
   const sc6 = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
   ok(sc6.includes("path === '/appconfig'"), 'sidecar: appconfig endpoint');
   const lb = readFileSync(join(root, 'agent', 'localbrain.mjs'), 'utf8');
@@ -319,7 +319,13 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok((await ba.runPrepared('deadbeefdeadbeefdeadbeef')).ok === false, 'P4: no token, no driving');
   const pb2 = readFileSync(join(root, 'agent', 'pibrain.mjs'), 'utf8');
   ok(pb2.includes('wholeMachine') && pb2.includes('homedir()'), 'X widening: whole-machine is a separate explicit flag');
-  ok(pb2.includes("profile.wholeMachine ? homedir() : xRoot"), 'X widening: default stays ringfenced to vault/X');
+  ok(/profile\.wholeMachine \? (homedir\(\)|home) : (xRoot|slotRoot)/.test(pb2) && /join\(root, ['"]vault['"]/.test(pb2), 'X widening: default stays ringfenced to vault/X');
+  // Grep-green is not load-green (2026-10-31: a duplicate `const cwd` passed the
+  // string match while the module threw at import, deadening sidecar pi paths).
+  let pibrainLoads = false, pibrainErr = '';
+  try { const pbm = await import('../agent/pibrain.mjs'); pibrainLoads = typeof pbm.piBrainAnswer === 'function'; }
+  catch (e) { pibrainErr = String((e && e.message) || e).slice(0, 90); }
+  ok(pibrainLoads, 'X widening: pibrain module loads (no duplicate declarations)', pibrainErr);
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="wholeMachineToggle"'), 'X widening: second-gate toggle with warning');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('/api/browser/prepare'), 'P4: token-confirmed agent drive still available via API');
   ok(existsSync(join(root, '.gitignore')) && readFileSync(join(root, '.gitignore'), 'utf8').includes('agent/models/*.gguf'), 'housekeeping: weights/build artefacts ignored');
@@ -355,6 +361,10 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   const lb2 = await import('../agent/ladder.mjs');
   ok(lb2.classifyIntent('heya').kind === 'chat', 'greetings (heya/hiya) stay chat, never search');
   ok(!readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('vwHealAt'), 'resize: no reload-heal timers (stateless nudge only)');
+  ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').match(/\.resize-handle\[data-dir="e"\]\{top:0;right:-5px;width:10px/), 'touch: dead 10px handle block removed (30px+ grab only, no pixel-hunting)');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('7px glide threshold'), 'touch: FLIP reorder waits 7px past anchor (no hover-jitter churn on small screens)');
+  ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('tap (press + lift within 12px)'), 'touch: tap-to-land for touch/pen (scroll gestures never yank an unlocked pane)');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('babylite"] .pills button'), 'touch: babylite pills/slots/tabs grow to 64px targets');
   ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="askGo"'), 'simplicity: no Go buttons, Enter submits');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="calmDots"'), 'calm: breathing dots invite');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('inviteJiggle') || readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('inviteJiggle'), 'babylite: playful jiggle invite');
@@ -438,7 +448,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   const jsM = readFileSync(join(root, 'src', 'main.js'), 'utf8');
   ok(htmlM.includes('id="adaptiveToggle"') && htmlM.includes('Adaptive'), 'adaptive: toggle left of profile options');
   ok(htmlM.includes('segwaying') && htmlM.includes('segwayIn'), 'adaptive: gentle color-grade cross-fade segways, no harsh jumps');
-  ok(htmlM.includes('body[data-mode="babylite"]') && htmlM.includes('#dbe6f5'), 'modes: babylite soft blue/pink, no glare');
+  ok(htmlM.includes('body[data-mode="babylite"]') && htmlM.includes('#b3c6e0'), 'modes: babylite deepened blue, no glare');
   ok(htmlM.includes('body[data-mode="xMAX"]') && htmlM.includes('data-profile="xMAX"'), 'modes: xMAX theme + pill, Profile X gated');
   ok(htmlM.includes('calm · sensory panic button') || htmlM.includes('sensory panic button'), 'modes: calm is the sensory panic button');
   ok(jsM.includes('canonicalMode') && jsM.includes('decideAdaptiveLocal'), 'adaptive: canonical resolver + local trigger engine');
@@ -450,6 +460,165 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(liveToolsForMode('xMAX').length >= liveToolsForMode('calm').length, 'tools: xMAX gets at least as much as calm');
   ok(toolsForMode('lifeful').some(t => t.id === 'file-task'), 'tools: legacy lifeful alias still resolves');
 }
+// ChromeUI overlap + babylite de-brighten guards (2026-10-31 review fallout).
+{
+  const html = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const js = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  const rel = (hex) => {
+    const c = [0, 2, 4].map((i) => {
+      const v = parseInt(hex.slice(1 + i, 3 + i), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const contrast = (a, b) => {
+    const x = rel(a), y = rel(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  const m = html.match(/body\[data-mode="babylite"\][^{]*\{([^}]*)\}/);
+  const vars = {};
+  for (const kv of (m ? m[1] : '').split(';')) {
+    const mm = kv.trim().match(/(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{6})/);
+    if (mm) vars[mm[1]] = mm[2].toLowerCase();
+  }
+  ok(vars['--bg'] && rel(vars['--bg']) < rel('#eef3fa') * 0.75, 'babylite: bg luminance down >=25% vs old glare', JSON.stringify(vars['--bg']));
+  ok(vars['--card'] && !['#ffffff', '#fff'].includes(vars['--card']), 'babylite: card is not pure white', JSON.stringify(vars['--card']));
+  ok(vars['--ink'] && vars['--card'] && contrast(vars['--ink'], vars['--card']) >= 7, 'babylite: ink-on-card >= 7:1');
+  ok(vars['--muted'] && vars['--card'] && contrast(vars['--muted'], vars['--card']) >= 4.5, 'babylite: muted-on-card >= 4.5:1');
+  ok(!/body\[data-mode="babylite"\][\s\S]{0,400}#fff/.test(html), 'babylite: no pure-white surfaces in theme rules');
+  // Stacked overlap: negative inline-start margins on all three rows, one scrolling row.
+  ok(/\.pills>\*\+\*,?\.slotbtns>\*\+\*,?\.panetabs>\*\+\*\{[^}]*margin-inline-start:-10px/.test(html), 'chrome: pills/slots/tabs shingle with -10px overlap');
+  ok(/\.pills,\.slotbtns,\.panetabs\{[^}]*overflow-x:auto/.test(html) && !/\.panetabs\{[^}]*flex-wrap:wrap/.test(html), 'chrome: tab rows scroll on one line, never wrap');
+  ok(js.includes('b.style.zIndex=String(1000-bar.children.length)'), 'chrome: pane tabs get descending z-order in DOM order');
+  // Headless-safe 20-tab fixture: emulate the ladder, assert later = lower and active = top.
+  const zs = [];
+  for (let i = 0; i < 20; i++) zs.push(1000 - i);
+  ok(zs.every((z, i) => i === 0 || zs[i - 1] > z), 'chrome: 20-tab fixture z-order strictly descends');
+  ok(/\[aria-pressed="true"\][\s\S]{0,80}z-index:50/.test(html), 'chrome: pressed pill/slot/tab floats above the stack');
+  ok(/:focus-visible\{[^}]*outline/.test(html), 'chrome: stacked controls keep a visible keyboard focus ring');
+}
+// Chromebook review fallout pins (2026-10-31, QA lane). Zero-dep textual guards
+// for behaviour that holds TODAY; each names the mechanism, not the author.
+{
+  const htmlQ = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const jsQ = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  // Mode stickiness: calm survives the adaptive tick AND a reload.
+  ok(jsQ.includes('if(cur==="calm") return null'), 'adaptive: tick engine bails on calm before any trigger');
+  ok(jsQ.includes('if(d.to==="xMAX"||d.to==="calm") return'), 'adaptive: tick double-guards calm/xMAX auto-select');
+  ok(jsQ.includes('slot.metaMode') && jsQ.includes('!state.urlMode'), 'modes: reload re-applies saved profile mode unless ?mode= beats it');
+  // Browser fit: viewport-tracks-element mechanism (behaviour covered in core-flows QA).
+  ok(jsQ.includes('fitBrowserView') && jsQ.includes('ResizeObserver'), 'browser: fit runs on resize via ResizeObserver');
+  ok(jsQ.includes('fr.setAttribute("width", String(vw))') && jsQ.includes('fr.setAttribute("height", String(vh))'), 'browser: iframe attrs mirror measured pixels');
+  ok(jsQ.includes('dispatchEvent(new fr.contentWindow.Event("resize"))'), 'browser: stuck viewport gets a resize nudge, not a reload');
+  // Perf: shimmer/lure keyframes are opacity-only (no filter/box-shadow compositing on weak GPUs).
+  const shim = htmlQ.match(/@keyframes tabShimmer\{([^}]*)\}/), lure = htmlQ.match(/@keyframes lurePulse\{([^}]*)\}/);
+  ok(!!shim && /opacity/.test(shim[1]) && !/filter|box-shadow/.test(shim[1]), 'perf: tabShimmer is opacity-only', String(shim && shim[1]).slice(0, 80));
+  ok(!!lure && /opacity/.test(lure[1]) && !/filter|box-shadow/.test(lure[1]), 'perf: lurePulse is opacity-only', String(lure && lure[1]).slice(0, 80));
+  // Pane-doc contract today: staged drafts render + export; paste/binary path is an open gate (see overnight-gates).
+  ok(htmlQ.includes('id="stageList"') && jsQ.includes('/api/stage/'), 'docs: staged drafts render in pane-doc with export links');
+}
+// Perf: Chromebook resource envelope (babylite/calm provably still, timers
+// throttled when hidden, binary stays tiny). Headless: text + budget asserts only.
+{
+  const htmlP = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const jsP = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  const babyP = normalizePack(JSON.parse(readFileSync(join(root, 'packs', 'babylite.json'), 'utf8')));
+  const liteP = normalizePack(JSON.parse(readFileSync(join(root, 'packs', 'lite.json'), 'utf8')));
+  const calmP = normalizePack(JSON.parse(readFileSync(join(root, 'packs', 'low-sensory.json'), 'utf8')));
+  ok(still(governorApply(babyP)), 'perf: babylite pack is still (max_animation 0)');
+  ok(still(governorApply(liteP)), 'perf: lite pack is still (max_animation 0)');
+  ok(still(governorApply(calmP)), 'perf: calm pack is still (max_animation 0)');
+  ok(/babylite:\s*\{[^}]*motion:0/.test(jsP) && /calm:\s*\{[^}]*motion:0/.test(jsP), 'perf: fallback MODES carry motion 0 for babylite/calm');
+  ok(jsP.includes('if(document.hidden) return false'), 'perf: invites die when the tab is hidden');
+  ok(jsP.includes('Math.min(i,3)*90') && jsP.includes('mode!=="chill" && !document.hidden'), 'perf: celebration capped (4 panes) and skipped when hidden');
+  ok(jsP.includes('toggle("gov-freeze", still || m.motion===0)'), 'perf: gov-freeze follows the still flag, not just the budget number');
+  const hiddenGuards = (jsP.match(/visibilityState!=="visible"/g) || []).length;
+  ok(hiddenGuards >= 4, 'perf: repeating polls stand down when hidden (' + hiddenGuards + ' visibility guards)');
+  ok(jsP.includes('tickMs=MODES[state.mode].motion===0?500:220'), 'perf: ask staging loop ticks slower in still modes');
+  ok(htmlP.includes('[hidden]{display:none!important}'), 'perf: hidden panes stay display:none');
+  ok(/#pane-browser[^{]*\{[^}]*transform:none!important/.test(htmlP), 'perf: browser pane opts out of transforms (software rendering)');
+  const pop = htmlP.match(/@keyframes arrivePop\{([^}]*)\}/);
+  ok(!!pop && !/filter|box-shadow/.test(pop[1]), 'perf: arrivePop is transform/opacity-only');
+  const sw = readFileSync(join(root, 'src', 'sw.js'), 'utf8');
+  ok(sw.includes("pathname.includes('/api/')") && sw.includes('return;'), 'perf: service worker never caches /api/');
+  const cargo = readFileSync(join(root, 'src-tauri/Cargo.toml'), 'utf8');
+  ok(cargo.includes('opt-level = "z"') && cargo.includes('lto = true') && cargo.includes('strip = true'), 'perf: release profile stays tiny (opt-z + lto + strip)');
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  ok(!pkg.dependencies || Object.keys(pkg.dependencies).length === 0, 'perf: zero runtime deps (no new weight)');
+}
+// Mode stickiness: explicit pick persists and survives reload/adaptive/pack; calm never auto-exited (2026-10-31 review fallout).
+{
+  const jsS = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(jsS.includes('{explicit:true}'), 'stickiness: explicit pill/key switches carry {explicit:true}');
+  ok(jsS.includes('postConfig({slot:{metaMode:mode}})'), 'stickiness: explicit switch persists slot.metaMode');
+  ok(jsS.includes('/* sticky-calm: guard */'), 'stickiness: setMode refuses non-explicit exits from calm');
+  ok(jsS.includes('sticky-calm: one-shot'), 'stickiness: ?mode= is one-shot, slot memory rules after');
+  ok(jsS.includes('/* sticky-calm: settle */') && /state\.mode!=="calm"\) setMode\(canonMeta/.test(jsS), 'stickiness: slot-settle never pulls out of calm');
+  ok(jsS.includes('/* sticky-calm: stale-slot */'), 'stickiness: stale slot responses never clobber the new world');
+  ok(jsS.includes('/* sticky-calm: adaptive'), 'stickiness: adaptiveTick never pulls out of calm');
+  ok(jsS.includes('/* sticky-calm: learned'), 'stickiness: learned never suggests/auto-applies away from calm');
+  ok(/learnStay\(mode, prevMode\)/.test(jsS) && /function learnStay\(newMode, prevMode\)/.test(jsS), 'stickiness: dwell records the mode you stayed in, not the one you entered');
+  const modes2 = await import('../engine/modes.mjs');
+  let exitedCalm = false;
+  const autoTargets = new Set();
+  for (const cur of ['babylite', 'chill', 'FOCUSMAX', 'Vibes', 'calm', 'xMAX']) {
+    for (const ctx of [{ idleSec: 500 }, { focusedSinglePane: true }, { swapRate: 9 }, { cpuLoad: 0.99 }, { memPressure: 0.99 }, {}]) {
+      const d = modes2.decideAdaptive({ ...ctx, current: cur });
+      if (d) autoTargets.add(d.to);
+      if (cur === 'calm' && d) exitedCalm = true;
+    }
+  }
+  ok(!exitedCalm, 'stickiness: engine never pulls out of calm across idle/focus/swap/pressure');
+  ok(!autoTargets.has('calm') && !autoTargets.has('xMAX'), 'stickiness: engine never auto-selects calm/xMAX', [...autoTargets].join(','));
+}
+// BrowserDocs: browser fit + document paste-through (2026-10-31 review fallout). Zero-dep.
+{
+  const bpx = await import('../agent/proxy.mjs');
+  const bst = await import('../agent/staging.mjs');
+  const blp = await import('../agent/agentloop.mjs');
+  // Doc kinds: text renders inline, heavy binaries get the honest fallback.
+  ok(bpx.docKindForUrl('https://x.org/notes.md') === 'text', 'docs: .md classifies text');
+  ok(bpx.docKindForUrl('https://x.org/a.PDF?x=1') === 'binary', 'docs: .pdf classifies binary');
+  ok(bpx.docKindForUrl('https://x.org/') === 'other', 'docs: bare page classifies other');
+  // Sanitize: scripts/styles/handlers/frames/javascript: links never reach the preview.
+  const dirty = '<p>hi</p><script>alert(1)</script><style>x{}</style><a href="javascript:evil()" onclick="x()">c</a><iframe src="x"></iframe>';
+  const clean = bpx.sanitizeDocHtml(dirty);
+  ok(clean.includes('<p>hi</p>') && !/script|onclick|iframe|javascript:/i.test(clean), 'docs: pasted HTML sanitizes to inert preview');
+  // Markdown: headings/bold/lists/links render, raw HTML escapes.
+  const mhtml = bst.markdownToHtml('# T\n\n**b** and <b>raw</b>\n\n- a\n- b\n\n[l](https://x.org/)');
+  ok(mhtml.includes('<h1>T</h1>') && mhtml.includes('<strong>b</strong>') && mhtml.includes('&lt;b&gt;raw&lt;/b&gt;')
+    && mhtml.includes('<ul>') && mhtml.includes('href="https://x.org/"'), 'docs: markdown renders, raw HTML escapes');
+  // Pasted-doc roundtrip: stage-shaped, markdown + real .docx export carry the content.
+  const pd = bst.makePastedDoc({ title: 'Hello World', markdown: '# Hi\nbody here', sourceUrl: 'https://x.org/h.md' });
+  ok(pd.kind === 'stage-doc' && pd.sections.length === 1 && pd.sourceUrl === 'https://x.org/h.md', 'docs: pasted doc stages with source');
+  ok(bst.draftToMarkdown(pd).includes('# Hello World') && bst.draftToMarkdown(pd).includes('body here'), 'docs: .md export carries pasted content');
+  const pdocx = bst.draftToDocx(pd);
+  ok(pdocx[0] === 0x50 && pdocx[1] === 0x4b && pdocx.includes(Buffer.from('body here')), 'docs: .docx export carries pasted content');
+  ok(bst.binaryFallbackHtml('deck.pptx', 'https://x.org/deck.pptx').includes('needs its own app'), 'docs: binary fallback is honest, never faked');
+  // Agent wiring: doc links -> Document pane, browser stays the browser pane, paste-with-no-url -> honest hint.
+  ok(blp.isDocUrl('https://x.org/notes.txt') && !blp.isDocUrl('https://www.bbc.co.uk/news'), 'agent: doc urls detected, pages are not');
+  ok(blp.decideTool('open this doc https://example.com/notes.md').tool === 'doc_open', 'agent: open this doc routes to doc pane');
+  ok(blp.decideTool('paste this doc').tool === 'doc_paste_hint', 'agent: paste with no url is an honest pointer');
+  ok(blp.decideTool('open example.com/notes.txt').tool === 'doc_open', 'agent: bare doc url routes to doc pane');
+  ok(blp.decideTool('open bbc news').tool === 'browser_open', 'agent: browser_open unchanged for sites');
+  ok(blp.decideTool('bbc news').tool === 'browser_open', 'agent: bare site names stay browser opens');
+  // Frontend: Read/Write UI, shared size path, bounded heal, maxed fill, work tiles in-pane.
+  const htmlB = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  const jsB = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(htmlB.includes('id="docUrl"') && htmlB.includes('id="docPaste"') && htmlB.includes('id="docPreview"')
+    && htmlB.includes('id="docLoad"') && htmlB.includes('id="docOpenExt"'), 'docs: Read/Write UI lives in pane-doc');
+  ok(htmlB.includes('.canvas.maxed .pane.maxedPane{flex:1 1 100%'), 'browser: maxed pane fills the flex row (no overlap)');
+  ok(jsB.includes('reportViewSize') && jsB.includes('/api/browser/size'), 'browser: measured frame size reported to the live session');
+  ok(jsB.includes('browserHeal') && jsB.includes('20000'), 'browser: stuck-viewport reload heals with 20s backoff, never loops');
+  ok(jsB.includes('paneRO') && jsB.includes('observe($("pane-doc"))'), 'browser: one observer covers pane-doc and pane-browser');
+  ok(jsB.includes('renderDocPreview') && jsB.includes('/api/doc/stage'), 'docs: pasted content renders preview + stages');
+  ok(jsB.includes('proxyFor(link)'), 'docs: url loads go through the framing proxy jar');
+  ok(jsB.includes('$("browserFrame").src=proxyFor(app)'), 'docs: work-app tiles open inside the Browser pane');
+  ok(!/appendChild\(pb\)/.test(jsB), 'docs: staged list renders every draft (no undefined append)');
+  ok(jsB.includes('escHtml') && jsB.includes('textContent="Preview"'), 'docs: each staged draft has a preview button');
+}
+
+
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

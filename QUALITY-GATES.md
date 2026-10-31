@@ -57,7 +57,17 @@ browser pane loads Google clean (consent auto-rejected).
   passes). QA defaults to Chromium; Firefox-only runs skip those two.
 - Headless virtual-time screenshots hang forever on infinite streams —
   use Playwright screenshots for visual proof, never chromium --screenshot.
-- Google bot-blocks headless Firefox -> persistent HEADED Chromium
+- Ghost servers from deleted worktrees keep holding ports with STALE code
+  (2026-10-31: `:8125` answered `/api/health` ok:true with no build stamp from
+  a deleted p-qa path; a boot probe of `r.ok` alone certified against it).
+  Probe the build stamp vs disk HEAD, reuse only on match, else scan up
+  (both QA suites do PORT..PORT+9); never trust `r.ok` alone.
+- Trusted Playwright clicks can misdrop during iframe layout shifts with zero
+  error and zero throw (2026-10-31: doc-paste checks failed 42/44 while the
+  endpoint + isolated UI passed; in-page dispatch + poll for the effect → 44/44).
+- Staging ids are deterministic (`slug+sha1`, `agent/staging.mjs`) and the vault
+  persists across runs, so count-growth asserts can never pass twice — assert
+  id-presence with a unique-per-run payload instead.
   profile per slot is the browser; headless = search API only via DDG.
 - All search engines X-Frame SAMEORIGIN -> never iframe Google.
 - object-fit: cover crops screenshots -> clicks map wrong. Contain +

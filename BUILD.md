@@ -80,3 +80,27 @@ continue when idle. Keep going until MORNING.md is written.
 - Leave a short MORNING.md: what was built overnight, what works,
   what is still stubbed, next steps for the hackathon submission.
 - Do not submit anything externally. Do not push to any remote.
+
+## Chromebook envelope (perf lane, 2026-10-31)
+
+Target: the compiled Tauri binary stays small and still modes stay still.
+
+- Binary: `src-tauri/target/release/profiles` is ~4.1MB (limit 12MB). It stays
+  tiny because `[profile.release]` sets `opt-level="z" + lto + codegen-units=1
+  + panic="abort" + strip`, and Tauri uses the OS webview — no bundled
+  Chromium. No new npm deps; `npm run sync-packs` vendors `packs/*.json`
+  into `src/vendor-packs/` so app builds work offline from disk.
+- Stillness: `babylite`/`lite` budgets are `max_animation 0,
+  max_simultaneous 0` (same as calm/low-sensory), so the governor reports
+  `still()` and the frontend holds `gov-freeze`. Celebrations are capped
+  (first 4 panes, <=270ms stagger, never when `document.hidden`), and every
+  repeating invite/poll timer returns early while hidden. Keyframes are
+  transform/opacity-only (`tabShimmer`/`lurePulse` pulse opacity, never
+  filter/box-shadow); `[hidden]{display:none!important}` and the
+  `#pane-browser` no-transform rule are load-bearing for software rendering.
+- PWA: `src/sw.js` caches the app shell only; `/api/*` is never cached.
+- Local vs Chromebook: dev/verify happens on a 16-core/62GB omarchy box, but
+  the envelope that matters is Chromebook-class (weak iGPU, software
+  compositing): zero motion in babylite/calm, settle-only in chill, capped
+  celebration in Vibes/FOCUSMAX/xMAX. `tests/run.mjs` §11 pins this
+  headlessly (no browser, no GPU).

@@ -89,3 +89,62 @@ export function makeScriptDraft(query) {
   const body = `// Staged by Profiles from: "${String(query).replace(/"/g, "'")}"\n// Review before running. Run yourself with: node ${id}.mjs\n// Profiles never auto-executes staged scripts.\nimport { chromium } from 'playwright'; // optional dep\nconst browser = await chromium.launch();\nconst page = await browser.newPage();\n// TODO(you): add the steps, run, then file the result back in Profiles.\nawait page.goto('https://example.org');\nconsole.log(await page.title());\nawait browser.close();\n`;
   return { id, kind: 'write-script', title: String(query), body, created: new Date().toISOString() };
 }
+
+/* ---- pasted documents: Read/Write pane -> staged draft (pure, tested) ----
+   Paste-through, not integration: text/markdown/HTML renders a sanitized
+   inline preview; heavy binaries (.pdf/.docx/.pptx) get an honest
+   fallback (staged pointer + .md/.docx export + open-external). */
+/** Minimal markdown -> HTML: headings, bold, italic, code, links, lists.
+   Escapes first, so pasted HTML never passes through raw. Pure. */
+export function markdownToHtml(md) {
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s) => {
+    let t = esc(s);
+    t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+    t = t.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" rel="noopener">$1</a>');
+    t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    return t;
+  };
+  const lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
+  let html = '', inList = false;
+  for (const line of lines) {
+    const h = /^(#{1,4})\s+(.*)$/.exec(line);
+    const li = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (h) {
+      if (inList) { html += '</ul>'; inList = false; }
+      const lvl = h[1].length;
+      html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>';
+    } else if (li) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += '<li>' + inline(li[1]) + '</li>';
+    } else if (!line.trim()) {
+      if (inList) { html += '</ul>'; inList = false; }
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<p>' + inline(line) + '</p>';
+    }
+  }
+  if (inList) html += '</ul>';
+  return html || '<p></p>';
+}
+
+/** A pasted/fetched document becomes a staged draft (preview + .md/.docx
+   export through the paths that already work). Pure. */
+export function makePastedDoc({ title, markdown, sourceUrl }) {
+  const t = String(title || 'Pasted document').slice(0, 120) || 'Pasted document';
+  const id = slug(t) + '-' + createHash('sha1').update(String(markdown || t)).digest('hex').slice(0, 6);
+  const body = String(markdown || '').slice(0, 60000) + (sourceUrl ? '\n\n(Source: ' + sourceUrl + ')' : '');
+  return { id, kind: 'stage-doc', title: t, query: 'paste: ' + t,
+    sections: [{ heading: t, body }], sourceUrl: sourceUrl || null, created: new Date().toISOString() };
+}
+
+/** Honest fallback preview for heavy binaries: never a white void, never
+   a faked render. Pure. */
+export function binaryFallbackHtml(filename, sourceUrl) {
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const name = esc(filename || 'file');
+  const link = sourceUrl ? ' <a href="' + esc(sourceUrl) + '" rel="noopener">Open externally</a>.' : '';
+  return '<p>I can\u2019t render <b>' + name + '</b> inline \u2014 it needs its own app. '
+    + 'I staged a pointer instead: export it as .md or .docx below when handy, or' + link + '</p>';
+}
