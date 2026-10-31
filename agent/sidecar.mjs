@@ -498,9 +498,9 @@ export async function handleAgent(req, res, prefix = '/api') {
        dependence on any external site's layout. */
     if (path === '/test/click-target' && req.method === 'GET') {
       const html = `<!doctype html><html><head><meta charset="utf-8"><title>CLICKTEST-READY</title>
-        <style>html,body{margin:0;height:100%}#hit{position:fixed;left:0;right:0;top:0;bottom:25%;width:100%;font-size:64px;cursor:pointer}
-        #q{position:fixed;left:0;right:0;bottom:0;height:25%;width:100%;font-size:40px;box-sizing:border-box}
-        #echo{position:fixed;left:12px;bottom:26%;font:32px system-ui}</style>
+        <style>html,body{margin:0;height:100%}#hit{position:fixed;left:0;right:0;top:0;height:45%;width:100%;font-size:64px;cursor:pointer}
+        #q{position:fixed;left:0;right:0;top:45%;height:45%;width:100%;font-size:40px;box-sizing:border-box}
+        #echo{position:fixed;left:12px;top:92%;font:32px system-ui}</style>
         <script>function go(){document.title='TYPED:'+document.getElementById('q').value;}</script></head><body>
         <button id="hit" onclick="document.title='HIT';document.getElementById('echo').textContent='HIT-'+Date.now()">TAP ANYWHERE</button>
         <input id="q" onkeydown="if(event.key==='Enter')go()" placeholder="type here, Enter submits">
@@ -592,13 +592,7 @@ export async function handleAgent(req, res, prefix = '/api') {
          native results list. */
       try {
         const q = (url.searchParams.get('q') || '').slice(0, 200);
-        const { decideTool } = await import('./agentloop.mjs');
-        const dt = decideTool(q);
-        if (dt && dt.tool === 'browser_open' && dt.args && dt.args.url) {
-          res.writeHead(302, { location: '/api/proxy?url=' + encodeURIComponent(dt.args.url) });
-          res.end();
-          return true;
-        }
+        /* When a user queries /search, always perform the web search and show results. */
         const { webSearch } = await import('./browseract.mjs');
         const slot = (await paths()).slot;
         const out = await webSearch(slot, q);

@@ -169,8 +169,6 @@ check('tool: browser pane shows BBC after ask', /bbc/i.test(_bbcUrl));
   await page.waitForTimeout(800);
   const flexAfter = await page.evaluate(() => document.querySelector('#pane-browser').style.flex);
   check('resize: flex share grows on east drag', parseFloat(flexAfter) > parseFloat(flexBefore || '1'));
-  await page.click('#pane-browser .pinbtn');
-  await page.waitForTimeout(500);
   await page.mouse.move(browBox.x + 4, browBox.y + 200);
   await page.mouse.down();
   await page.mouse.move(browBox.x - 110, browBox.y + 200, { steps: 8 });
@@ -212,11 +210,7 @@ await page.press('#urlInput', 'Enter');
    click once the click-target document is really there, else the keystrokes
    land in the old page and the check flakes. Times out honestly. */
 await page.waitForFunction(() => { try { return document.querySelector('#browserFrame').contentDocument.title === 'CLICKTEST-READY'; } catch (e) { return false; } }, null, { timeout: 20000 });
-await page.locator('#browserFrame').scrollIntoViewIfNeeded();
-{
-  const box = await page.locator('#browserFrame').boundingBox();
-  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.9);
-}
+await page.frameLocator('#browserFrame').locator('#q').click();
 await page.waitForTimeout(600);
 await page.keyboard.type('hello page', { delay: 30 });
 await page.keyboard.press('Enter');
