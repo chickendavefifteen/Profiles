@@ -13,7 +13,13 @@ const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.
   'sky news': 'https://news.sky.com/uk', sky: 'https://news.sky.com/uk',
   'investing': 'https://www.investing.com/', 'investing dot com': 'https://www.investing.com/',
   google: 'https://www.google.com', news: 'https://www.bbc.co.uk/news',
-  youtube: 'https://www.youtube.com', github: 'https://github.com', wikipedia: 'https://en.wikipedia.org' };
+  youtube: 'https://www.youtube.com', github: 'https://github.com', wikipedia: 'https://en.wikipedia.org',
+  'channel 4': 'https://www.channel4.com', channel4: 'https://www.channel4.com',
+  '4od': 'https://www.channel4.com', 'channel four': 'https://www.channel4.com',
+  itv: 'https://www.itv.com', itvx: 'https://www.itvx.com',
+  my5: 'https://www.channel5.com', 'channel 5': 'https://www.channel5.com',
+  channel5: 'https://www.channel5.com', more4: 'https://www.channel4.com/collection/more4',
+  e4: 'https://www.channel4.com/collection/e4', film4: 'https://www.film4.com' };
 const GOOGLE_TLD = { germany: 'de', france: 'fr', spain: 'es', italy: 'it', uk: 'co.uk', japan: 'co.jp', canada: 'ca', australia: 'com.au', brazil: 'com.br', india: 'co.in', netherlands: 'nl', ireland: 'ie', sweden: 'se' };
 function siteFor(target) {
   const t = target.replace(/\s+(website|site|webpage|page)\s*$/, '')
@@ -78,7 +84,7 @@ export function decideTool(query) {
     if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(spoken) || /^https?:/.test(spoken)) {
       return { tool: 'browser_open', args: { url: /^https?:/.test(spoken) ? spoken : 'https://www.' + spoken.replace(/^www\./, '') } };
     }
-    if (target.length > 2) return { tool: 'web_search', args: { query: target } };
+    if (target.length > 2) return { tool: 'web_search', args: { query: target, openTop: true } };
   }
   m = low.match(/^search\s+(?:the\s+web\s+)?(?:for\s+)?(.+)$/) || low.match(/^(?:google|look up|find)\s+(.+)$/);
   if (m) return { tool: 'web_search', args: { query: m[1] } };
@@ -207,6 +213,14 @@ export async function runTool(slot, decision) {
       if (!out.ok) {
         return { tool: decision.tool, ok: false, observation: `Web search “${decision.args.query}” could not run (${out.error || 'unavailable'}) — try opening a site directly (“open bbc news”).`,
           ui: { showPane: 'pane-browser' }, results: [] };
+      }
+      if (decision.args.openTop && out.results && out.results.length) {
+        const first = out.results[0];
+        const go = await viewGo(slot, first.href);
+        const where = (go && go.url) || first.href;
+        return { tool: decision.tool, ok: true,
+          observation: `Opened ${first.title} (${where}) for “${decision.args.query}” — it is showing in the Browser pane.`,
+          ui: { showPane: 'pane-browser', browser: go }, results: out.results };
       }
       const lines = (out.results || []).map((r, i) => `${i + 1}. ${r.title} — ${r.snippet} (${r.href})`).join('\n');
       const obs = lines

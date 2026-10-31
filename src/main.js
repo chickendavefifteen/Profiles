@@ -38,11 +38,11 @@ var MODES={
   FOCUSMAX:{label:"FOCUSMAX · mono-task",       motion:10, sim:1, tick:1000, speech:"terse",
              note:"FOCUSMAX — mono-task, distractions held. Governor: motion 10%, 1 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."},
   Vibes:   {label:"Vibes · full energy",        motion:100,sim:4, tick:700,  speech:"full",
-             note:"Vibes — fun, fluent, energetic, parallel agent, proactive, checkpointed before anything irreversible. Governor: motion 100%, 4 simultaneous, flash 0/s (capped). Agent detailed/act-with-checkpoint, parallelism 4."},
+             note:"Vibes — fun, fluent, energetic, parallel agent, proactive, checkpointed before anything irreversible. Governor: motion 100%, 4 simultaneous, flash 0/s (capped). Agent verbose/act-with-checkpoint, parallelism 4."},
   calm:    {label:"calm · sensory panic button",motion:0,  sim:0, tick:4200, speech:"quiet",
              note:"calm — sensory panic button: motion stops, palette softens, agent terse and mono-task. Governor: motion 0%, 0 simultaneous, flash 0/s (capped). Agent terse/suggest-only, parallelism 1."},
   xMAX:    {label:"xMAX · parallel storm",      motion:100,sim:6, tick:450,  speech:"full",
-             note:"xMAX — Vibes + FOCUSMAX hybrid: crisp, quick, heavy parallelism (Profile X only). Governor: motion 100%, 6 simultaneous, flash 0/s (capped). Agent detailed/act-with-checkpoint, parallelism 6."}
+             note:"xMAX — Vibes + FOCUSMAX hybrid: crisp, quick, heavy parallelism (Profile X only). Governor: motion 100%, 6 simultaneous, flash 0/s (capped). Agent verbose/act-with-checkpoint, parallelism 6."}
 };
 /* legacy aliases so old deep-links / saved metaMode values keep resolving */
 MODES.lite=MODES.babylite; MODES.focus=MODES.FOCUSMAX; MODES.lifeful=MODES.Vibes; MODES["low-sensory"]=MODES.calm; MODES.dev=MODES.Vibes;
@@ -67,7 +67,7 @@ function setAvatar(buddy){
   var av=document.querySelector(".avatarCircle"); if(av) av.title="";
 }
 var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", expectSlot:null, layout:{order:null,hidden:["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
-  stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null};
+  stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null, traces:true, tools:false, model:null, lastLatency:0, lastTier:""};
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
 var PANES=["pane-chat","pane-agent","pane-browser","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"];
@@ -287,7 +287,15 @@ document.addEventListener("wheel", function(e){
   if(!(e.ctrlKey||e.metaKey)) return;
   var t=e.target;
   var pane=t && t.closest ? t.closest(".pane") : null;
-  if(pane && pane.id==="pane-browser") return; /* pages zoom natively */
+  if(pane && pane.id==="pane-browser"){
+    /* over browser chrome: zoom the page itself (in-page wheels are captured on the frame window; see attachPageWheel) */
+    e.preventDefault();
+    var pd=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
+    if(!pd) return;
+    pageZoom=Math.min(2, Math.max(0.5, Math.round((pageZoom+pd)*10)/10));
+    applyPageZoom(true);
+    return;
+  }
   e.preventDefault();
   var d=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
   if(!d) return;
@@ -745,14 +753,24 @@ function paintStages(cur){
     c.classList.toggle("past", i<cur || cur===99);
   });
 }
-function logLine(text){
+function lineKind(text){
+  var t=String(text||"");
+  if(/^\s*(→|!)/.test(t)) return "info";
+  if(/tool|browser_open|browser_read|doc_open|doc_paste|web_search|staged|macro|opened .*pane|live in (the )?(browser|document)/i.test(t)) return "tool";
+  return "trace";
+}
+function logLine(text, kind){
   var li=document.createElement("li");
+  var k=kind||lineKind(text);
+  li.dataset.kind=k;
+  if(k==="tool") li.className="tool-line";
   var t=document.createElement("time"); t.textContent=now();
   li.appendChild(t); li.appendChild(document.createTextNode(text));
   var log=$("agentLog");
   log.appendChild(li);
   while(log.children.length>40) log.removeChild(log.firstChild);
   log.scrollTop=log.scrollHeight;
+  applyToggleVisibility();
 }
 
 /* simulated fallback (labelled) — only when the sidecar is unreachable */
@@ -792,9 +810,9 @@ function runReal(q, isRetry){
   askBusy=true;
   var goBtn=$("askGo"); if(goBtn) goBtn.disabled=true;
   $("agentStatus").classList.add("working");
-  $("agentStatusText").textContent="working on \u201c"+q+"\u201d — lite agent \u00b7 "+MODES[state.mode].label;
+  $("agentStatusText").textContent="working on \u201c"+q+"\u201d — "+((state.model&&state.model.name)||"lite agent")+" \u00b7 "+MODES[state.mode].label;
   paintStages(-1);
-  logLine("\u2192 \u201c"+q+"\u201d \u00b7 "+MODES[state.mode].label+" \u00b7 lite agent");
+  logLine("\u201c"+q+"\u201d \u00b7 "+MODES[state.mode].label+" \u00b7 "+((state.model&&state.model.name)||"lite agent"));
   fetch(apiUrl("/api/ask"),{method:"POST",headers:{"content-type":"application/json"},
     body:JSON.stringify({query:q,mode:state.mode,device:"desktop"}),signal:askCtrl?askCtrl.signal:undefined})
   .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
@@ -803,7 +821,8 @@ function runReal(q, isRetry){
     askBusy=false; if(goBtn) goBtn.disabled=false;
     if(!res || !res.events){ throw new Error("bad agent reply"); }
     var i=0, tickMs=MODES[state.mode].motion===0?500:220;
-    if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
+    var askedAt=Date.now();
+    var firstEv=false;
     (function next(){
       if(i>=res.events.length){
         paintStages(99);
@@ -811,6 +830,9 @@ function runReal(q, isRetry){
         $("agentStatusText").textContent="done \u2713 — answer in chat, detail here";
         askRetries[q]=0;
         bubble(res.chat || res.result || "Done.", "agent");
+        if(res.model) paintBadge(res.model);
+        state.lastLatency=Date.now()-askedAt; state.lastTier=(res.pick&&res.pick.tier)||"";
+        if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
         if(res.ui && res.ui.showPane){
           showPaneEl(res.ui.showPane, true);
           if(res.ui.doc){ try{ renderDocPreview(res.ui.doc); }catch(e){} try{ loadStaged(); }catch(e){} }
@@ -824,6 +846,7 @@ function runReal(q, isRetry){
         return;
       }
       var ev=res.events[i++];
+      if(!firstEv){ firstEv=true; clearThinking(); if(res.model) paintBadge(res.model); }
       paintStages(STAGES.indexOf(ev.stage));
       if(MODES[state.mode].speech!=="quiet" || ev.stage==="remember") logLine(ev.text);
       setTimeout(next, tickMs);
@@ -986,7 +1009,11 @@ function applyConfig(res){
   $("nameInput").value=slot.name||"";
   $("buddyInput").value=slot.buddy||"fox";
   renderTrash(slot.closedPanes||[]);
-  if(slot.agentDetail){ document.body.dataset.detail=slot.agentDetail; if($("detailToggle")) $("detailToggle").textContent=slot.agentDetail==="sleek"?"Sleek":"Detailed"; }
+  if(typeof slot.agentTraces==="boolean") state.traces=slot.agentTraces;
+  else if(slot.agentDetail){ state.traces=slot.agentDetail!=="sleek"; postConfig({slot:{agentTraces:state.traces}}); }
+  if(typeof slot.agentTools==="boolean") state.tools=slot.agentTools;
+  else { state.tools=false; if(slot.agentDetail) postConfig({slot:{agentTools:false}}); }
+  applyToggleVisibility();
   /* Persisted layout applies ONCE (first load / world switch). Re-applying
      it on every config save was the trash-recover data-loss bug: recover
      un-hid the pane locally, then the save response clobbered it back. */
@@ -1355,6 +1382,7 @@ function hideFallback(){ var fb=$("browserFallback"); if(fb) fb.hidden=true; }
 $("browserFrame").addEventListener("load", function(){
   nudgeSoon(900);
   try{ var doc=$("browserFrame").contentDocument; if(doc&&doc.body) doc.body.style.zoom=pageZoom; }catch(e){}
+  attachPageWheel();
   /* proxy errors come back tiny: surface the escape instead of a void */
   hideFallback();
   try{
@@ -1365,6 +1393,54 @@ $("browserFrame").addEventListener("load", function(){
     }
   }catch(e){}
 });
+/* Same-origin frame wheel capture: ctrl/meta+wheel over the page zooms the
+   page (step 0.1, clamped 50-200%, per-device); plain wheel is untouched so
+   the page scrolls natively. Re-attached every load; everything guarded so
+   a hostile or cross-origin page can never break the app. */
+function attachPageWheel(){
+  try{
+    var f=$("browserFrame");
+    var w=f && f.contentWindow;
+    if(!w || w.__profilesWheel) return;
+    w.__profilesWheel=true;
+    w.addEventListener("wheel", function(e){
+      try{
+        if(!(e.ctrlKey||e.metaKey)) return;
+        e.preventDefault();
+        var d=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
+        if(!d) return;
+        pageZoom=Math.min(2, Math.max(0.5, Math.round((pageZoom+d)*10)/10));
+        applyPageZoom(true);
+      }catch(err){}
+    }, {passive:false});
+    /* clicks/keys inside the page belong to the browser pane: track focus
+       here because the parent document never sees in-frame gestures */
+    w.addEventListener("focus", function(){ try{ activePane="pane-browser"; }catch(err){} });
+    var fd=null;
+    try{ fd=w.document; }catch(err){}
+    if(fd){
+      fd.addEventListener("pointerdown", function(){ try{ activePane="pane-browser"; }catch(err){} }, true);
+      fd.addEventListener("keydown", function(e){
+        try{
+          if(!(e.ctrlKey||e.metaKey)) return;
+          if(e.key!=="0" && e.key!=="=" && e.key!=="+" && e.key!=="-" && e.key!=="_") return;
+          e.preventDefault();
+          if(e.key==="0"){
+            appZoom=1; paneZoom={}; pageZoom=1;
+            applyAllPaneZooms();
+            try{ localStorage.setItem("profilesPaneZoom","{}"); }catch(e2){}
+            applyZoom(true);
+            applyPageZoom(false);
+            return;
+          }
+          var dd=(e.key==="-"||e.key==="_")?-0.1:0.1;
+          pageZoom=Math.min(2, Math.max(0.5, Math.round((pageZoom+dd)*10)/10));
+          applyPageZoom(true);
+        }catch(err){}
+      }, true);
+    }
+  }catch(e){}
+}
 /* URL bar follows real in-frame navigation (same-origin through proxy) */
 setInterval(function(){
   if(document.visibilityState!=="visible" || !paneVisible("pane-browser")) return;
@@ -1439,6 +1515,14 @@ document.addEventListener("pointerdown", function(e){
   var p = e.target && e.target.closest ? e.target.closest(".pane") : null;
   if(p && p.id) activePane = p.id;
 }, true);
+/* click-then-ctrl+/- follows the click: keyboard focus tracks the pane too
+   (pointerdown alone misses tab/field focus), and the frame element maps
+   back to pane-browser. The wheel path above stays target-based. */
+document.addEventListener("focusin", function(e){
+  var p=e.target && e.target.closest ? e.target.closest(".pane") : null;
+  if(p && p.id) activePane=p.id;
+});
+if($("browserFrame")) $("browserFrame").addEventListener("focus", function(){ activePane="pane-browser"; });
 if($("fallbackOpen")) $("fallbackOpen").addEventListener("click", function(){
   var u=$("urlInput").value.trim()||lastBrowserUrl;
   if(u) window.open(u, "_blank");
@@ -1682,7 +1766,7 @@ function seed(){
 function updateModelLine(){
   var on=state.routing, fixed=ROUTING[state.mode]||"muse-spark-1.3-contributor";
   $("modelLine").textContent = on
-    ? "Routing: Astra reviews each hop, Muse Spark 1.3 Contributor xhigh for heavy reasoning."
+    ? "Routing: Astra reviews each hop, Muse Spark 1.3 Contributor xhigh for heavy lifts."
     : "Fixed model: "+fixed+" (concept). Local lite agent answers day-to-day.";
   var c=$("costLine");
   if(on){ c.classList.add("on"); c.textContent="Cost preview: ~10 light hops ≈ pennies · 1 heavy ≈ ~$0.02 · cap $2/mo — over cap, tasks queue quietly."; }
@@ -1849,7 +1933,7 @@ var HOME_LAYOUTS={
   browse:{order:["pane-chat","pane-browser","pane-notes","pane-doc","pane-agent","pane-video","pane-activity","pane-setup"],
     show:["pane-browser","pane-chat"], msg:"Browse — web front and centre, chat alongside for questions. Everything else is a tab away."},
   ask:{order:["pane-chat","pane-agent","pane-browser","pane-doc","pane-notes","pane-video","pane-activity","pane-setup"],
-    show:["pane-chat","pane-agent"], msg:"Search / Ask — ask box front and centre, agent receipts beside it (Detailed) or hidden (Sleek, in the Agent header)."},
+    show:["pane-chat","pane-agent"], msg:"Search / Ask — ask box front and centre, agent receipts beside it (Traces on) or quiet (both toggles off, in the chat header)."},
   work:{order:["pane-chat","pane-doc","pane-notes","pane-browser","pane-agent","pane-video","pane-activity","pane-setup"],
     show:["pane-doc","pane-notes","pane-browser","pane-chat"], msg:"Work — staged documents + notes/sketch + your usual apps (Docs, Word, Slides) in the browser pane. Agent drafts land in Document, export when happy."}
 };
@@ -1906,20 +1990,51 @@ if($("openExternal")) $("openExternal").addEventListener("click", function(){
   if(u && !/^https?:\/\//i.test(u)) u="https://"+u;
   if(u) window.open(u, "_blank");
 });
-function setDetail(sleek){
-  document.body.dataset.detail=sleek?"sleek":"detailed";
-  ["detailToggle","chatDetailToggle"].forEach(function(id){ var b=$(id); if(b) b.textContent=sleek?"Sleek":"Detailed"; });
-  postConfig({slot:{agentDetail:sleek?"sleek":"detailed"}});
+/* ---- agent detail: two explicit toggles, Traces ON + Tools OFF by default.
+   Traces = reasoning chain lines; Tools = tool calls + extras. Tool lines
+   carry .tool-line + data-kind at render; CSS hides per toggle. ---- */
+function applyToggleVisibility(){
+  var showTr=state.traces!==false, showTo=state.tools===true;
+  document.body.dataset.traces=showTr?"on":"off";
+  document.body.dataset.tools=showTo?"on":"off";
+  ["tracesToggle","agentTracesToggle"].forEach(function(id){ var b=$(id); if(b) b.setAttribute("aria-pressed", showTr?"true":"false"); });
+  ["toolsToggle","agentToolsToggle"].forEach(function(id){ var b=$(id); if(b) b.setAttribute("aria-pressed", showTo?"true":"false"); });
+  var log=$("agentLog"); if(!log) return;
+  Array.prototype.forEach.call(log.children, function(li){
+    var k=li.dataset?li.dataset.kind:"";
+    if(k==="trace") li.style.display=showTr?"":"none";
+    else if(k==="tool") li.style.display=showTo?"":"none";
+    else li.style.display="";
+  });
 }
-if($("chatDetailToggle")) $("chatDetailToggle").addEventListener("click", function(){
-  setDetail(document.body.dataset.detail!=="sleek");
+function setTraces(on){
+  state.traces=!!on; applyToggleVisibility();
+  postConfig({slot:{agentTraces:state.traces}});
+  bubble(on?"Traces on — the reasoning chain shows in the Agent pane as it happens.":"Traces off — the reasoning chain is tucked away; answers still land here.", "sys");
+}
+function setTools(on){
+  state.tools=!!on; applyToggleVisibility();
+  postConfig({slot:{agentTools:state.tools}});
+  bubble(on?"Tools on — tool calls and extras show in the Agent pane as they happen.":"Tools off — tool calls are tucked away; answers still land here.", "sys");
+}
+function paintBadge(model){
+  var b=$("brainBadge"); if(!b) return;
+  var m=model||state.model||{name:"lite agent",via:"lite"};
+  state.model=m;
+  b.textContent=m.name||"lite agent";
+  b.title="Brain: "+(m.name||"lite agent")+" ("+(m.via||"lite")+") — tap for detail";
+}
+if($("brainBadge")) $("brainBadge").addEventListener("click", function(){
+  var m=state.model||{name:"lite agent",via:"lite"};
+  var secs=state.lastLatency?Math.round(state.lastLatency/100)/10+"s":"—";
+  bubble("Brain: "+(m.name||"lite agent")+" · via "+(m.via||"lite")+(state.lastTier?" · tier "+state.lastTier:"")+" · last ask "+secs+". Change it in Setup → models.", "sys");
+  try{ showPane("pane-setup"); }catch(e){}
 });
-if($("detailToggle")) $("detailToggle").addEventListener("click", function(){
-  var sleek=document.body.dataset.detail!=="sleek";
-  document.body.dataset.detail=sleek?"sleek":"detailed";
-  $("detailToggle").textContent=sleek?"Sleek":"Detailed";
-  postConfig({slot:{agentDetail:sleek?"sleek":"detailed"}});
-  bubble(sleek?"Sleek — reasoning and tool calls tucked away; you see the answer and the status, nothing dirty.":"Detailed — full chain: stages, reasoning lines and tool calls, as they happen.", "sys");
+["tracesToggle","agentTracesToggle"].forEach(function(id){
+  if($(id)) $(id).addEventListener("click", function(){ setTraces(state.traces===false); });
+});
+["toolsToggle","agentToolsToggle"].forEach(function(id){
+  if($(id)) $(id).addEventListener("click", function(){ setTools(state.tools!==true); });
 });
 
 /* ---- smart reorganise: learned linkage first, best practice second ---- */
@@ -2126,7 +2241,7 @@ function bootAgent(){
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
     checkBuild(h);
     state.agentOk=true;
-    $("brainBadge").textContent="agent on · local";
+    paintBadge({name:"lite agent", via:"lite"});
     $("agentStatusText").textContent="lite agent on — ask in chat; detail lands here";
     bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. Ask me anything: chat, search, open pages, draft documents.", "agent");
     stream("lite agent ON — "+h.brain);
@@ -2134,7 +2249,7 @@ function bootAgent(){
     /* never dead, never apologising about plumbing: retry quietly and
        answer with the in-page lite brain meanwhile */
     state.agentOk=false;
-    $("brainBadge").textContent="agent · lite";
+    paintBadge({name:"lite agent", via:"lite"});
     setTimeout(bootAgent, 4000);
   });
 }
@@ -2142,6 +2257,7 @@ function bootAgent(){
 /* ---- boot ---- */
 seed();
 applyLayout();
+applyToggleVisibility();
 (function(){
   var sp=new URLSearchParams(location.search);
   var raw=sp.get("mode")||"Vibes";

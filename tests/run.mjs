@@ -231,7 +231,13 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!html5.includes('data-home="browse"'), 'front door: extra option cards removed — chat/browser/doc only');
   ok(js5.includes('HOME_LAYOUTS') && js5.includes('goHome'), 'front door: each option arranges the canvas');
   ok(html5.includes('data-app="https://docs.google.com/presentation') && html5.includes('office.com/launch/word'), 'work: Google/Microsoft apps housed as browser tiles');
-  ok(html5.includes('id="detailToggle"') && js5.includes('agentDetail'), 'agent: sleek vs detailed reasoning/tool-call view, per profile');
+  ok(html5.includes('id="brainBadge"') && html5.includes('id="tracesToggle"') && html5.includes('id="toolsToggle"'), 'agent: model badge button + Traces + Tools toggles in the chat header');
+  ok(html5.includes('id="agentTracesToggle"') && html5.includes('id="agentToolsToggle"'), 'agent: same two toggles in the agent pane head');
+  ok(!html5.includes('Sleek') && !js5.includes('Sleek'), 'agent: no Sleek wording anywhere');
+  ok(!html5.includes('Reasoning') && !js5.includes('Reasoning') && !html5.includes('Detailed') && !js5.includes('Detailed'), 'agent: no Reasoning/Detailed toggle wording anywhere');
+  ok(js5.includes('agentTraces') && js5.includes('agentTools'), 'agent: per-slot traces/tools persisted, old detail migrated once');
+  ok(js5.includes('tool-line') && js5.includes('data-kind'), 'agent: tool lines marked at render for the Tools toggle');
+  ok(sc4.includes('model:') && sc4.includes("via:"), 'agent: /api/ask carries model{name,via} from the real path used');
   ok(html5.includes('class="pinbtn"') && js5.includes('unpinned'), 'canvas: tiny pin icon unlocks a pane to move it');
   ok(js5.includes('MAX_PER_PAGE=8'), 'canvas: max 8 panes per page, overflow opens a new page');
   ok(html5.includes('id="pane-notes"') && html5.includes('id="pane-video"'), 'panes: notes + video join the canvas');
@@ -260,6 +266,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(html6.includes('id="trashBtn"') && html6.includes('class="headbtn"'), 'chrome: trash sits top-right in the header');
   ok(html6.includes('id="sessBtn"') && html6.includes('id="sessPop"'), 'sessions: stacked-folders button + popup in header');
   ok(html6.includes('flex:1') && html6.indexOf('id="sessBtn"') > html6.indexOf('id="slotX"') && html6.indexOf('id="sessBtn"') < html6.indexOf('id="trashBtn"'), 'chrome: sessions left of bin, bin top-right last');
+  ok(html6.includes('#sessBtn{margin-left:auto}') && html6.includes('#trashBtn{margin-left:0}'), 'chrome: folder+bin glued right as one pair (single auto margin, no split gap)');
   ok(html6.includes('fill="var(--deck1)"') && html6.includes('fill="var(--front)"'), 'sessions: 3 overlapping coloured folders');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('lastBrowserUrl'), 'browser: session-truth sync heals stale views');
   ok(readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8').includes("path === '/browser/state'"), 'sidecar: lightweight truth endpoint');
@@ -364,7 +371,7 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').match(/\.resize-handle\[data-dir="e"\]\{top:0;right:-5px;width:10px/), 'touch: dead 10px handle block removed (30px+ grab only, no pixel-hunting)');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('7px glide threshold'), 'touch: FLIP reorder waits 7px past anchor (no hover-jitter churn on small screens)');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('tap (press + lift within 12px)'), 'touch: tap-to-land for touch/pen (scroll gestures never yank an unlocked pane)');
-  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('babylite"] .pills button'), 'touch: babylite pills/slots/tabs grow to 64px targets');
+  ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('min-height:48px'), 'touch: babylite pills/slots/tabs ease to 48px targets (64px squashed the rows)');
   ok(!readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="askGo"'), 'simplicity: no Go buttons, Enter submits');
   ok(readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('id="calmDots"'), 'calm: breathing dots invite');
   ok(readFileSync(join(root, 'src', 'main.js'), 'utf8').includes('inviteJiggle') || readFileSync(join(root, 'src', 'index.html'), 'utf8').includes('inviteJiggle'), 'babylite: playful jiggle invite');
@@ -617,6 +624,47 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(!/appendChild\(pb\)/.test(jsB), 'docs: staged list renders every draft (no undefined append)');
   ok(jsB.includes('escHtml') && jsB.includes('textContent="Preview"'), 'docs: each staged draft has a preview button');
 }
+// Open-intent auto-open: channel 4 + family (2026-10-31, OpenRouterFix lane). Appended, never rewritten.
+{
+  const al3 = await import('../agent/agentloop.mjs');
+  // Known-site phrase opens channel4.com first try, no follow-up (SITES hit beats the search fallback).
+  const d = al3.decideTool('open channel 4 website');
+  ok(d && d.tool === 'browser_open' && d.args.url === 'https://www.channel4.com', 'sites: "open channel 4 website" opens channel4.com first try');
+  // Unknown open-intent targets fall back to web_search with openTop (auto-open first hit, never "say open result 1").
+  const u = al3.decideTool('open north berwick chip shop menu');
+  ok(u && u.tool === 'web_search' && u.args.openTop === true, 'open-top: unknown open-intent is a web_search with openTop');
+  ok(al3.decideTool('open itvx')?.tool === 'browser_open', 'sites: bare "open itvx" opens directly');
+  ok(al3.decideTool('open film4')?.tool === 'browser_open', 'sites: bare "open film4" opens directly');
+  ok(al3.decideTool('search the web for allotment jobs')?.tool === 'web_search' && !al3.decideTool('search the web for allotment jobs').args.openTop, 'open-top: plain searches stay manual (no openTop)');
+  ok(al3.decideTool('open bbc news').tool === 'browser_open', 'open-top: existing bbc pin still green');
+  ok(al3.decideTool('open sky news').tool === 'browser_open', 'open-top: existing sky pin still green');
+  // runTool auto-opens the first hit into the Browser pane (stub webSearch/viewGo via data: is avoided;
+  // verify structurally that an openTop web_search observation names the opened site, never "say open result 1").
+  const src = readFileSync(join(root, 'agent', 'agentloop.mjs'), 'utf8');
+  ok(src.includes('openTop') && src.includes('viewGo(slot, first.href)'), 'open-top: runTool viewGos the first hit');
+  ok(!/Opened \$\{first\.title\}.*say "open result 1"/s.test(src), 'open-top: auto-open observation never asks for follow-up steps');
+  const sc3 = readFileSync(join(root, 'agent', 'sidecar.mjs'), 'utf8');
+  ok(sc3.includes('opened the top hit in your Browser pane'), 'open-top: sidecar copy names the auto-open, no say-open-result-1');
+}
+// Babylite desquash + type smoothing (2026-10-31, BabyliteDesquash lane). Appended, never rewritten.
+{
+  const htmlD = readFileSync(join(root, 'src', 'index.html'), 'utf8');
+  ok(/body\[data-mode="babylite"\][\s\S]{0,120}--fs:1\.06/.test(htmlD), 'babylite: type steps down to --fs 1.06 so 64px targets stop crushing labels');
+  ok(/body\[data-mode="babylite"\] \.pills>\*\+\*,body\[data-mode="lite"\] \.pills>\*\+\*,body\[data-mode="babylite"\] \.slotbtns>\*\+\*,body\[data-mode="lite"\] \.slotbtns>\*\+\*\{[^}]*margin-inline-start:-4px/.test(htmlD), 'babylite: pills/slots ease to -4px overlap while pane tabs keep the -10px shingle');
+  ok(htmlD.includes('-webkit-font-smoothing:antialiased') && htmlD.includes('text-rendering:optimizeLegibility'), 'babylite: smoothed type rendering');
+  ok(/body\[data-traces="off"\] #agentLog li\[data-kind="trace"\]\{display:none\}/.test(htmlD) && /body\[data-tools="off"\] #agentLog li\[data-kind="tool"\]\{display:none\}/.test(htmlD), 'agent: trace/tool visibility is attribute-driven off toggles');
+}
+// Pane zoom: ctrl+scroll targets page/pane/chrome independently; focus follows click (2026-10-31, PaneZoomFix lane). Appended, never rewritten.
+{
+  const jsZ = readFileSync(join(root, 'src', 'main.js'), 'utf8');
+  ok(jsZ.includes('attachPageWheel') && jsZ.includes('addEventListener("wheel"') && jsZ.includes('passive:false'), 'zoom: frame window captures ctrl+wheel (passive:false) for page zoom');
+  ok(/pageZoom\s*=\s*Math\.min\(2/.test(jsZ), 'zoom: page zoom steps and clamps 50-200%');
+  ok(jsZ.includes('pane-browser') && jsZ.includes('applyPageZoom(true)'), 'zoom: wheel over browser chrome zooms the page');
+  ok(jsZ.includes('addEventListener("focusin"') && jsZ.includes('closest(".pane")'), 'zoom: focusin tracks the active pane for ctrl+/-');
+  ok(jsZ.includes('activePane="pane-browser"'), 'zoom: browser frame focus maps to pane-browser');
+  ok(jsZ.includes('sizeReportTimer') && jsZ.includes('}, 800)'), 'browser: live size report stays debounced at 800ms');
+}
+
 
 
 

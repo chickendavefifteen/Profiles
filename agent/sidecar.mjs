@@ -64,6 +64,21 @@ async function listStaged() {
   return out.sort((a, b) => String(b.created).localeCompare(String(a.created)));
 }
 
+/* Model identity for /api/ask: the badge paints from this, never a guess. */
+function friendlyLocalModel(file){
+  var f=String(file||"").toLowerCase();
+  if(f.indexOf("qwen2.5-3b")>=0) return "Qwen2.5-3B local";
+  if(f.indexOf("lfm2.5-1.2b")>=0||f.indexOf("lfm")>=0) return "LFM2.5-1.2B local";
+  if(f.indexOf("qwen2.5-0.5b")>=0) return "Qwen2.5-0.5B local";
+  if(f.indexOf("nemotron")>=0||f.indexOf("minitron")>=0) return "Nemotron local";
+  if(f.indexOf("gemma")>=0) return "Gemma local";
+  var base=String(file||"").replace(/\.gguf$/i,"").slice(0,40)||"local model";
+  return base+" local";
+}
+function liteModel(){ return { name: "lite agent", via: "lite" }; }
+function piModel(){ return { name: "pi muse-spark", via: "pi" }; }
+function localModel(file){ return { name: friendlyLocalModel(file), via: "local" }; }
+
 /** The local brain: deterministic, files real things, never phones home. */
 export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
   const intent = classifyIntent(query);
@@ -83,6 +98,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
       const stagedM = intent.kind === 'stage-slides' || intent.kind === 'stage-doc' ? makeDraft(query, intent.kind) : null;
       if (stagedM) await saveStage(stagedM);
       return { query, mode, device, intent, pick: { tier: 'macro', action: 'deterministic-macro', reason: 'asked ' + cand.count + ' times - scripted now' },
+        model: liteModel(),
         events: [{ stage: 'act', text: `act ✓ macro "${macro.id}" ran deterministically (no model loop)`, at: new Date().toISOString() },
           { stage: 'remember', text: 'remember ✓ macro lives in vault/macros/ - delete the file to unlearn', at: new Date().toISOString() }],
         result: `Done — ran your "${macro.id}" macro (asked ${cand.count}×, so it is scripted now, instant every time).` + (stagedM ? ` Staged "${stagedM.title}" in the Document pane.` : ''),
@@ -96,6 +112,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
     const caps = await capabilities();
     const cfg = await loadConfig();
     return { query, mode, device, intent, pick: { tier: 'bundled-tiny', action: 'setup-wizard', reason: 'deterministic setup, no LLM' },
+      model: liteModel(),
       events: [{ stage: 'sense', text: `sense ✓ setup ask - deterministic wizard, no settings menu`, at: new Date().toISOString() },
         { stage: 'plan', text: `plan → scan device, recommend tier, scripted fetch, wire brain, verify`, at: new Date().toISOString() },
         { stage: 'act', text: `act ✓ setup plan ready for ${caps.deviceClass} (recommended: ${caps.recommendedTier})`, at: new Date().toISOString() },
@@ -122,6 +139,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
           events.push({ stage: 'verify', text: 'verify ✓ pi run complete — ' + piAns.model, at: at() });
           events.push({ stage: 'remember', text: 'remember ✓ pi session persists in vault/X/pi-sessions only', at: at() });
           return { query, mode, device, intent, pick: { tier: 'cloud', action: 'pi-brain', reason: 'Profile X pi brain (full pi, X only)' }, events,
+            model: piModel(),
             result: piAns.text, chat: piAns.text, staged: null };
         }
         events.push({ stage: 'verify', text: 'verify ! pi brain unavailable (' + piAns.reason + ') — lite brain instead', at: at() });
@@ -140,11 +158,12 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
         let answer = out.observation;
         if ((decision.tool === 'web_search' || decision.tool === 'browser_read') && true) {
           const sum = await localBrainAnswer(`Summarise this for the user in 2-4 short sentences, plain language. If it is search results, name the top items.\n\n${out.observation.slice(0, 2200)}`, mode).catch(() => ({ ok: false }));
-          if (sum.ok) answer = sum.text + '\n\n' + (decision.tool === 'web_search' ? '(from a live web search in your browser — say "open result 1" style asks next)' : '(read from the live page in your browser)');
+          if (sum.ok) answer = sum.text + '\n\n' + (decision.tool === 'web_search' ? (decision.args && decision.args.openTop ? '(from a live web search — opened the top hit in your Browser pane)' : '(from a live web search in your browser — say "open result 1" style asks next)') : '(read from the live page in your browser)');
         }
         events.push({ stage: 'verify', text: 'verify ✓ observation in chat; browser state is live in the Browser pane', at: at() });
         events.push({ stage: 'remember', text: 'remember ✓ tool run checkpointed in this profile', at: at() });
         return { query, mode, device, intent: { kind: 'tool', tool: decision.tool, risk: 'low' }, pick: { tier: 'tool-loop', action: decision.tool, reason: 'agent tool hook' },
+          model: liteModel(),
           events, result: answer, chat: answer, staged: null, ui: out.ui || null };
       } catch (e) {
         events.push({ stage: 'act', text: `act ! tool failed honestly: ${String(e.message).slice(0, 140)}`, at: at() });
@@ -163,6 +182,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
         events.push({ stage: 'verify', text: 'verify ✓ pi run complete — ' + piAns.model, at: at() });
         events.push({ stage: 'remember', text: 'remember ✓ pi session persists in vault/X/pi-sessions only', at: at() });
         return { query, mode, device, intent, pick: { tier: 'cloud', action: 'pi-brain', reason: 'Profile X pi brain' }, events,
+          model: piModel(),
           result: piAns.text, chat: piAns.text, staged: null };
       }
       events.push({ stage: 'verify', text: 'verify ! pi brain unavailable (' + piAns.reason + ') — lite brain instead', at: at() });
@@ -171,7 +191,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
     if (wantsDeep(query) && caps.modelsPresent.length) {
       const orch = await orchestrate(query.replace(/\b(ultrathink|think hard|orchestrate|sub-?agents?)\b/gi, '').trim() || query, mode);
       for (const e of orch.events) events.push(e);
-      if (orch.ok) return { query, mode, device, intent, pick: { tier: 'laptop-local', action: 'orchestrate', reason: 'bounded Scout/Worker/Critic fan-out, parent accepted' }, events, result: orch.text, chat: orch.text, staged: null };
+      if (orch.ok) return { query, mode, device, intent, pick: { tier: 'laptop-local', action: 'orchestrate', reason: 'bounded Scout/Worker/Critic fan-out, parent accepted' }, events, model: localModel(slot.modelFile || caps.modelsPresent[0]), result: orch.text, chat: orch.text, staged: null };
       events.push({ stage: 'verify', text: 'verify ! orchestration fell back (' + orch.reason + ') — single brain instead', at: at() });
     }
     if (slot.cloudEnabled) {
@@ -181,7 +201,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
         events.push({ stage: 'act', text: `act ✓ cloud brain answered (${cAns.model}) — cloud was opted in for this profile`, at: at() });
         events.push({ stage: 'verify', text: 'verify ✓ answered in chat; cloud use is per-profile and shown, never silent', at: at() });
         events.push({ stage: 'remember', text: 'remember ✓ conversation kept in this session pane', at: at() });
-        return { query, mode, device, intent, pick: { tier: 'cloud', action: 'cloud-answer', reason: 'profile opted into cloud' }, events, result: cAns.text, chat: cAns.text, staged: null };
+        return { query, mode, device, intent, pick: { tier: 'cloud', action: 'cloud-answer', reason: 'profile opted into cloud' }, events, model: { name: cAns.model, via: 'cloud' }, result: cAns.text, chat: cAns.text, staged: null };
       }
       events.push({ stage: 'act', text: `act ! cloud opted in but unavailable (${cAns.reason}) — local brain instead, labelled`, at: at() });
     }
@@ -199,7 +219,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
     }
     events.push({ stage: 'verify', text: 'verify ✓ answered in chat; loop detail stays in the Agent pane', at: at() });
     events.push({ stage: 'remember', text: 'remember ✓ conversation kept in this session pane', at: at() });
-    return { query, mode, device, intent, pick, events, result: answer, chat: answer, staged: null };
+    return { query, mode, device, intent, pick, events, model: modelAns.ok ? (caps.modelsPresent.length ? localModel(modelAns.model || slot.modelFile || caps.modelsPresent[0]) : piModel()) : liteModel(), result: answer, chat: answer, staged: null };
   }
   if (pick.action === 'stage-draft-only') {
     staged = makeDraft(query, 'stage-doc');
@@ -233,7 +253,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
   if (taskRef) { checkpoint(ledger, taskRef.id, 'sidecar run'); }
   await saveLedger(ledger);
   events.push({ stage: 'remember', text: 'remember ✓ ledger checkpointed in this profile vault (plain files, slot-isolated)', at: at() });
-  return { query, mode, device, intent, pick, events, result, staged: staged ? { id: staged.id, title: staged.title, kind: staged.kind } : null, macroCreated: typeof macroCreated !== 'undefined' ? macroCreated : null };
+  return { query, mode, device, intent, pick, events, model: liteModel(), result, staged: staged ? { id: staged.id, title: staged.title, kind: staged.kind } : null, macroCreated: typeof macroCreated !== 'undefined' ? macroCreated : null };
 }
 
 function json(res, code, obj) {
@@ -660,7 +680,9 @@ export async function handleAgent(req, res, prefix = '/api') {
       for await (const chunk of req) body += chunk;
       const { query, mode = 'lifeful', device = 'desktop' } = JSON.parse(body || '{}');
       if (!query || typeof query !== 'string') { json(res, 400, { error: 'query required' }); return true; }
-      json(res, 200, await runAsk(query.slice(0, 500), mode, device));
+      const out = await runAsk(query.slice(0, 500), mode, device);
+      if (!out.model) out.model = liteModel();
+      json(res, 200, out);
       return true;
     }
   } catch (e) { json(res, 500, { error: String(e?.message ?? e) }); return true; }

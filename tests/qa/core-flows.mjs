@@ -208,7 +208,11 @@ check('start search box submits to native results', _searchOk);
 // typing: native click into a real field + real keystrokes + Enter (the exact user gesture)
 await page.fill('#urlInput', apiBase + '/api/test/click-target');
 await page.press('#urlInput', 'Enter');
-await page.waitForTimeout(3500);
+/* the frame may still hold the previous heavy page (BBC) under load: only
+   click once the click-target document is really there, else the keystrokes
+   land in the old page and the check flakes. Times out honestly. */
+await page.waitForFunction(() => { try { return document.querySelector('#browserFrame').contentDocument.title === 'CLICKTEST-READY'; } catch (e) { return false; } }, null, { timeout: 20000 });
+await page.locator('#browserFrame').scrollIntoViewIfNeeded();
 {
   const box = await page.locator('#browserFrame').boundingBox();
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.9);
