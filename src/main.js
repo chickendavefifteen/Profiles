@@ -191,13 +191,6 @@ if($("trashBtn")) $("trashBtn").addEventListener("click", function(){
 document.querySelectorAll("[data-close]").forEach(function(b){
   b.addEventListener("click", function(){ hidePane(b.dataset.close); });
 });
-document.querySelectorAll("[data-min]").forEach(function(b){
-  b.addEventListener("click", function(){
-    var p=$(b.dataset.min);
-    p.classList.toggle("minimised");
-    b.textContent=p.classList.contains("minimised")?"+":"–";
-  });
-});
 /* Pixel-definite view height: this engine resolves iframe percentages
    against thin air (300x150 default), so the pane measures real pixels
    and sets them explicitly. No percentages left to misread. */
@@ -276,6 +269,11 @@ function paneEl(id){ return document.getElementById(id); }
 function applyPaneZoom(id, showBadge){
   var z=paneZoom[id]||1;
   var el=paneEl(id);
+  if(id==="pane-browser"){
+    pageZoom=z;
+    applyPageZoom(showBadge);
+    return;
+  }
   if(el) el.style.zoom=z;
   try{ localStorage.setItem("profilesPaneZoom", JSON.stringify(paneZoom)); }catch(e){}
   if(showBadge) zoomBadge((PANE_LABELS[id]||id)+" "+Math.round(z*100)+"%");
@@ -361,6 +359,8 @@ function showPaneEl(id, silent){
   if(id==="pane-browser"){ nudgeSoon(500); setTimeout(fitBrowserView, 150); }
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
   state.layout.minimised=(state.layout.minimised||[]).filter(function(x){ return x!==id; });
+  var el=$(id);
+  if(el){ el.classList.remove("minimised"); el.classList.remove("hiddenPane"); }
   if(state.layout.maxed && state.layout.maxed!==id) state.layout.maxed=null;
   applyLayout();
   if(id==="pane-doc") loadStaged();

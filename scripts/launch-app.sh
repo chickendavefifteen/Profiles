@@ -9,7 +9,13 @@ BUILT=$(cat src-tauri/target/debug/profiles.srcsha 2>/dev/null || echo none)
 if [ "$STAMP" != "$BUILT" ]; then echo "bundle mismatch: $BUILT vs $STAMP"; exit 1; fi
 echo "bundle matches HEAD ($STAMP)"
 pkill -x profiles 2>/dev/null || true
-sleep 2
+pkill -f "node.*server\.mjs.*1420" 2>/dev/null || true
+sleep 1
+nohup node server.mjs --port 1420 > /tmp/profiles-server.log 2>&1 &
+for i in {1..25}; do
+  if curl -s http://localhost:1420/api/health | grep -q "$STAMP"; then break; fi
+  sleep 0.2
+done
 export WEBKIT_DISABLE_DMABUF_RENDERER=1 WAYLAND_DISPLAY=wayland-1
 setsid nohup ./src-tauri/target/debug/profiles > /tmp/profiles-app.log 2>&1 < /dev/null &
 sleep 3
