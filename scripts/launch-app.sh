@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
-# The ONLY way to (re)launch the desktop app: fresh bundle, verified match,
-# old instance dead, new PID confirmed. Never hand-launch.
-set -e
+# Build the bundled UI; the native shell owns its sidecar on a fresh port.
+set -euo pipefail
 cd "$(dirname "$0")/.."
-bash scripts/app-build.sh >/dev/null
-STAMP=$(git rev-parse HEAD)
-BUILT=$(cat src-tauri/target/debug/profiles.srcsha 2>/dev/null || echo none)
-if [ "$STAMP" != "$BUILT" ]; then echo "bundle mismatch: $BUILT vs $STAMP"; exit 1; fi
-echo "bundle matches HEAD ($STAMP)"
-pkill -x profiles 2>/dev/null || true
-pkill -f "node.*server\.mjs.*1420" 2>/dev/null || true
-sleep 1
-nohup node server.mjs --port 1420 > /tmp/profiles-server.log 2>&1 &
-for i in {1..25}; do
-  if curl -s http://localhost:1420/api/health | grep -q "$STAMP"; then break; fi
-  sleep 0.2
-done
-export WEBKIT_DISABLE_DMABUF_RENDERER=1 WAYLAND_DISPLAY=wayland-1
-setsid nohup ./src-tauri/target/debug/profiles > /tmp/profiles-app.log 2>&1 < /dev/null &
-sleep 3
-NEWPID=$(pgrep -x profiles | head -1)
-[ -n "$NEWPID" ] || { echo "app did not start"; exit 1; }
-echo "app running pid=$NEWPID"
+bash scripts/app-build.sh
+binary=$(realpath src-tauri/target/debug/profiles)
+runtime="${XDG_STATE_HOME:-$HOME/.local/state}/profiles"
+mkdir -p "$runtime"
+pidfile="$runtime/development.pid"
+if [[ -f "$pidfile" ]]; then
+  read -r oldpid < "$pidfile"
+  if [[ "$oldpid" =~ ^[0-9]+$ ]] && [[ $(readlink -f "/proc/$oldpid/exe" 2>/dev/null || true) == "$binary" ]]; then
+    kill -TERM "$oldpid"
+  fi
+fi
+export PROFILES_HOME="$PWD" WEBKIT_DISABLE_DMABUF_RENDERER=1
+setsid nohup "$binary" > "$runtime/development.log" 2>&1 < /dev/null &
+pid=$!
+printf '%s\n' "$pid" > "$pidfile"
+sleep 2
+if ! kill -0 "$pid" 2>/dev/null; then
+  printf 'Profiles failed to start. Log: %s/development.log\n' "$runtime" >&2
+  exit 1
+fi
+printf 'Profiles running: pid=%s, source=%s\n' "$pid" "$(git rev-parse --short HEAD)"

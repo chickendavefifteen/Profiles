@@ -14,8 +14,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function secretTool(args, input) {
   return new Promise((resolve) => {
+    if (process.env.PROFILES_DISABLE_KEYRING === '1') return resolve({ ok: false, out: '' });
     const c = spawn('secret-tool', args, { stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
+    const timer = setTimeout(() => { c.kill(); resolve({ ok: false, out: '' }); }, 5000);
+    c.once('close', () => clearTimeout(timer));
+    c.stdin.on('error', () => {});
     c.stdout.on('data', (d) => { out += d; });
     c.on('error', () => resolve({ ok: false, out: '' }));
     c.on('close', (code) => resolve({ ok: code === 0, out: out.trim() }));
@@ -33,29 +37,12 @@ export async function getSecret(slot, kind) {
 }
 export async function cloudStatus(slot, profile) {
   const key = await getSecret(slot, 'cloud-api-key');
-  return { enabled: !!profile?.cloudEnabled, hasKey: !!key, model: profile?.cloudModel || 'gpt-4o-mini',
-    base: profile?.cloudBase || 'https://api.openai.com/v1', storage: 'os-keyring' };
+  const { resolveCloudTarget } = await import('./model-agent.mjs');
+  const target = resolveCloudTarget(profile || {});
+  return { enabled: !!profile?.cloudEnabled, hasKey: !!key, model: target.model,
+    base: target.base, error: target.error, storage: 'os-keyring' };
 }
 
-/** One cloud answer. Only called when enabled + key present. */
-export async function cloudAnswer(slot, profile, query, modeLabel) {
-  const key = await getSecret(slot, 'cloud-api-key');
-  if (!key) return { ok: false, reason: 'no cloud key stored' };
-  const base = (profile.cloudBase || 'https://api.openai.com/v1').replace(/\/$/, '');
-  try {
-    const res = await fetch(base + '/chat/completions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
-      body: JSON.stringify({ model: profile.cloudModel || 'gpt-4o-mini', max_tokens: 300,
-        messages: [{ role: 'system', content: `You are the Profiles agent (mode ${modeLabel}). Helpful, plain-spoken, concise. Never claim you sent, bought, deleted or published anything.` },
-          { role: 'user', content: String(query).slice(0, 1200) }] }),
-    });
-    if (!res.ok) return { ok: false, reason: 'cloud HTTP ' + res.status };
-    const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content?.trim();
-    return text ? { ok: true, text: text.slice(0, 1600), model: profile.cloudModel || 'gpt-4o-mini' } : { ok: false, reason: 'empty cloud reply' };
-  } catch (e) { return { ok: false, reason: 'cloud unreachable: ' + String(e.message).slice(0, 100) }; }
-}
 
 /* ---------------- Google OAuth (PKCE) + Docs push ---------------- */
 const pendingOAuth = new Map();

@@ -5,6 +5,8 @@
 window.__profilesUiLoaded=new Date().toISOString().slice(11,16)+" UTC";
 function $(id){ return document.getElementById(id); }
 function apiBase(){
+  if(window.__PROFILES_STANDALONE__===true) return "";
+  if(window.__PROFILES_API_BASE__) return window.__PROFILES_API_BASE__;
   try{
     var hub=(localStorage.getItem("profilesHub")||"").replace(/\/$/,"");
     if(hub) return hub;
@@ -15,7 +17,77 @@ function apiBase(){
   if(location.protocol==="tauri:" || location.protocol==="file:" || /^tauri/.test(location.hostname||"")) return "http://localhost:1420";
   return "";
 }
-function apiUrl(p){ return apiBase()+p; }
+function apiUrl(p){
+  var person=typeof state!=="undefined" && state && (state.expectSlot||state.slot);
+  return apiBase()+p+(person?(p.indexOf("?")<0?"?":"&")+"profileSlot="+encodeURIComponent(person):"");
+}
+/* ---- standalone portability: parent Rust injects window.__PROFILES_STANDALONE__ when the Node/project backend is missing. Full backend path stays unchanged; every branch below is standalone-only. ---- */
+function isStandalone(){ return window.__PROFILES_STANDALONE__===true; }
+function standaloneDefaults(){ return {name:"",buddy:"person",metaMode:"Vibes",guided:true,kids:false,advanced:false,brain:"lite",agentModel:"lite",cloudEnabled:false,cloudModel:"muse-spark-1.3-contributor",voiceOut:false,intensity:"full",privateMode:false,wholeMachine:false,piBrain:false,agentTraces:true,agentTools:false,layout:null,closedPanes:[]}; }
+function standaloneKey(s){ return "profilesStandaloneCfg_"+(s||"A"); }
+function standaloneRead(s){ try{ var raw=localStorage.getItem(standaloneKey(s)); if(raw) return Object.assign(standaloneDefaults(),JSON.parse(raw)); }catch(e){} return standaloneDefaults(); }
+function standaloneWrite(s,cfg){ try{ localStorage.setItem(standaloneKey(s),JSON.stringify(cfg||{})); }catch(e){} }
+function standaloneAppRead(){ try{ var raw=localStorage.getItem("profilesStandaloneApp"); if(raw) return Object.assign({showX:false,extraSlots:[]},JSON.parse(raw)); }catch(e){} return {showX:false,extraSlots:[]}; }
+function standaloneAppWrite(app){ try{ localStorage.setItem("profilesStandaloneApp",JSON.stringify(app||{})); }catch(e){} }
+function standalonePostApp(patch){ standaloneAppWrite(Object.assign(standaloneAppRead(),patch)); standaloneLoadApp(); return Promise.resolve(state.appCfg); }
+function standaloneUnavailable(what){ bubble((what||"That")+" needs the optional Node backend (npm start) — Basic browsing + read work now; nothing simulated.", "sys"); }
+function standaloneLoadConfig(){ var s=state.expectSlot||state.slot||"A"; var cfg=standaloneRead(s); applyConfig({profile:cfg,slot:s}); }
+function standalonePostConfig(patch){ var target=state.slot||"A"; var cfg=standaloneRead(target); if(patch&&patch.reset){ cfg=standaloneDefaults(); } if(patch&&patch.slot){ cfg=Object.assign({},cfg,patch.slot); } standaloneWrite(target,cfg); var res={profile:cfg,slot:target}; if(state.slot===target&&!state.expectSlot) applyConfig(res); return Promise.resolve(res); }
+function standaloneSwitchSlot(s){ if(s===state.slot&&!state.expectSlot) return; state.expectSlot=s; try{ localStorage.setItem("profilesStandaloneSlot",s); }catch(e){} var cfg=standaloneRead(s); applyConfig({profile:cfg,slot:s}); }
+function standaloneLoadApp(){ var ac=standaloneAppRead(); state.appCfg=ac; if($("slotX")) $("slotX").hidden=!ac.showX; if($("showXToggle")) $("showXToggle").checked=!!ac.showX; var extra=ac.extraSlots||[]; if($("slotD")) $("slotD").hidden=extra.indexOf("D")<0; if($("slotE")) $("slotE").hidden=extra.indexOf("E")<0; if($("extraSlotsToggle")) $("extraSlotsToggle").checked=extra.length>0; if(typeof updateAdvancedVisibility==="function") updateAdvancedVisibility(); if(typeof refreshProfileXStatus==="function") refreshProfileXStatus(); }
+function standaloneIsCurrentPageAsk(q){ return /\b(?:this|current|the)\s+(?:web\s*)?page\b/i.test(String(q||""))&&!/\b(?:open|navigate|visit|go to|search the web)\b/i.test(String(q||"")); }
+async function runStandalone(q){
+  state.runCount++; askBusy=true;
+  var runSlot=state.slot, startedAt=Date.now();
+  var activity=document.createElement("div"); activity.className="bubble agent agent-activity";
+  if($("chatLog")) $("chatLog").appendChild(activity);
+  if($("agentStatus")) $("agentStatus").classList.add("working");
+  if($("agentStatusText")) $("agentStatusText").textContent="Working — Basic tools";
+  function said(text,kind){ if(state.slot!==runSlot) return; clearThinking(); if(text) bubble(text,"agent"); if(kind) logLine(kind,"tool"); if($("chatLog")) $("chatLog").scrollTop=$("chatLog").scrollHeight; }
+  try{
+    var routing=null;
+    try{ routing=await import("./agent-routing.mjs"); }
+    catch(e){ said("Basic tools router is not bundled yet (agent-routing.mjs missing) — I can still open an exact URL from the address bar, or read the current page. No model was called.","router unavailable"); return; }
+    var decision=routing.decideTool(q);
+    if(!decision&&standaloneIsCurrentPageAsk(q)){ decision={tool:"browser_read",args:{}}; }
+    if(!decision){
+      said("Basic tools only (Node backend missing — no model called). I can open a site or exact URL, read the current page, or search the web and show it in the Browser pane. Models, notes, staging, and setup need npm start.","basic tools — no model");
+      return;
+    }
+    if(decision.tool==="browser_open"){
+      showPaneEl("pane-browser",true);
+      var out=await ProfilesBrowserPane.navigate(decision.args.url);
+      if(state.slot!==runSlot) return;
+      if(out&&out.ok){ said("Opened "+(out.url||decision.args.url)+" — live in the Browser pane. Say \u201cread this page\u201d and I will read what is actually displayed.","opened "+(out.url||decision.args.url)); }
+      else{ said("I could not open "+decision.args.url+" ("+((out&&out.error)||"unavailable")+"). The page was not replaced.","open failed"); }
+      return;
+    }
+    if(decision.tool==="browser_read"||decision.tool==="browser_current"){
+      var cur=decision.tool==="browser_current"?await ProfilesBrowserPane.current():await ProfilesBrowserPane.read();
+      if(state.slot!==runSlot) return;
+      if(cur&&cur.ok){ var head=(cur.title?cur.title+" — ":"")+(cur.url||""); var body=String((cur.text||"")).slice(0,900); said((decision.tool==="browser_current"?"Browser is on "+head+". ":"Currently displayed page "+head+". ")+(body||"No readable text yet — the page may still be loading."),"read current page"); }
+      else{ said("I could not read the current page ("+((cur&&cur.error)||"unavailable")+"). Open a site first, then ask again.","read failed"); }
+      return;
+    }
+    if(decision.tool==="web_search"){
+      var url="https://www.bing.com/search?q="+encodeURIComponent(decision.args.query);
+      showPaneEl("pane-browser",true);
+      var nav=await ProfilesBrowserPane.navigate(url);
+      if(state.slot!==runSlot) return;
+      if(nav&&nav.ok){ said("Searching \u201c"+decision.args.query+"\u201d — live in the Browser pane ("+(nav.url||url)+"). Tell me which result fits, or say open <site/URL>; I never auto-open the first hit.","searched "+decision.args.query); }
+      else{ said("Web search \u201c"+decision.args.query+"\u201d could not run ("+((nav&&nav.error)||"unavailable")+"). Try opening a site directly.","search failed"); }
+      return;
+    }
+    if(decision.tool==="open_result"){ said("Numbered results need the Node backend to list safely — the search page is showing in the Browser pane. Tell me the site name or exact URL and I will open it; I will not auto-open the top hit.","open_result needs backend"); return; }
+    if(decision.tool==="doc_open"){var docResult=await readDocument({url:decision.args.url});said(docResult.ok?"Opened "+docResult.title+" in the Document reader.":docResult.error,"local document reader");return;}
+    if(decision.tool==="doc_paste_hint"){showPaneEl("pane-doc",true);said("Choose a local document, enter its link, or paste text in the Document pane.","document input required");return;}
+    said("Basic tools only (Node backend missing — no model called). I can open a site or exact URL, read the current page, or search the web and show it in the Browser pane.","basic tools — no model");
+  }finally{
+    askBusy=false;
+    if($("agentStatus")) $("agentStatus").classList.remove("working");
+    if(state.slot===runSlot){ state.lastLatency=Date.now()-startedAt; if($("agentStatusText")) $("agentStatusText").textContent="Finished — Basic tools (no model)"; if(activity&&!activity.children.length) activity.remove(); }
+  }
+}
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("./sw.js").catch(function(){}); }
 function now(){ var d=new Date(); return d.toTimeString().slice(0,8); }
 
@@ -68,6 +140,7 @@ function setAvatar(buddy){
 }
 var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", expectSlot:null, layout:{order:null,hidden:["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
   stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null, traces:true, tools:false, model:null, lastLatency:0, lastTier:""};
+if(isStandalone()){try{var savedSlot=localStorage.getItem("profilesStandaloneSlot");if(/^[ABCDEX]$/.test(savedSlot||"")) state.slot=savedSlot;}catch(e){}}
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
 var PANES=["pane-chat","pane-agent","pane-browser","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"];
@@ -99,10 +172,14 @@ function applyLayout(){
     $(id).style.width=""; /* widths are flex shares now, never px (px underlapped neighbours) */
     if(sz && sz.h>0){ $(id).style.height=sz.h+"px"; } else { $(id).style.height=""; }
     var g=state.layout.cols && state.layout.cols[id];
-    if(g) $(id).style.flex=g+" 1 320px";
+    $(id).style.flex=g ? g+" 1 0px" : "";
   });
   canvas.classList.toggle("maxed", !!state.layout.maxed);
   renderPaneTabs();
+  if(browserPaneReady) {
+    ProfilesBrowserPane.setVisible(paneVisible("pane-browser") && (!state.layout.maxed || state.layout.maxed==="pane-browser"));
+    ProfilesBrowserPane.resize();
+  }
   persistLayout();
 }
 function renderPaneTabs(){
@@ -191,168 +268,76 @@ if($("trashBtn")) $("trashBtn").addEventListener("click", function(){
 document.querySelectorAll("[data-close]").forEach(function(b){
   b.addEventListener("click", function(){ hidePane(b.dataset.close); });
 });
-/* Pixel-definite view height: this engine resolves iframe percentages
-   against thin air (300x150 default), so the pane measures real pixels
-   and sets them explicitly. No percentages left to misread. */
-/* Shared live-size path: the pane reports its measured frame size and the
-   session resizes its viewport to it (POST /api/browser/size, debounced)
-   so the view maps 1:1 with no crop math. The doc pane needs no live
-   viewport — its preview is in-flow sanitized HTML — but its web loads go
-   through the same /api/proxy + slot jar. */
-var sizeReportTimer=null;
-function reportViewSize(w, h){
-  clearTimeout(sizeReportTimer);
-  sizeReportTimer=setTimeout(function(){
-    if(!paneVisible("pane-browser")) return;
-    fetch(apiUrl("/api/browser/size"),{method:"POST",headers:{"content-type":"application/json"},
-      body:JSON.stringify({w:Math.round(w), h:Math.round(h)})}).catch(function(){});
-  }, 800);
-}
-/* Viewport-stuck heal with backoff: a same-origin read proves the freeze,
-   resize nudges usually heal it; a persistent freeze reloads the frame at
-   most once per 20s (never a reload loop). No transform on #pane-browser
-   (software-render rule) — sizing is pixels only. */
-var browserHeal={n:0,last:0};
-function fitBrowserView(){
-  var pane=$("pane-browser"), view=$("browserView");
-  if(!pane || !view) return;
-  var ph=pane.getBoundingClientRect().height;
-  if(ph<120) return;
-  var used=0;
-  Array.prototype.forEach.call(pane.children, function(el){
-    if(el!==view){ var r=el.getBoundingClientRect(); used+=r.height; }
-  });
-  var want=Math.max(160, Math.round(ph-used-28));
-  var cur=parseInt(view.style.height||"0", 10);
-  if(Math.abs(want-cur)>2) view.style.height=want+"px";
-  /* belt and braces: HTML width/height attributes are honored even where
-     CSS sizing misbehaves — set them to the same measured pixels */
-  var fr=$("browserFrame");
-  if(fr){
-    var vw=Math.round(view.getBoundingClientRect().width);
-    var vh=Math.round(view.getBoundingClientRect().height);
-    if(vw>50) fr.setAttribute("width", String(vw));
-    if(vh>50) fr.setAttribute("height", String(vh));
-    if(vw>50 && vh>50) reportViewSize(vw, vh);
-    /* viewport-stuck guard: this engine can freeze an iframe viewport at
-       first-paint size; a same-origin read proves it, one reload heals it */
-    try{
-      var iw=fr.contentWindow.innerWidth||0;
-      if(vw>50 && Math.abs(iw-vw)>8){
-        fr.contentWindow.dispatchEvent(new fr.contentWindow.Event("resize"));
-        browserHeal.n++;
-        var now=Date.now();
-        if(browserHeal.n>=4 && now-browserHeal.last>20000){
-          browserHeal.last=now; browserHeal.n=0;
-          var s=fr.src; fr.src=s;
-        }
-      } else browserHeal.n=0;
-    }catch(e){}
-  }
-}
-if(window.ResizeObserver){
-  /* one observer, both panes: browser refits its frame + reports the live
-     size; the doc preview is in-flow and needs no viewport tracking. */
-  var paneRO=new ResizeObserver(function(){ fitBrowserView(); });
-  paneRO.observe(document.body);
-  if($("pane-browser")) paneRO.observe($("pane-browser"));
-  if($("pane-doc")) paneRO.observe($("pane-doc"));
-}
-/* Zoom: Ctrl/Cmd + wheel (trackpad pinch sends the same) scales the whole
-   app for readability; pages inside the browser pane zoom natively.
-   Per-device (localStorage), 50–200%, Ctrl+0 resets. */
-var appZoom=1;
-var paneZoom={};
-try{ appZoom=Math.min(2, Math.max(0.5, Number(localStorage.getItem("profilesZoom")||1)||1)); }catch(e){}
-try{ paneZoom=JSON.parse(localStorage.getItem("profilesPaneZoom")||"{}")||{}; }catch(e){ paneZoom={}; }
-function paneEl(id){ return document.getElementById(id); }
-function applyPaneZoom(id, showBadge){
-  var z=paneZoom[id]||1;
-  var el=paneEl(id);
-  if(id==="pane-browser"){
-    pageZoom=z;
-    applyPageZoom(showBadge);
-    return;
-  }
-  if(el) el.style.zoom=z;
-  try{ localStorage.setItem("profilesPaneZoom", JSON.stringify(paneZoom)); }catch(e){}
-  if(showBadge) zoomBadge((PANE_LABELS[id]||id)+" "+Math.round(z*100)+"%");
-}
-function applyAllPaneZooms(){ Object.keys(paneZoom).forEach(function(id){ applyPaneZoom(id, false); }); }
-function applyZoom(showBadge){
-  document.body.style.zoom=appZoom;
-  try{ localStorage.setItem("profilesZoom", String(appZoom)); }catch(e){}
-  if(showBadge) zoomBadge(Math.round(appZoom*100)+"%");
-}
+/* Browser content zoom never changes the surface's layout bounds. */
+var browserPaneReady=false, appZoom=1, paneZoom={}, pageZoom=1, activePane=null;
+function fitBrowserView(){ if(browserPaneReady) ProfilesBrowserPane.resize(); }
+try{ appZoom=Math.min(2,Math.max(0.5,Number(localStorage.getItem("profilesZoom"))||1)); }catch(e){}
+try{ paneZoom=JSON.parse(localStorage.getItem("profilesPaneZoom")||"{}")||{}; }catch(e){}
+try{ pageZoom=Math.min(2,Math.max(0.5,Number(localStorage.getItem("profilesPageZoom"))||1)); }catch(e){}
+paneZoom["pane-browser"]=pageZoom;
+function paneEl(id){ return $(id); }
+function clampZoom(z){ return Math.min(2,Math.max(0.5,Math.round(z*10)/10)); }
 function zoomBadge(text){
   var b=$("zoomBadge"); if(!b) return;
-  b.textContent=text;
-  b.hidden=false;
-  clearTimeout(b._t);
-  b._t=setTimeout(function(){ b.hidden=true; }, 1200);
+  b.textContent=text; b.hidden=false; clearTimeout(b._t);
+  b._t=setTimeout(function(){ b.hidden=true; },1200);
 }
-document.addEventListener("wheel", function(e){
-  if(!(e.ctrlKey||e.metaKey)) return;
+function applyPageZoom(showBadge){
+  paneZoom["pane-browser"]=pageZoom;
+  try{
+    localStorage.setItem("profilesPageZoom",String(pageZoom));
+    localStorage.setItem("profilesPaneZoom",JSON.stringify(paneZoom));
+  }catch(e){}
+  if(browserPaneReady) ProfilesBrowserPane.setZoom(pageZoom);
+  if(showBadge) zoomBadge("Browser "+Math.round(pageZoom*100)+"%");
+}
+function applyPaneZoom(id,showBadge){
+  if(id==="pane-browser"){ pageZoom=clampZoom(paneZoom[id]||pageZoom); applyPageZoom(showBadge); return; }
+  var el=$(id), z=clampZoom(paneZoom[id]||1);
+  if(el) el.style.zoom=z;
+  try{ localStorage.setItem("profilesPaneZoom",JSON.stringify(paneZoom)); }catch(e){}
+  if(showBadge) zoomBadge((PANE_LABELS[id]||id)+" "+Math.round(z*100)+"%");
+}
+function applyAllPaneZooms(){ Object.keys(paneZoom).forEach(function(id){ applyPaneZoom(id,false); }); }
+function applyZoom(showBadge){
+  document.body.style.zoom=appZoom;
+  try{ localStorage.setItem("profilesZoom",String(appZoom)); }catch(e){}
+  if(showBadge) zoomBadge("App "+Math.round(appZoom*100)+"%");
+  fitBrowserView();
+}
+function stepZoom(id,step,reset){
+  if(id==="pane-browser"){ pageZoom=reset?1:clampZoom(pageZoom+step); applyPageZoom(true); }
+  else if(id){ paneZoom[id]=reset?1:clampZoom((paneZoom[id]||1)+step); applyPaneZoom(id,true); }
+  else { appZoom=reset?1:clampZoom(appZoom+step); applyZoom(true); }
+}
+document.addEventListener("wheel",function(e){
+  if(e.defaultPrevented || !(e.ctrlKey||e.metaKey) || !e.deltaY) return;
   e.preventDefault();
-  var t=e.target;
-  var pane=t && t.closest ? t.closest(".pane") : (activePane ? $(activePane) : null);
-  var d=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
-  if(!d) return;
-  if(pane && pane.id){
-    var z=Math.min(2, Math.max(0.5, Math.round(((paneZoom[pane.id]||1)+d)*10)/10));
-    paneZoom[pane.id]=z;
-    applyPaneZoom(pane.id, true);
-    if(pane.id==="pane-browser"){
-      pageZoom=z;
-      applyPageZoom(true);
-    }
-  } else {
-    appZoom=Math.min(2, Math.max(0.5, Math.round((appZoom+d)*10)/10));
-    applyZoom(true);
-  }
-}, {passive:false});
-document.addEventListener("keydown", function(e){
-  if(!(e.ctrlKey||e.metaKey)) return;
-  if(e.key!=="0" && e.key!=="=" && e.key!=="+" && e.key!=="-" && e.key!=="_") return;
-  var t=e.target;
-  if(t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.tagName==="SELECT")) return;
+  var pane=e.target.closest && e.target.closest(".pane");
+  stepZoom(pane?pane.id:null,e.deltaY<0?0.1:-0.1,false);
+},{passive:false});
+document.addEventListener("keydown",function(e){
+  if(e.defaultPrevented || !(e.ctrlKey||e.metaKey) || !/^(0|=|\+|-|_)$/.test(e.key)) return;
   e.preventDefault();
-  if(e.key==="0"){
-    appZoom=1; paneZoom={}; pageZoom=1;
-    applyAllPaneZooms();
-    try{ localStorage.setItem("profilesPaneZoom","{}"); }catch(e2){}
-    applyZoom(true);
-    try{ var _doc=$("browserFrame").contentDocument; if(_doc&&_doc.body) _doc.body.style.zoom=1; }catch(e3){}
-    return;
-  }
-  var d=(e.key==="-"||e.key==="_")?-0.1:0.1;
-  var targetPane = (activePane && paneEl(activePane)) ? activePane : null;
-  if(targetPane){
-    var z=Math.min(2,Math.max(0.5,Math.round(((paneZoom[targetPane]||1)+d)*10)/10));
-    paneZoom[targetPane]=z; applyPaneZoom(targetPane, true);
-    if(targetPane==="pane-browser"){
-      pageZoom=z;
-      applyPageZoom(true);
-    }
-  } else {
-    appZoom=Math.min(2,Math.max(0.5,Math.round((appZoom+d)*10)/10));
-    applyZoom(true);
-  }
+  var pane=e.target.closest && e.target.closest(".pane");
+  stepZoom(pane?pane.id:activePane,(e.key==="-"||e.key==="_")?-0.1:0.1,e.key==="0");
 });
-window.addEventListener("keyup", function(e){
-  if(!e.ctrlKey && !e.metaKey){
-    var fr=$("browserFrame");
-    if(fr) fr.style.pointerEvents="";
-  }
+document.addEventListener("pointerdown",function(e){
+  var pane=e.target.closest && e.target.closest(".pane"); activePane=pane?pane.id:null;
+},true);
+document.addEventListener("focusin",function(e){
+  var pane=e.target.closest && e.target.closest(".pane"); activePane=pane?pane.id:null;
 });
-window.addEventListener("blur", function(){
-  var fr=$("browserFrame");
-  if(fr) fr.style.pointerEvents="";
+window.addEventListener("profiles-browser-zoom-step",function(e){
+  if(e.detail===0.1||e.detail===-0.1) stepZoom("pane-browser",e.detail,false);
+});
+window.addEventListener("profiles-browser-zoom",function(e){
+  var value=Number(e.detail && (e.detail.zoom || e.detail));
+  if(Number.isFinite(value)){ pageZoom=clampZoom(value); paneZoom["pane-browser"]=pageZoom; try{localStorage.setItem("profilesPageZoom",String(pageZoom));localStorage.setItem("profilesPaneZoom",JSON.stringify(paneZoom));}catch(e){} }
 });
 applyZoom(false);
-window.addEventListener("resize", function(){ setTimeout(fitBrowserView, 120); });
 function showPaneEl(id, silent){
-  if(id==="pane-browser"){ nudgeSoon(500); setTimeout(fitBrowserView, 150); }
+  if(id==="pane-browser") setTimeout(fitBrowserView,0);
   state.layout.hidden=state.layout.hidden.filter(function(x){ return x!==id; });
   state.layout.minimised=(state.layout.minimised||[]).filter(function(x){ return x!==id; });
   var el=$(id);
@@ -499,11 +484,18 @@ document.addEventListener("keydown", function(e){
        row adapt (that is the whole point of flex). Never a fixed px
        width — that is what underlapped the next pane. */
     if(dir.indexOf("e")>=0 || dir.indexOf("w")>=0){
-      var delta=(dir.indexOf("e")>=0 ? dx : -dx);
-      var grow=Math.max(.45, Math.min(4.2, (startW+delta)/420));
-      el.style.flex=grow.toFixed(2)+" 1 320px";
-      state.layout.cols=state.layout.cols||{};
-      state.layout.cols[el.id]=Number(grow.toFixed(2));
+      var row=resizing && resizing.row;
+      if(row && row.length>1){
+        var delta=(dir.indexOf("e")>=0 ? dx : -dx);
+        var total=resizing.rowWidth, peerWidth=total-startW;
+        var target=Math.max(Math.min(400,startW),Math.min(total-400*(row.length-1),startW+delta));
+        state.layout.cols=state.layout.cols||{};
+        row.forEach(function(peer){
+          var weight=peer.id===el.id ? target : peer.width*(total-target)/peerWidth;
+          $(peer.id).style.flex=weight+" 1 0px";
+          state.layout.cols[peer.id]=weight;
+        });
+      }
     }
     var h=startH;
     if(dir.indexOf("s")>=0) h=startH+dy;
@@ -546,6 +538,10 @@ document.addEventListener("keydown", function(e){
   function startResize(pane, dir, e){
     var r=pane.getBoundingClientRect();
     resizing={id:pane.id, dir:dir, startX:e.clientX, startY:e.clientY, startW:r.width, startH:r.height};
+    resizing.row=Array.from(document.querySelectorAll(".canvas > .pane")).map(function(peer){
+      var box=peer.getBoundingClientRect();return {id:peer.id,width:box.width,top:box.top};
+    }).filter(function(peer){return peer.width>0 && Math.abs(peer.top-r.top)<4;});
+    resizing.rowWidth=resizing.row.reduce(function(sum,peer){return sum+peer.width;},0);
     dragId=null;
     try{ pane.setPointerCapture(e.pointerId); }catch(err){}
     pane.style.cursor=CURSORS[dir]||"nwse-resize";
@@ -602,6 +598,7 @@ document.addEventListener("keydown", function(e){
       if(resizing && resizing.id===pane.id){
         var dx=e.clientX-resizing.startX, dy=e.clientY-resizing.startY;
         applyResize(pane, resizing.dir, dx, dy, resizing.startW, resizing.startH);
+        e.stopPropagation();
         return;
       }
       if((!e.buttons || (e.buttons&1)===0) && (!e.pointerType || e.pointerType==="mouse")){
@@ -698,8 +695,7 @@ function layoutCommand(q){
 }
 function persistLayout(){
   if(!state.cfg) return;
-  fetch(apiUrl("/api/config"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({slot:{layout:state.layout}})}).catch(function(){});
+  postConfig({slot:{layout:state.layout}}).catch(function(){});
 }
 
 /* ---- profiles: instant var swap, nothing reflows ---- */
@@ -713,6 +709,7 @@ function setMode(mode, why, opts){
   }
   var segway=opts&&opts.segway;
   var explicit=!!(opts&&opts.explicit);
+  if(explicit) state.modeExplicit=true;
   /* STICKY-CALM: calm is a manual panic button. Leaving it takes an explicit
      hand (pill click / keys 1-6); adaptive, learned-auto, slot-settle,
      pack-engine and boot-restore never pull out. Entering calm always works. */
@@ -765,16 +762,32 @@ function updateXmaxVisibility(){
 document.querySelectorAll(".pills button").forEach(function(b){
   b.addEventListener("click", function(){ setMode(b.dataset.profile, "you switched", {explicit:true}); });
 });
-document.addEventListener("keydown", function(e){
-  if(e.target && (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")) return;
-  if(e.metaKey||e.ctrlKey||e.altKey) return;
-  var map={"1":"babylite","2":"chill","3":"FOCUSMAX","4":"Vibes","5":"calm","6":"xMAX"};
-  if(map[e.key]){ setMode(map[e.key], "key "+e.key, {segway:true,explicit:true}); return; }
-  var k=String(e.key||"").toLowerCase();
-  var slotMap={a:"A",b:"B",c:"C",x:"X"};
-  if(slotMap[k]){ switchSlot(slotMap[k]); stream("profile → "+slotMap[k]+" (key "+k+")"); return; }
+var superArmedUntil=0;
+function profileShortcut(key){
+  var k=String(key||"").toLowerCase();
+  var map={"1":"babylite","2":"chill","3":"FOCUSMAX","4":"Vibes","5":"calm","6":"xMAX"}, slots={a:"A",b:"B",c:"C",x:"X"};
+  if(map[k]){
+    if(map[k]==="xMAX" && !profileXOn()) return false;
+    setMode(map[k],"keyboard",{segway:true,explicit:true}); return true;
+  }
+  if(slots[k]){
+    var button=$("slot"+slots[k]); if(!button || button.hidden) return false;
+    switchSlot(slots[k]); return true;
+  }
+  return false;
+}
+document.addEventListener("keydown",function(e){
+  if(e.key==="Meta"||e.key==="OS"){ superArmedUntil=Date.now()+1500; return; }
+  if((e.metaKey || Date.now()<superArmedUntil) && profileShortcut(e.key)){
+    superArmedUntil=0; e.preventDefault(); e.stopPropagation(); return;
+  }
+  if(e.ctrlKey||e.altKey||e.metaKey||e.defaultPrevented) return;
+  if(e.target && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) return;
+  if(profileShortcut(e.key)){ e.preventDefault(); return; }
   if(e.key==="/"){ e.preventDefault(); focusPane("pane-chat"); $("ask").focus(); }
-});
+},true);
+window.addEventListener("blur",function(){ superArmedUntil=0; });
+window.addEventListener("profiles-browser-shortcut",function(e){if(e.detail && e.detail.slot && e.detail.slot!==state.slot) return;profileShortcut(e.detail && (e.detail.key || e.detail));});
 
 /* ---- chat: answers are bubbles; agent log is detail ---- */
 function clearThinking(){ var t=$("thinkingBubble"); if(t) t.remove(); }
@@ -786,9 +799,21 @@ function bubble(text, who){
   var log=$("chatLog");
   log.appendChild(d);
   while(log.children.length>60) log.removeChild(log.firstChild);
-  log.scrollTop=log.scrollHeight;
+  followLatestChat();
   if(who==="agent" && state.speak) speakText(text);
 }
+var chatFollow=true, chatWidth=$("chatLog").clientWidth, chatHeight=$("chatLog").clientHeight;
+function followLatestChat(){chatFollow=true;var log=$("chatLog");log.scrollTop=log.scrollHeight;}
+$("chatLog").addEventListener("scroll",function(){
+  var log=$("chatLog");
+  if(log.clientWidth===chatWidth && log.clientHeight===chatHeight)
+    chatFollow=log.scrollHeight-log.scrollTop-log.clientHeight<24;
+},{passive:true});
+new ResizeObserver(function(){
+  var log=$("chatLog");
+  if(chatFollow) log.scrollTop=log.scrollHeight;
+  chatWidth=log.clientWidth;chatHeight=log.clientHeight;
+}).observe($("chatLog"));
 var STAGES=["sense","plan","act","verify","remember"];
 function paintStages(cur){
   document.querySelectorAll("#stages span").forEach(function(c){
@@ -817,102 +842,107 @@ function logLine(text, kind){
   applyToggleVisibility();
 }
 
-/* simulated fallback (labelled) — only when the sidecar is unreachable */
-/* Honest failure path: the agent NEVER fakes an answer. On a failed
-   ask it says so, retries once by itself, and only then asks you to
-   retry. Nothing is filed, nothing staged, no invented reply. */
-var askRetries={};
-function askFailed(q, err){
-  clearThinking();
-  paintStages(-1);
-  $("agentStatus").classList.remove("working");
-  var n=(askRetries[q]||0)+1; askRetries[q]=n;
-  logLine("! ask failed ("+String((err&&err.message)||err||"unknown").slice(0,120)+") — attempt "+n);
-  if(n<=1){
-    $("agentStatusText").textContent="connection hiccup — retrying…";
-    bubble("Connection hiccup — retrying your ask by itself…", "sys");
-    setTimeout(function(){
-      state.agentOk=true;
-      runReal(q, true);
-    }, 2500);
-    return;
-  }
-  askRetries[q]=0; /* terminal: fresh budget for future asks */
-  $("agentStatusText").textContent="idle — that ask did not go through";
-  bubble("That one did not go through — the connection dropped it, and I did not file or stage anything. Tap Go again to retry.", "agent");
-  stream("ask failed honestly — nothing filed, nothing faked");
-}
-/* ---- real sidecar: always on, chat-first ----
-   Smooth by design: one in-flight ask at a time (abort + replace),
-   30s timeout, busy lock on Go, tool results paint instantly. */
+/* Events are painted when received, never replayed as simulated thinking. */
 var askCtrl=null, askBusy=false;
-function runReal(q, isRetry){
-  state.runCount++;
-  if(askCtrl){ try{ askCtrl.abort(); }catch(e){} }
-  askCtrl=(typeof AbortController!=="undefined") ? new AbortController() : null;
-  var askTimer=setTimeout(function(){ if(askCtrl){ try{ askCtrl.abort(); }catch(e){} } }, 30000);
-  askBusy=true;
-  var goBtn=$("askGo"); if(goBtn) goBtn.disabled=true;
+function selectedModelKey(){var c=state.cfg||{};return JSON.stringify([c.agentModel,c.cloudEnabled,c.cloudModel,c.cloudBase,c.localBase,c.localModel,c.modelFile,c.localSource]);}
+async function runReal(q){
+  if(isStandalone()) return;
+  state.runCount++; askBusy=true;
+  var runSlot=state.slot, startedAt=Date.now(), controller=new AbortController();
+  var runModelKey=selectedModelKey();
+  var runDocGeneration=docRequestGeneration;
+  askCtrl=controller;
+  var timer=setTimeout(function(){ controller.abort(); },120000);
+  var activity=document.createElement("div"); activity.className="bubble agent agent-activity";
+  $("chatLog").appendChild(activity);
   $("agentStatus").classList.add("working");
-  $("agentStatusText").textContent="working on \u201c"+q+"\u201d — "+((state.model&&state.model.name)||"lite agent")+" \u00b7 "+MODES[state.mode].label;
-  paintStages(-1);
-  logLine("\u201c"+q+"\u201d \u00b7 "+MODES[state.mode].label+" \u00b7 "+((state.model&&state.model.name)||"lite agent"));
-  fetch(apiUrl("/api/ask"),{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({query:q,mode:state.mode,device:"desktop"}),signal:askCtrl?askCtrl.signal:undefined})
-  .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
-  .then(function(res){
-    clearTimeout(askTimer);
-    askBusy=false; if(goBtn) goBtn.disabled=false;
-    if(!res || !res.events){ throw new Error("bad agent reply"); }
-    var i=0, tickMs=MODES[state.mode].motion===0?500:220;
-    var askedAt=Date.now();
-    var firstEv=false;
-    (function next(){
-      if(i>=res.events.length){
-        paintStages(99);
-        $("agentStatus").classList.remove("working");
-        $("agentStatusText").textContent="done \u2713 — answer in chat, detail here";
-        askRetries[q]=0;
-        bubble(res.chat || res.result || "Done.", "agent");
-        if(res.model) paintBadge(res.model);
-        state.lastLatency=Date.now()-askedAt; state.lastTier=(res.pick&&res.pick.tier)||"";
-        if(res.ui && res.ui.browser){ try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
-        if(res.ui && res.ui.showPane){
-          showPaneEl(res.ui.showPane, true);
-          if(res.ui.doc){ try{ renderDocPreview(res.ui.doc); }catch(e){} try{ loadStaged(); }catch(e){} }
-          else if(!res.ui.browser) setTimeout(function(){ if(!browserLoaded) browserShow({ok:true, url:"https://www.bing.com"}); }, 600);
-          else { try{ browserShow(res.ui.browser, res.ui.browser.url); }catch(e){} }
-        }
-        if(res.setup){ renderSetup(res.setup, res.capabilities); showPane("pane-setup"); }
-        if(res.staged){ bubble("Staged \u201c"+res.staged.title+"\u201d — see the Document pane.", "sys"); loadStaged(); }
-        if(res.macroCreated){ bubble("You have asked that 3 times, so I scripted it: \u201c"+res.macroCreated.id+"\u201d is now a one-tap macro below the chat — instant, no thinking loop. Delete its file in vault/macros/ any time to unlearn.", "sys"); loadMacros(); }
-        try{ stream("run #"+state.runCount+" \u2713 \u201c"+q+"\u201d — "+res.pick.tier+" \u00b7 "+res.intent.kind); }catch(e){}
-        return;
+  $("agentStatusText").textContent="Working — "+((state.model&&state.model.name)||"basic tools");
+  function eventReceived(ev){
+    if(state.slot!==runSlot) return;
+    clearThinking();
+    var kind=ev.kind || (ev.type==="tool"?"tool":"trace");
+    logLine(ev.text,kind); paintStages(STAGES.indexOf(ev.stage));
+    var row=document.createElement("div"); row.dataset.kind=kind; row.className="agent-event";
+    row.textContent=ev.text; activity.appendChild(row);
+    followLatestChat();
+  }
+  try{
+    if(window.ProfilesNativeBrowser && ProfilesNativeBrowser.available){
+      var browserReady=false, readyUntil=Date.now()+5000;
+      while(Date.now()<readyUntil){
+        if(state.slot!==runSlot) return;
+        var health=await fetch(apiUrl("/api/health"),{signal:controller.signal}).then(function(r){return r.json();});
+        if(health.nativeBrowserReady){browserReady=true;break;}
+        await new Promise(function(resolve){setTimeout(resolve,100);});
       }
-      var ev=res.events[i++];
-      if(!firstEv){ firstEv=true; clearThinking(); if(res.model) paintBadge(res.model); }
-      paintStages(STAGES.indexOf(ev.stage));
-      if(MODES[state.mode].speech!=="quiet" || ev.stage==="remember") logLine(ev.text);
-      setTimeout(next, tickMs);
-    })();
-  })
-  .catch(function(err){
-    clearTimeout(askTimer);
-    askBusy=false; if(goBtn) goBtn.disabled=false;
-    if(err && err.name==="AbortError"){
-      $("agentStatus").classList.remove("working");
-      $("agentStatusText").textContent="that took too long — try a shorter ask";
-      bubble("That took too long (30s) so I stopped it — nothing was filed twice. Try a shorter ask, or “open browser on bbc news” for a quick tool check.", "agent");
-      logLine("! ask timed out after 30s — aborted cleanly");
-      return;
+      if(!browserReady) throw new Error("The displayed browser has not connected yet. No action was sent.");
     }
+    var response=await fetch(apiUrl("/api/ask/stream"),{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({query:q,mode:state.mode,device:"desktop"}),signal:controller.signal});
+    if(!response.ok) throw new Error("HTTP "+response.status);
+    var finalReply=null, buffer="";
+    function consume(line){
+      if(!line.trim()) return;
+      var item=JSON.parse(line);
+      if(item.type==="event") eventReceived(item.event);
+      if(item.type==="result") finalReply=item.result;
+      if(item.type==="error") throw new Error(item.error);
+    }
+    if(response.body && response.body.getReader){
+      var reader=response.body.getReader(), decoder=new TextDecoder();
+      for(;;){
+        var chunk=await reader.read();
+        if(chunk.done) break;
+        buffer+=decoder.decode(chunk.value,{stream:true});
+        var lines=buffer.split("\n"); buffer=lines.pop(); lines.forEach(consume);
+      }
+      buffer+=decoder.decode(); if(buffer) consume(buffer);
+    }else (await response.text()).split("\n").forEach(consume);
+    if(!finalReply) throw new Error("Agent connection ended without a result");
+    if(state.slot!==runSlot) return;
+    var res=finalReply;
+    paintStages(99);
+    bubble(res.chat || res.result || res.error || "No answer was returned.","agent");
+    if((res.selectedModel || res.model) && runModelKey===selectedModelKey()) paintBadge(res.selectedModel || res.model);
+    state.lastLatency=Date.now()-startedAt; state.lastTier=(res.pick&&res.pick.tier)||"";
+    if(res.ui && res.ui.showPane) showPaneEl(res.ui.showPane,true);
+    if(res.ui && res.ui.browser) browserShow(res.ui.browser);
+    if(res.ui && res.ui.doc && runDocGeneration===docRequestGeneration){ renderDocPreview(res.ui.doc); loadStaged(); }
+    if(res.setup){ renderSetup(res.setup,res.capabilities); showPane("pane-setup"); }
+    if(res.staged) loadStaged();
+    if(res.macroCreated) loadMacros();
+    $("agentStatusText").textContent="Finished — "+((res.model&&res.model.name)||"basic tools");
+  }catch(error){
+    if(state.slot===runSlot){
+      clearThinking();
+      bubble(error.name==="AbortError"?"The connection timed out. Check the current page before retrying; an action may already have completed.":"Agent error: "+error.message,"agent");
+      $("agentStatusText").textContent="Stopped — "+(error.message||"connection error");
+    }
+  }finally{
+    clearTimeout(timer); askBusy=false;
     $("agentStatus").classList.remove("working");
-    askFailed(q, err);
-  });
+    if(!activity.children.length) activity.remove();
+  }
 }
 function ask(q){
+  if(isStandalone()){
+    q=(q||"").trim();
+    if(!q) return;
+    if(askBusy){ bubble("The current request is still running. Its activity is shown below.","sys"); return; }
+    bubble(q,"me");
+    var think0=document.createElement("div");
+    think0.className="bubble agent thinking"; think0.id="thinkingBubble"; think0.textContent="thinking";
+    $("chatLog").appendChild(think0); $("chatLog").scrollTop=$("chatLog").scrollHeight;
+    if(/\b(re-?organi[sz]e|tidy|sort out)\b.*\b(this|canvas|layout|panes|page)\b/i.test(q)||/^re-?organi[sz]e this/i.test(q)){ reorganise(); return; }
+    if(/^open (browse|browsing)$/i.test(q)||/^let'?s browse/i.test(q)){ goHome("browse"); return; }
+    if(/^open work/i.test(q)||/^work mode/i.test(q)){ goHome("work"); return; }
+    if(layoutCommand(q)) return;
+    if(/^save all this/i.test(q)||/^save.*for another day/i.test(q)){ standaloneUnavailable("Snapshots"); clearThinking(); return; }
+    runStandalone(q); return;
+  }
   q=(q||"").trim();
   if(!q) return;
+  if(askBusy){ bubble("The current request is still running. Its activity is shown below.","sys"); return; }
   bubble(q, "me");
   var think=document.createElement("div");
   think.className="bubble agent thinking"; think.id="thinkingBubble"; think.textContent="thinking";
@@ -930,7 +960,7 @@ function ask(q){
     }).catch(function(){ bubble("I tried to snapshot but the sidecar is unreachable — run npm start and ask again.", "agent"); });
     return;
   }
-  runReal(q); /* askFailed() owns every failure — never a fake answer */
+  runReal(q);
 }
 $("askForm").addEventListener("submit", function(e){
   e.preventDefault();
@@ -979,6 +1009,7 @@ function renderSetup(plan, caps){
     " · llama.cpp "+(caps.llamaCpp?"found":"missing")+" · models: "+(caps.modelsPresent.join(", ")||"none yet");
 }
 function runSetupStep(id, btn){
+  if(isStandalone()){ standaloneUnavailable("Setup steps"); btn.textContent="Run step"; btn.disabled=false; return; }
   btn.textContent="running…"; btn.disabled=true;
   fetch(apiUrl("/api/setup/run/"+id),{method:"POST"}).then(function(r){ return r.json(); }).then(function(res){
     if(res && res.ok===false) bubble("Step "+id+" could not finish: "+(res.error||"unknown")+" — nothing was changed.", "agent");
@@ -990,6 +1021,7 @@ function runSetupStep(id, btn){
   }).catch(function(){ bubble("Setup step failed — is npm start running?", "agent"); loadSetup(); });
 }
 function loadSetup(){
+  if(isStandalone()){ var bx=$("setupSteps"); if(bx) bx.innerHTML="<p class=\"small\">Setup needs the optional Node backend (npm start). Basic browsing and read work now; nothing is simulated.</p>"; if($("capLine")) $("capLine").textContent="Standalone — Node backend missing."; return; }
   fetch(apiUrl("/api/setup/plan")).then(function(r){ return r.json(); }).then(function(res){
     renderSetup(res.plan, res.capabilities);
   }).catch(function(){});
@@ -1061,9 +1093,14 @@ function applyConfig(res){
   /* Persisted layout applies ONCE (first load / world switch). Re-applying
      it on every config save was the trash-recover data-loss bug: recover
      un-hid the pane locally, then the save response clobbered it back. */
-  if(!state.layoutInit){ state.layoutInit=true; state.layoutAppliedOnce=true; } /* first config sighting: local layout is authoritative from here */
-  if(slot.layout && (slotChanged || !state.layoutAppliedOnce)){
-    state.layout={order:slot.layout.order||null, hidden:slot.layout.hidden||["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"], maxed:null, sizes:slot.layout.sizes||null};
+  if(slotChanged || !state.layoutAppliedOnce){
+    var savedLayout=slot.layout||{};
+    state.layout={
+      order:savedLayout.order||null,
+      hidden:(savedLayout.hidden||["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"]).slice(),
+      minimised:(savedLayout.minimised||[]).slice(), maxed:savedLayout.maxed||null,
+      sizes:savedLayout.sizes||{}, cols:savedLayout.cols||{}
+    };
     state.layoutAppliedOnce=true;
     applyLayout();
   }
@@ -1071,30 +1108,49 @@ function applyConfig(res){
   /* BOOT ORDER: ?mode= wins once (one-shot), then the slot's own persisted
      memory, then the Vibes default. calm is sticky — slot-settle never
      pulls out of it, even on a world switch. */
-  if(canonMeta && canonMeta!==state.mode && !state.urlMode && state.mode!=="calm") setMode(canonMeta, "this profile settles here"); /* sticky-calm: settle */
+  if(canonMeta && canonMeta!==state.mode && !state.urlMode && (!state.modeExplicit || slotChanged) && state.mode!=="calm") setMode(canonMeta,"this profile settles here");
   state.urlMode=false; /* sticky-calm: one-shot — ?mode= is consumed by the first config sighting */
   updateXmaxVisibility();
+  var selected=slot.agentModel || (slot.cloudEnabled?"cloud":((slot.localBase||slot.modelFile||slot.brain==="local-model")?"local":"lite"));
+  paintBadge({name:selected==="cloud"?(slot.cloudModel||"muse-spark-1.3-contributor"):selected==="local"?(slot.localSource==="file"?(slot.modelFile||"Local model"):(slot.localModel||slot.modelFile||"Local model")):"Basic tools (no model)",via:selected});
   if(slotChanged) resetWorldView(slot);
   if(slotChanged && state.slot==="X") bubble("⚡ Profile X — ringfenced power world. Extensible pi + durable, deeper access where this device allows, advised brain: PC-standard or better. A and B cannot see or touch any of this, and X cannot touch them.", "agent");
 }
 /* zero carry-across: a slot switch rebuilds every pane from that slot only */
 function resetWorldView(slot){
+  docRequestGeneration++;
+  if(window.ProfilesDocumentReader) ProfilesDocumentReader.close();
+  ["docUrl","docPaste","docFile"].forEach(function(id){if($(id)) $(id).value="";});
+  if($("docPreview")) $("docPreview").textContent="";
   $("chatLog").textContent=""; $("agentLog").textContent=""; $("stream").textContent=""; $("ledger").textContent="";
   paintStages(-1);
   bubble("This is a different person's Profiles — own name, own vault, own memory, own macros. Nothing carried across. "+(slot.name?("Hello, "+slot.name+"."):"Tell me your name and pick a buddy, and this side is yours."), "agent");
   seed(); loadStaged(); loadMacros(); loadSnaps(); loadNotes();
-  $("agentStatusText").textContent="lite agent on — this profile only";
+  if(browserPaneReady) ProfilesBrowserPane.switchSlot();
+  lastBrowserUrl=""; $("urlInput").value="";
+  $("agentStatusText").textContent="Ready — this profile only";
 }
 function loadConfig(){
+  if(isStandalone()){ standaloneLoadConfig(); return; }
   fetch(apiUrl("/api/config")).then(function(r){ return r.json(); }).then(applyConfig).catch(function(){});
 }
+var configQueue=Promise.resolve();
 function postConfig(patch){
-  fetch(apiUrl("/api/config"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(patch)})
-    .then(function(r){ return r.json(); }).then(applyConfig).catch(function(){});
+  if(isStandalone()) return standalonePostConfig(patch);
+  var targetSlot=state.slot;
+  var payload=JSON.stringify(Object.assign({},patch,{slotId:targetSlot}));
+  configQueue=configQueue.catch(function(){}).then(function(){
+    return fetch(apiUrl("/api/config"),{method:"POST",headers:{"content-type":"application/json"},body:payload})
+      .then(function(r){ if(!r.ok) throw new Error("Could not save profile"); return r.json(); })
+      .then(function(res){ if(state.slot===targetSlot && !state.expectSlot) applyConfig(res); return res; });
+  });
+  return configQueue;
 }
 function switchSlot(slot){
-  if(slot===state.slot) return;
+  if(isStandalone()){ standaloneSwitchSlot(slot); return; }
+  if(slot===state.slot && !state.expectSlot) return;
   state.expectSlot=slot; /* sticky-calm: stale-slot */
+  state.modeExplicit=false;
   fetch(apiUrl("/api/slot"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({slot:slot})})
     .then(function(r){ return r.json(); }).then(function(){ loadConfig(); })
     .catch(function(){ state.expectSlot=null; bubble("Could not switch profiles — is npm start running?", "sys"); });
@@ -1103,6 +1159,7 @@ function switchSlot(slot){
   var b=$("slot"+L); if(b) b.addEventListener("click", function(){ switchSlot(L); });
 });
 function loadAppConfig(){
+  if(isStandalone()){ standaloneLoadApp(); return; }
   fetch(apiUrl("/api/appconfig")).then(function(r){ return r.json(); }).then(function(ac){
     state.appCfg=ac;
     $("slotX").hidden=!ac.showX;
@@ -1117,6 +1174,7 @@ function loadAppConfig(){
   }).catch(function(){});
 }
 function postAppConfig(patch){
+  if(isStandalone()) return standalonePostApp(patch);
   fetch(apiUrl("/api/appconfig"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(patch)})
     .then(function(){ loadAppConfig(); }).catch(function(){});
 }
@@ -1142,6 +1200,7 @@ function updateAdvancedVisibility(){
   if(st && on) st.textContent="Profile X is on — all power features enabled, private rollback repo ready. A/B/C stay sandboxed.";
 }
 function refreshProfileXStatus(){
+  if(isStandalone()){ var elx=$("profileXStatus"); if(elx) elx.textContent="Advanced power tools are hidden until you opt in (needs Node backend)."; if(typeof updateAdvancedVisibility==="function") updateAdvancedVisibility(); return; }
   fetch(apiUrl("/api/profilex/status")).then(function(r){ return r.json(); }).then(function(st){
     var el=$("profileXStatus");
     if(!el) return;
@@ -1154,6 +1213,7 @@ function refreshProfileXStatus(){
   }).catch(function(){});
 }
 if($("profileXEnable")) $("profileXEnable").addEventListener("click", function(){
+  if(isStandalone()){ standaloneUnavailable("Profile X"); return; }
   fetch(apiUrl("/api/profilex/disclaimer")).then(function(r){ return r.json(); }).then(function(out){
     if(out&&out.disclaimer) $("profileXText").textContent=out.disclaimer;
   }).catch(function(){});
@@ -1165,6 +1225,7 @@ if($("profileXCancel")) $("profileXCancel").addEventListener("click", function()
 });
 if($("profileXConfirm")) $("profileXConfirm").addEventListener("click", function(){
   var btn=$("profileXConfirm");
+  if(isStandalone()){ standaloneUnavailable("Profile X"); btn.textContent="I understand — turn everything on"; btn.disabled=false; return; }
   btn.textContent="Turning on…"; btn.disabled=true;
   fetch(apiUrl("/api/profilex/activate"),{method:"POST"}).then(function(r){ return r.json(); }).then(function(out){
     btn.textContent="I understand — turn everything on"; btn.disabled=false;
@@ -1190,16 +1251,19 @@ $("privateToggle").addEventListener("change", function(e){
 });
 $("kidsToggle").addEventListener("change", function(e){ postConfig({slot:{kids:e.target.checked}}); bubble(e.target.checked?"Kids mode on — simpler, advanced bits hidden.":"Kids mode off.", "sys"); });
 if($("wholeMachineToggle")) $("wholeMachineToggle").addEventListener("change", function(e){
+  if(isStandalone()){ e.target.checked=false; standaloneUnavailable("Whole-machine reach"); return; }
   postConfig({slot:{wholeMachine:e.target.checked}});
   bubble(e.target.checked
     ? "Whole-machine reach ON for Profile X only. Pi's desk is now your home directory inside X. A/B/C remain ringfenced. Turn it off the moment you are done."
     : "Whole-machine reach off — X is ringfenced to its vault again.", "sys");
 });
 if($("piBrainToggle")) $("piBrainToggle").addEventListener("change", function(e){
+  if(isStandalone()){ e.target.checked=false; standaloneUnavailable("Pi brain"); return; }
   postConfig({slot:{piBrain:e.target.checked}});
   bubble(e.target.checked?"Pi brain enabled for this profile — only works inside Profile X, where it belongs.":"Pi brain off — lite agent only.", "sys");
 });
 $("advancedToggle").addEventListener("change", function(e){
+  if(isStandalone()){ e.target.checked=false; if($("advancedLine")) $("advancedLine").textContent="Off — advanced tools need the optional Node backend."; standaloneUnavailable("Advanced tools"); return; }
   postConfig({slot:{advanced:e.target.checked}});
   $("advancedLine").textContent=e.target.checked
     ? "ON — power tools unlocked, still checkpointed and confirmed per action. Whole-machine access lives here, never in day-to-day panes."
@@ -1212,13 +1276,16 @@ if($("intensitySel")) $("intensitySel").addEventListener("change", function(e){
 });
 $("resetSlot").addEventListener("click", function(){
   postConfig({reset:true});
+  if(isStandalone()){ bubble("Reset done — this slot is back to local defaults (no backend snapshot in standalone).", "agent"); return; }
   bubble("Reset done — a snapshot was taken first, so nothing is lost. This slot is back to cosy defaults.", "agent");
   loadSnaps();
 });
 $("snapNow").addEventListener("click", function(){
+  if(isStandalone()){ standaloneUnavailable("Snapshots"); return; }
   fetch(apiUrl("/api/snapshots"),{method:"POST"}).then(function(r){ return r.json(); }).then(function(){ bubble("Snapshot saved.", "sys"); loadSnaps(); });
 });
 function loadSnaps(){
+  if(isStandalone()){ var nb=$("snapList"); if(nb) nb.textContent=""; return; }
   fetch(apiUrl("/api/snapshots")).then(function(r){ return r.json(); }).then(function(res){
     var box=$("snapList"); box.textContent="";
     (res.snapshots||[]).slice(0,5).forEach(function(s){
@@ -1270,6 +1337,7 @@ function renderSessions(list){
   });
 }
 function loadSessions(){
+  if(isStandalone()){ renderSessions([]); return; }
   fetch(apiUrl("/api/snapshots")).then(function(r){ return r.json(); }).then(function(res){
     renderSessions(res.snapshots||[]);
   }).catch(function(){});
@@ -1281,6 +1349,7 @@ if($("sessBtn")) $("sessBtn").addEventListener("click", function(){
   if(open) loadSessions();
 });
 if($("sessSave")) $("sessSave").addEventListener("click", function(){
+  if(isStandalone()){ standaloneUnavailable("Saved sessions"); return; }
   var name=$("nameInput") ? $("nameInput").value : "";
   var label=($("sessName").value||"").trim() || ("moment "+new Date().toLocaleString());
   fetch(apiUrl("/api/snapshots"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({label:label})})
@@ -1293,6 +1362,7 @@ if($("sessSave")) $("sessSave").addEventListener("click", function(){
 
 /* ---- staged docs ---- */
 function loadStaged(){
+  if(isStandalone()){ var sb=$("stageList"); if(sb) sb.innerHTML="<p class=\"empty\">Staging needs the optional Node backend — nothing staged offline.</p>"; return; }
   fetch(apiUrl("/api/stage")).then(function(r){ return r.json(); }).then(function(res){
     var box=$("stageList"); if(!box) return;
     box.textContent="";
@@ -1318,15 +1388,21 @@ function loadStaged(){
   }).catch(function(){});
 }
 $("stageRefresh").addEventListener("click", loadStaged);
-/* ---- document Read/Write: paste text/markdown/HTML/URL -> sanitized
-   preview + staged draft. URL loads go through /api/proxy (same framing
-   proxy + slot cookie jar as the browser); heavy .pdf/.docx/.pptx get the
-   honest fallback (staged pointer + export/open-external), never a faked
-   render. No auth, no websockets. Work-app tiles stay shell links that
-   open inside the Browser pane. */
+/* Local reading uses real PDF/Office/text parsers. Pasted writing still
+   stages through the backend for Markdown/DOCX export when available. */
+var docRequestGeneration=0;
+function readDocument(options){
+  docRequestGeneration++;
+  showPaneEl("pane-doc",true);
+  options.preview=$("docPreview"); options.status=$("docStatus"); options.apiUrl=apiUrl;
+  return ProfilesDocumentReader.read(options);
+}
 function renderDocPreview(doc){
   if(!doc) return;
   showPaneEl("pane-doc", true);
+  if(doc.sourceUrl && doc.binary){readDocument({url:doc.sourceUrl});return;}
+  docRequestGeneration++;
+  if(window.ProfilesDocumentReader) ProfilesDocumentReader.close();
   var pv=$("docPreview"); if(pv) pv.innerHTML=doc.html||"";
   var st=$("docStatus");
   if(st) st.textContent="\u201c"+(doc.title||"document")+"\u201d previewing — staged below, export .md/.docx when happy.";
@@ -1340,275 +1416,112 @@ function docExtKind(u){
   return "other";
 }
 function stageDocPayload(payload, st){
+  if(isStandalone()){ if(st) st.textContent="Staging needs the optional Node backend — nothing staged, nothing faked."; return; }
+  var requestSlot=state.slot, requestGeneration=++docRequestGeneration;
   fetch(apiUrl("/api/doc/stage"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})
   .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
   .then(function(r){
+    if(requestSlot!==state.slot || requestGeneration!==docRequestGeneration) return;
     if(!r.ok || !r.j || !r.j.ok){ if(st) st.textContent="That did not stage ("+((r.j&&r.j.error)||"unknown")+") — nothing filed, nothing faked."; return; }
     renderDocPreview({title:r.j.staged.title, html:r.j.html});
     loadStaged();
-  }).catch(function(){ if(st) st.textContent="The sidecar is unreachable — is npm start running? Nothing staged."; });
+  }).catch(function(){ if(requestSlot===state.slot && requestGeneration===docRequestGeneration && st) st.textContent="The sidecar is unreachable — is npm start running? Nothing staged."; });
 }
-if($("docLoad")) $("docLoad").addEventListener("click", function(){
-  var st=$("docStatus");
-  var pasted=(($("docPaste")||{}).value||"").trim();
-  var link=(($("docUrl")||{}).value||"").trim();
-  if(pasted){
-    stageDocPayload({title: link ? link.split("/").filter(Boolean).pop().slice(0,120) : "Pasted document",
-      text:pasted, format: pasted.charAt(0)==="<" ? "html" : "markdown", sourceUrl: link||null}, st);
+if($("docFile")) $("docFile").addEventListener("change",function(){
+  var file=this.files && this.files[0];
+  if(file) { $("docUrl").value=""; readDocument({file:file}); }
+});
+if($("docLoad")) $("docLoad").addEventListener("click",function(){
+  var st=$("docStatus"), pasted=(($("docPaste")||{}).value||"").trim(), link=(($("docUrl")||{}).value||"").trim();
+  if(link && ProfilesDocumentReader.supports(link)){readDocument({url:link});return;}
+  if(pasted && !link){
+    if(isStandalone()){
+      readDocument({file:new File([pasted],pasted.charAt(0)==="<"?"Pasted.html":"Pasted.md",{type:"text/plain"})});
+    }else stageDocPayload({title:"Pasted document",text:pasted,format:pasted.charAt(0)==="<"?"html":"markdown"},st);
     return;
   }
-  if(!link){ if(st) st.textContent="Paste text or a link first — then Read."; return; }
-  if(st) st.textContent="Reading\u2026";
-  if(docExtKind(link)==="binary"){
-    stageDocPayload({binary:true, filename:link.split("/").filter(Boolean).pop(), sourceUrl:link}, st);
-    return;
-  }
+  if(!link){if(st) st.textContent="Choose a file, paste text, or enter a document link.";return;}
+  if(isStandalone()){readDocument({url:link});return;}
+  if(docExtKind(link)==="binary"){if(st) st.textContent="This legacy format needs conversion to PDF, DOCX, XLSX or PPTX before reading.";return;}
+  var requestSlot=state.slot, requestGeneration=++docRequestGeneration;
+  if(st) st.textContent="Reading…";
   fetch(proxyFor(link)).then(function(r){
+    if(!r.ok) throw new Error("Document server returned HTTP "+r.status);
     var ct=(r.headers.get("content-type")||"").toLowerCase();
-    if(!r.ok || !/text\/|markdown|json|xml|javascript/.test(ct)){
-      stageDocPayload({binary:true, filename:link.split("/").filter(Boolean).pop(), sourceUrl:link}, st);
-      return null;
-    }
+    if(!/text\/|markdown|json|xml/.test(ct)) throw new Error("Unsupported document type. Choose PDF, DOCX, ODT, XLSX, PPTX or text.");
     return r.text();
-  }).then(function(t){
-    if(t===null) return;
-    if(!String(t).trim()){ if(st) st.textContent="That link came back empty — nothing staged, nothing faked."; return; }
-    stageDocPayload({title:link.split("/").filter(Boolean).pop().slice(0,120), text:String(t).slice(0,60000),
-      format:String(t).trim().charAt(0)==="<"?"html":"markdown", sourceUrl:link}, st);
-  }).catch(function(){ if(st) st.textContent="I could not fetch that link — nothing staged, nothing faked."; });
+  }).then(function(text){
+    if(requestSlot!==state.slot || requestGeneration!==docRequestGeneration) return;
+    if(!text.trim()) throw new Error("The document was empty.");
+    stageDocPayload({title:link.split("/").pop().slice(0,120),text:text.slice(0,60000),format:text.trim().charAt(0)==="<"?"html":"markdown",sourceUrl:link},st);
+  }).catch(function(error){if(requestSlot===state.slot && requestGeneration===docRequestGeneration && st) st.textContent=error.message;});
 });
 if($("docOpenExt")) $("docOpenExt").addEventListener("click", function(){
   var u=(($("docUrl")||{}).value||"").trim();
   if(u) window.open(u, "_blank");
 });
 
-/* ---- browser pane: pass-through — one row, then just the page ---- */
-var browserLoaded=false;
+/* The displayed native/streamed page is the page the agent operates. */
+var browserLoaded=false, lastBrowserUrl="";
 function normUrl(u){
   u=String(u||"").trim();
-  if(!u) return "https://www.bing.com";
+  if(!u) return "";
   if(/^https?:\/\//i.test(u)) return u;
   if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return "https://"+u;
-  return apiUrl("/api/search?q="+encodeURIComponent(u));
+  return "https://www.bing.com/search?q="+encodeURIComponent(u);
 }
-var lastBrowserUrl="";
-var browserLoaded=false;
 function proxyFor(url){ return apiUrl("/api/proxy?url="+encodeURIComponent(url)); }
-function homeUrl(){ return apiUrl("/api/home"); }
-function frameRealUrl(){
-  try{
-    var h=$("browserFrame").contentWindow.location.href || "";
-    var m=/[?&]url=([^&]+)/.exec(h);
-    if(m){ try{ return decodeURIComponent(m[1]); }catch(e){ return h; } }
-    return h;
-  }catch(e){ return ""; }
+function showFallback(msg){
+  $("browserFallback").hidden=false; $("browserFallbackText").textContent=msg;
 }
-/* Agent navigations land here: the native frame shows the proxied page. */
+function hideFallback(){ $("browserFallback").hidden=true; }
+function updateBrowserState(out){
+  if(!out) return;
+  if(out.slot && out.slot!==state.slot) return;
+  if(out.url){ lastBrowserUrl=out.url; if(document.activeElement!==$("urlInput")) $("urlInput").value=out.url; }
+  if(out.ok===false){
+    if(out.visible!==false && window.ProfilesNativeBrowser && ProfilesNativeBrowser.available) ProfilesNativeBrowser.setVisible(false);
+    showFallback(out.error || "The site could not load. Your page has not been replaced."); return;
+  }
+  hideFallback(); browserLoaded=true;
+}
+ProfilesBrowserPane.init({host:$("browserSurface"),api:apiUrl,slot:function(){return state.slot;},onState:updateBrowserState});
+window.addEventListener("profiles-open-url",function(e){var url=e.detail&&e.detail.url;if(/^https?:\/\//i.test(url||"")){showPaneEl("pane-browser",true);ProfilesBrowserPane.navigate(url);}});
+browserPaneReady=true;
+ProfilesBrowserPane.setZoom(pageZoom);
+window.addEventListener("profiles-browser-activate",function(){showPaneEl("pane-browser",true);});
 function browserShow(out){
-  if(!out || !out.ok) return;
-  if(!out.url){ lastBrowserUrl=""; $("urlInput").value=""; $("browserFrame").src=homeUrl(); hideFallback(); browserLoaded=true; return; }
-  lastBrowserUrl=out.url;
-  $("urlInput").value=out.url;
-  var f=$("browserFrame");
-  var want=proxyFor(out.url);
-  try{ if(f.contentWindow.location.href!==want) f.src=want; }catch(e){ f.src=want; }
-  hideFallback();
-  browserLoaded=true;
+  if(!out) return;
+  showPaneEl("pane-browser",true);
+  if(out.ok===false){updateBrowserState(out);return;}
+  if(out.native || Object.prototype.hasOwnProperty.call(out,"title")) ProfilesBrowserPane.present(out);
+  else if(out.url) ProfilesBrowserPane.navigate(normUrl(out.url));
+  else updateBrowserState(out);
 }
-function showFallback(msg, realUrl){
-  var fb=$("browserFallback"); if(!fb) return;
-  fb.hidden=false;
-  $("browserFallbackText").textContent=msg;
-  var open=$("fallbackOpen");
-  if(open) open.onclick=function(){ if(realUrl) window.open(realUrl,"_blank"); };
-}
-function hideFallback(){ var fb=$("browserFallback"); if(fb) fb.hidden=true; }
-$("browserFrame").addEventListener("load", function(){
-  nudgeSoon(900);
-  try{ var doc=$("browserFrame").contentDocument; if(doc&&doc.body) doc.body.style.zoom=pageZoom; }catch(e){}
-  attachPageWheel();
-  /* proxy errors come back tiny: surface the escape instead of a void */
-  hideFallback();
-  try{
-    var doc=$("browserFrame").contentDocument;
-    var t=(doc && ((doc.title || "") + " " + (doc.body && doc.body.innerText || ""))).trim();
-    if(/^\{"error"/.test(t) || /^(too many redirects|page too large)/i.test(t) || /Access Denied|403 Forbidden|Reference #[0-9a-f.]+|Attention Required/i.test(t)){
-      showFallback("This site blocks embedded viewing (" + (doc && doc.title ? doc.title : "Access Denied") + "). Use ↗ at the top right to open it in your browser.", lastBrowserUrl);
-    }
-  }catch(e){}
-});
-/* Same-origin frame wheel capture: ctrl/meta+wheel over the page zooms the
-   page (step 0.1, clamped 50-200%, per-device); plain wheel is untouched so
-   the page scrolls natively. Re-attached every load; everything guarded so
-   a hostile or cross-origin page can never break the app. */
-function attachPageWheel(){
-  try{
-    var f=$("browserFrame");
-    var w=f && f.contentWindow;
-    if(!w || w.__profilesWheel) return;
-    w.__profilesWheel=true;
-    w.addEventListener("wheel", function(e){
-      try{
-        if(!(e.ctrlKey||e.metaKey)) return;
-        e.preventDefault();
-        var d=e.deltaY<0?0.1:(e.deltaY>0?-0.1:0);
-        if(!d) return;
-        pageZoom=Math.min(2, Math.max(0.5, Math.round((pageZoom+d)*10)/10));
-        applyPageZoom(true);
-      }catch(err){}
-    }, {passive:false});
-    /* clicks/keys inside the page belong to the browser pane: track focus
-       here because the parent document never sees in-frame gestures */
-    w.addEventListener("focus", function(){ try{ activePane="pane-browser"; }catch(err){} });
-    var fd=null;
-    try{ fd=w.document; }catch(err){}
-    if(fd){
-      fd.addEventListener("pointerdown", function(){ try{ activePane="pane-browser"; }catch(err){} }, true);
-      fd.addEventListener("keydown", function(e){
-        try{
-          if(!(e.ctrlKey||e.metaKey)) return;
-          if(e.key!=="0" && e.key!=="=" && e.key!=="+" && e.key!=="-" && e.key!=="_") return;
-          e.preventDefault();
-          if(e.key==="0"){
-            appZoom=1; paneZoom={}; pageZoom=1;
-            applyAllPaneZooms();
-            try{ localStorage.setItem("profilesPaneZoom","{}"); }catch(e2){}
-            applyZoom(true);
-            applyPageZoom(false);
-            return;
-          }
-          var dd=(e.key==="-"||e.key==="_")?-0.1:0.1;
-          pageZoom=Math.min(2, Math.max(0.5, Math.round((pageZoom+dd)*10)/10));
-          applyPageZoom(true);
-        }catch(err){}
-      }, true);
-    }
-  }catch(e){}
-}
-/* URL bar follows real in-frame navigation (same-origin through proxy) */
-setInterval(function(){
-  if(document.visibilityState!=="visible" || !paneVisible("pane-browser")) return;
-  try{
-    var real=frameRealUrl();
-    if(real && real.indexOf("http")===0 && real!==lastBrowserUrl){
-      lastBrowserUrl=real;
-      $("urlInput").value=/\/api\/home$/.test(real)?"":real;
-    }
-  }catch(e){}
-}, 2000);
-function nudgeFrame(){
-  /* some pages (Bing) measure their width once at first paint — if the
-     pane was still animating open, they lay out squashed and stick. A
-     resize event makes them measure again. */
-  try{
-    var f=$("browserFrame");
-    f.contentWindow.dispatchEvent(new f.contentWindow.Event("resize"));
-  }catch(e){}
-}
-var nudgeTimer=null;
-function nudgeSoon(ms){
-  clearTimeout(nudgeTimer);
-  nudgeTimer=setTimeout(nudgeFrame, ms||400);
-}
-window.addEventListener("resize", function(){ nudgeSoon(400); });
-$("urlForm").addEventListener("submit", function(e){
+$("urlForm").addEventListener("submit",function(e){
   e.preventDefault();
-  var raw=$("urlInput").value.trim();
-  var f=$("browserFrame");
-  hideFallback();
-  if(!raw){ lastBrowserUrl=""; f.src=homeUrl(); browserLoaded=true; return; }
-  var u=normUrl(raw);
-  lastBrowserUrl=u;
-  $("urlInput").value=u;
-  try{
-    if(f.contentWindow.location.href===proxyFor(u)) f.contentWindow.location.reload();
-    else f.src=proxyFor(u);
-  }catch(err){ f.src=proxyFor(u); }
-  setTimeout(nudgeFrame, 1200);
-  browserLoaded=true;
+  var url=normUrl($("urlInput").value);
+  if(!url) return;
+  hideFallback(); $("urlInput").value=url;
+  ProfilesBrowserPane.navigate(url).then(function(){ applyPageZoom(false); });
 });
-$("browserBack").addEventListener("click", function(){
-  try{ $("browserFrame").contentWindow.history.back(); }catch(e){}
-});
-if($("openExternal")) $("openExternal").addEventListener("click", function(){
-  var u=$("urlInput").value.trim()||lastBrowserUrl;
-  if(u) window.open(u, "_blank");
-});
-/* Deterministic page zoom: same-origin frame document zoomed directly.
-   Works everywhere regardless of gesture support; persisted per device. */
-var pageZoom = 1;
-try{ pageZoom = Math.min(2, Math.max(0.5, Number(localStorage.getItem("profilesPageZoom") || 1) || 1)); }catch(e){}
-function applyPageZoom(showBadge){
-  var fr = $("browserFrame");
-  if(fr) fr.style.zoom = pageZoom;
-  try{
-    var doc = fr && fr.contentDocument;
-    if(doc){
-      if(doc.documentElement) doc.documentElement.style.zoom = pageZoom;
-      if(doc.body) doc.body.style.zoom = pageZoom;
-    }
-  }catch(e){}
-  try{ localStorage.setItem("profilesPageZoom", String(pageZoom)); }catch(e){}
-  if(showBadge) zoomBadge("Browser " + Math.round(pageZoom * 100) + "%");
-}
-window.addEventListener("message", function(e){
-  if(e.data && e.data.type === "browser_zoom_step"){
-    pageZoom = Math.min(2, Math.max(0.5, Math.round((pageZoom + e.data.step) * 10) / 10));
-    applyPageZoom(true);
-  }
-  if(e.data && e.data.type === "browser_zoom_key"){
-    if(e.data.step === 0) pageZoom = 1;
-    else pageZoom = Math.min(2, Math.max(0.5, Math.round((pageZoom + e.data.step) * 10) / 10));
-    applyPageZoom(true);
-  }
-});
+$("browserBack").addEventListener("click",function(){ ProfilesBrowserPane.back(); });
 document.querySelectorAll("[data-zoom]").forEach(function(b){
-  b.addEventListener("click", function(){
-    pageZoom = Math.min(2, Math.max(0.5, Math.round((pageZoom + Number(b.dataset.zoom)) * 10) / 10));
-    applyPageZoom(true);
-  });
+  b.addEventListener("click",function(){ stepZoom("pane-browser",Number(b.dataset.zoom),false); });
 });
-/* track the pane your pointer is in: Ctrl+=/- zooms the active pane's
-   page when it is the browser, else the active pane, else the app */
-var activePane = null;
-document.addEventListener("pointerdown", function(e){
-  var p = e.target && e.target.closest ? e.target.closest(".pane") : null;
-  if(p && p.id) activePane = p.id;
-}, true);
-document.addEventListener("focusin", function(e){
-  var p=e.target && e.target.closest ? e.target.closest(".pane") : null;
-  if(p && p.id) activePane=p.id;
-});
-document.querySelectorAll(".pane").forEach(function(p){
-  p.addEventListener("mouseenter", function(){ activePane=p.id; });
-});
-if($("browserFrame")){
-  $("browserFrame").addEventListener("mouseenter", function(){ activePane="pane-browser"; });
-  $("browserFrame").addEventListener("focus", function(){ activePane="pane-browser"; });
-}
-if($("fallbackOpen")) $("fallbackOpen").addEventListener("click", function(){
-  var u=$("urlInput").value.trim()||lastBrowserUrl;
-  if(u) window.open(u, "_blank");
-});
-if($("fallbackRetry")) $("fallbackRetry").addEventListener("click", function(){
-  var f=$("browserFrame");
-  var u=$("urlInput").value.trim()||lastBrowserUrl;
-  if(!u) u="https://www.bing.com";
-  lastBrowserUrl=u;
-  f.src=proxyFor(normUrl(u));
+$("fallbackRetry").addEventListener("click",function(){
   hideFallback();
+  if(lastBrowserUrl) ProfilesBrowserPane.navigate(lastBrowserUrl);
+  else ProfilesBrowserPane.retry();
 });
-/* boot: clean proxied Google, ready to type in */
-fitBrowserView();
-setTimeout(function(){
-  if(browserLoaded) return;
-  lastBrowserUrl="";
-  $("urlInput").value="";
-  fitBrowserView();
-  $("browserFrame").src=homeUrl();
-  browserLoaded=true;
-}, 1200);
-setTimeout(fitBrowserView, 900);
+$("fallbackOpen").addEventListener("click",function(){
+  if(lastBrowserUrl) window.open(lastBrowserUrl,"_blank","noopener");
+});
+if(window.ProfilesNativeBrowser && ProfilesNativeBrowser.available){
+  $("fallbackOpen").hidden=true;
+  $("openExternal").textContent="↻";
+  $("openExternal").title="Reload this address in the Browser pane";
+}
 
 /* ---- voice: talk -> it listens; answers spoken back in a natural voice ---- */
 function pickVoice(){
@@ -1637,6 +1550,7 @@ if(window.speechSynthesis && speechSynthesis.onvoiceschanged!==undefined){
 }
 /* ---- quiet learning: dwell is recorded, suggestions are learned + rare ---- */
 function learnStay(newMode, prevMode){
+  if(isStandalone()){ state.modeSince=Date.now(); return; }
   /* prevMode is captured in setMode BEFORE state.mode flips; falling back to
      state.mode keeps the invariant (prev!==new) when called directly. */
   var prev=(typeof prevMode==="string")?prevMode:state.mode, dwell=Math.round((Date.now()-(state.modeSince||Date.now()))/1000);
@@ -1648,6 +1562,7 @@ function learnStay(newMode, prevMode){
 }
 var pendingSuggest=null;
 function checkLearned(){
+  if(isStandalone()) return;
   if(state.suggestChecked) return;
   if(state.mode==="calm") return; /* sticky-calm: learned — never suggest away from the panic button */
   state.suggestChecked=true;
@@ -1671,6 +1586,7 @@ $("suggestYes").addEventListener("click", function(){
   pendingSuggest=null;
 });
 $("suggestNo").addEventListener("click", function(){
+  if(isStandalone()){ bubble("Noted — quiet for a day.", "sys"); return; }
   $("suggestBar").hidden=true; pendingSuggest=null;
   try{ localStorage.setItem("profilesSuggestSilenceUntil", String(Date.now()+24*3600*1000)); }catch(e){}
   fetch(apiUrl("/api/learn"),{method:"POST",headers:{"content-type":"application/json"},
@@ -1721,6 +1637,7 @@ setInterval(function(){
 }, 45000);
 /* machine-busy poll (feeds the babylite nudge, nothing else) */
 setInterval(function(){
+  if(isStandalone()) return;
   if(document.hidden) return; /* hidden tab: no network wakeups for a nudge feed */
   fetch(apiUrl("/api/capabilities")).then(function(r){ return r.json(); }).then(function(c){
     state.busy = !!(c && c.busy);
@@ -1759,6 +1676,7 @@ setInterval(function(){
    sound, at most once every half hour, and silence (24h) kills them all. */
 var lastLearnedInvite=0;
 setInterval(function(){
+  if(isStandalone()) return;
   if(!invitesAllowed()) return;
   if(Date.now()-lastLearnedInvite < 30*60*1000) return;
   try{ if(Number(localStorage.getItem("profilesSuggestSilenceUntil")||0) > Date.now()) return; }catch(e){}
@@ -1783,6 +1701,7 @@ setInterval(function(){
 
 /* ---- macros: repeated asks become one-tap deterministic scripts ---- */
 function loadMacros(){
+  if(isStandalone()){ var mb=$("macroChips"); if(mb) mb.textContent=""; return; }
   fetch(apiUrl("/api/macros")).then(function(r){ return r.json(); }).then(function(res){
     var box=$("macroChips"); if(!box) return;
     box.textContent="";
@@ -1840,18 +1759,20 @@ function renderBuild(){
     var el=$("buildLine");
     if(el && b && b.build) el.setAttribute("data-bundle", b.build+" "+(b.at||""));
   }).catch(function(){});
+  if(isStandalone()){ var el0=$("buildLine"); if(el0) el0.textContent="UI bundle "+(el0.getAttribute("data-bundle")||"dev-live")+" · standalone (Node backend missing)"; return; }
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
     var el=$("buildLine");
     if(el && h) el.textContent="UI bundle "+(el.getAttribute("data-bundle")||"dev-live")+" · sidecar "+(h.build||"?")+" · up "+String(h.startedAt||"").slice(11,16)+" UTC";
   }).catch(function(){});
 }
 function refreshCloud(){
+  if(isStandalone()){ if($("cloudLine")) $("cloudLine").textContent="Off — needs optional Node backend (npm start). No automatic cloud substitution."; if($("googleLine")) $("googleLine").textContent="Google connect needs the optional Node backend."; return; }
   fetch(apiUrl("/api/cloud/status")).then(function(r){ return r.json(); }).then(function(st){
     $("cloudToggle").checked=!!st.enabled;
     if($("cloudModel") && st.model) $("cloudModel").value=st.model;
     $("cloudLine").textContent = st.enabled
-      ? ("On — cloud model "+st.model+" via "+st.base+", key "+(st.hasKey?"stored in your OS keyring":"MISSING (save one above)")+". Local brain still answers if cloud is unreachable, and says so.")
-      : "Off. On + a key = questions can go to your cloud model instead of the local one. Per profile, always labelled in chat.";
+      ? ("On — "+st.model+" via "+st.base+". Key "+(st.hasKey?"stored in your OS keyring":"missing")+". Model errors stay visible; no silent substitutions.")
+      : "Off. Store your own key and choose a model above the chat. Contributor prompts may be used for training.";
   }).catch(function(){});
   fetch(apiUrl("/api/oauth/google/status")).then(function(r){ return r.json(); }).then(function(st){
     $("googleLine").textContent = st.connected ? "Google connected — staged drafts get a Push button." :
@@ -1860,11 +1781,13 @@ function refreshCloud(){
   }).catch(function(){});
 }
 if($("cloudToggle")) $("cloudToggle").addEventListener("change", function(e){
-  postConfig({slot:{cloudEnabled:e.target.checked}});
-  bubble(e.target.checked?"Cloud brain on for this profile only — answers will say when they used it.":"Cloud off — local only.", "sys");
+  if(isStandalone()){ e.target.checked=false; standaloneUnavailable("API models"); return; }
+  postConfig({slot:{cloudEnabled:e.target.checked,agentModel:e.target.checked?"cloud":"lite"}});
+  bubble(e.target.checked?"Cloud selected for this profile.":"Basic tools selected; cloud calls are off.","sys");
   setTimeout(refreshCloud, 300);
 });
 if($("cloudKeySave")) $("cloudKeySave").addEventListener("click", function(){
+  if(isStandalone()){ standaloneUnavailable("API keys"); return; }
   var key=$("cloudKey").value.trim(); if(!key){ bubble("Paste a key first.", "sys"); return; }
   var model=$("cloudModel").value.trim();
   if(model) postConfig({slot:{cloudModel:model}});
@@ -1877,6 +1800,7 @@ if($("cloudKeySave")) $("cloudKeySave").addEventListener("click", function(){
   }).catch(function(){ bubble("Key save failed — is npm start running?", "agent"); });
 });
 if($("googleConnect")) $("googleConnect").addEventListener("click", function(){
+  if(isStandalone()){ standaloneUnavailable("Google connect"); return; }
   fetch(apiUrl("/api/oauth/google/start")).then(function(r){ return r.json(); }).then(function(out){
     if(!out.ok){ bubble("Google connect not ready: "+out.error, "agent"); return; }
     window.open(out.url, "_blank");
@@ -1884,6 +1808,7 @@ if($("googleConnect")) $("googleConnect").addEventListener("click", function(){
   }).catch(function(){ bubble("Google connect unreachable.", "agent"); });
 });
 $("routingToggle").addEventListener("change", function(e){
+  if(isStandalone()){ e.target.checked=false; state.routing=false; updateModelLine(); standaloneUnavailable("Routing"); return; }
   state.routing=e.target.checked;
   updateModelLine();
   stream("routing "+(state.routing?"ON — cost preview shown":"OFF — fixed model"));
@@ -2009,7 +1934,7 @@ function goHome(kind){
   document.querySelectorAll("[data-home]").forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.home===kind?"true":"false"); });
   bubble(h.msg, "agent");
   stream("home → "+kind+" (canvas arranged, remembered)");
-  fetch(apiUrl("/api/learn"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"home",kind:kind})}).catch(function(){});
+  if(!isStandalone()) fetch(apiUrl("/api/learn"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"home",kind:kind})}).catch(function(){});
 }
 document.querySelectorAll("[data-home]").forEach(function(b){
   b.addEventListener("click", function(){ goHome(b.dataset.home); });
@@ -2021,12 +1946,12 @@ document.querySelectorAll("[data-app]").forEach(function(b){
     var app=b.dataset.app;
     showPaneEl("pane-browser", true);
     lastBrowserUrl=app; $("urlInput").value=app;
-    try{ $("browserFrame").src=proxyFor(app); }catch(e){}
-    hideFallback(); browserLoaded=true;
-    bubble(b.textContent+" is loading in the Browser pane — if it refuses to embed, use \u2197 up top to open it in your real browser.", "agent");
+    ProfilesBrowserPane.navigate(app);
+    hideFallback();
   });
 });
 if($("driveBtn")) $("driveBtn").addEventListener("click", function(){
+  if(isStandalone()){ standaloneUnavailable("Browser-act driving"); return; }
   var u=$("urlInput").value.trim();
   if(u && !/^https?:\/\//i.test(u)) u="https://"+u;
   $("driveLine").textContent="preparing…";
@@ -2051,7 +1976,7 @@ if($("driveBtn")) $("driveBtn").addEventListener("click", function(){
 if($("openExternal")) $("openExternal").addEventListener("click", function(){
   var u=$("urlInput").value.trim();
   if(u && !/^https?:\/\//i.test(u)) u="https://"+u;
-  if(u) window.open(u, "_blank");
+  if(u){if(window.ProfilesNativeBrowser && ProfilesNativeBrowser.available) ProfilesBrowserPane.navigate(normUrl(u));else window.open(u,"_blank");}
 });
 /* ---- agent detail: two explicit toggles, Traces ON + Tools OFF by default.
    Traces = reasoning chain lines; Tools = tool calls + extras. Tool lines
@@ -2073,7 +1998,7 @@ function applyToggleVisibility(){
 function setTraces(on){
   state.traces=!!on; applyToggleVisibility();
   postConfig({slot:{agentTraces:state.traces}});
-  bubble(on?"Traces on — the reasoning chain shows in the Agent pane as it happens.":"Traces off — the reasoning chain is tucked away; answers still land here.", "sys");
+  bubble(on?"Traces on — available provider summaries and live progress are shown.":"Traces off — answers still appear normally.","sys");
 }
 function setTools(on){
   state.tools=!!on; applyToggleVisibility();
@@ -2082,17 +2007,56 @@ function setTools(on){
 }
 function paintBadge(model){
   var b=$("brainBadge"); if(!b) return;
-  var m=model||state.model||{name:"lite agent",via:"lite"};
+  var m=model||state.model||{name:"Basic tools (no model)",via:"lite"};
   state.model=m;
-  b.textContent=m.name||"lite agent";
-  b.title="Brain: "+(m.name||"lite agent")+" ("+(m.via||"lite")+") — tap for detail";
+  b.textContent=m.name||"Basic tools (no model)";
+  b.title=(m.name||"Basic tools (no model)")+" · "+(m.via||"lite")+" — choose model or view availability";
 }
-if($("brainBadge")) $("brainBadge").addEventListener("click", function(){
-  var m=state.model||{name:"lite agent",via:"lite"};
-  var secs=state.lastLatency?Math.round(state.lastLatency/100)/10+"s":"—";
-  bubble("Brain: "+(m.name||"lite agent")+" · via "+(m.via||"lite")+(state.lastTier?" · tier "+state.lastTier:"")+" · last ask "+secs+". Change it in Setup → models.", "sys");
-  try{ showPane("pane-setup"); }catch(e){}
+function closeModelMenu(){ var menu=$("modelMenu"); if(menu) menu.remove(); $("brainBadge").setAttribute("aria-expanded","false"); }
+if($("brainBadge")) $("brainBadge").addEventListener("click",function(){
+  if($("modelMenu")){ closeModelMenu(); return; }
+  if(isStandalone()){
+    var sm=document.createElement("div"); sm.id="modelMenu"; sm.setAttribute("role","dialog"); sm.setAttribute("aria-label","Choose agent model");
+    var rr=$("brainBadge").getBoundingClientRect();
+    sm.style.left=Math.max(12,Math.min(rr.left,innerWidth-392))+"px"; sm.style.top=(rr.bottom+8)+"px"; document.body.appendChild(sm);
+    $("brainBadge").setAttribute("aria-expanded","true");
+    var t0=document.createElement("strong"); t0.textContent="Agent model (Basic tools — Node backend missing)"; sm.appendChild(t0);
+    var b0=document.createElement("button"); b0.type="button"; b0.textContent="✓ Basic tools (no model)";
+    var d0=document.createElement("small"); d0.textContent="Offline navigation and read. No model calls. Works now."; d0.style.display="block"; b0.appendChild(d0);
+    b0.addEventListener("click",closeModelMenu); sm.appendChild(b0);
+    [["API model","Needs optional Node backend (npm start) — not simulated, no automatic cloud substitution."],["Local model","Needs optional Node backend + configured endpoint/file — not simulated."]].forEach(function(row){
+      var b=document.createElement("button"); b.type="button"; b.disabled=true; b.textContent=row[0];
+      var d=document.createElement("small"); d.textContent=row[1]; d.style.display="block"; b.appendChild(d); sm.appendChild(b);
+    });
+    return;
+  }
+  var menu=document.createElement("div"); menu.id="modelMenu"; menu.setAttribute("role","dialog"); menu.setAttribute("aria-label","Choose agent model");
+  var r=$("brainBadge").getBoundingClientRect();
+  menu.style.left=Math.max(12,Math.min(r.left,innerWidth-392))+"px"; menu.style.top=(r.bottom+8)+"px";
+  menu.textContent="Loading available models…"; document.body.appendChild(menu);
+  $("brainBadge").setAttribute("aria-expanded","true");
+  fetch(apiUrl("/api/agent/models")).then(function(res){if(!res.ok) throw new Error("Model availability could not be loaded");return res.json();}).then(function(data){
+    if(!menu.isConnected) return;
+    menu.textContent="";
+    var title=document.createElement("strong"); title.textContent="Agent model"; menu.appendChild(title);
+    (data.choices||[]).forEach(function(choice){
+      var button=document.createElement("button"); button.type="button"; button.disabled=!choice.available;
+      var selected=data.selected===choice.id && (choice.id!=="local" || (choice.modelFile ? data.selectedFile===choice.modelFile : !data.selectedFile));
+      button.textContent=(selected?"✓ ":"")+choice.name; button.title=choice.detail;
+      var detail=document.createElement("small"); detail.textContent=choice.detail; detail.style.display="block"; button.appendChild(detail);
+      button.addEventListener("click",function(){
+        var patch={agentModel:choice.id,cloudEnabled:choice.id==="cloud"};
+        if(choice.modelFile) { patch.modelFile=choice.modelFile; patch.localBase=""; patch.localModel=""; patch.localSource="file"; }
+        else if(choice.id==="local") { patch.modelFile=""; patch.localSource="endpoint"; }
+        postConfig({slot:patch}).then(closeModelMenu).catch(function(){button.disabled=false;});
+      }); menu.appendChild(button);
+    });
+    var setup=document.createElement("button"); setup.type="button"; setup.textContent="Configure API key or local model…";
+    setup.addEventListener("click",function(){closeModelMenu();showPane("pane-setup");}); menu.appendChild(setup);
+  }).catch(function(){menu.textContent="Could not load model choices. Check the sidecar connection.";});
 });
+document.addEventListener("pointerdown",function(e){ if(!e.target.closest("#modelMenu,#brainBadge")) closeModelMenu(); },true);
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeModelMenu(); });
 ["tracesToggle","agentTracesToggle"].forEach(function(id){
   if($(id)) $(id).addEventListener("click", function(){ setTraces(state.traces===false); });
 });
@@ -2102,6 +2066,7 @@ if($("brainBadge")) $("brainBadge").addEventListener("click", function(){
 
 /* ---- smart reorganise: learned linkage first, best practice second ---- */
 function reorganise(){
+  if(isStandalone()){ standaloneUnavailable("Smart reorganise"); return; }
   fetch(apiUrl("/api/preferences?current="+encodeURIComponent(state.mode))).then(function(r){ return r.json(); }).then(function(res){
     var prefs=(res&&res.preferences)||{};
     var groups=prefs.linkedGroups||[];
@@ -2131,6 +2096,7 @@ function reorganise(){
 var notesTimer=null;
 if($("notesArea")){
   $("notesArea").addEventListener("input", function(){
+    if(isStandalone()){ if($("notesLine")) $("notesLine").textContent="Notes need the optional Node backend — nothing is saved offline."; return; }
     clearTimeout(notesTimer);
     notesTimer=setTimeout(function(){
       fetch(apiUrl("/api/notes"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:$("notesArea").value})})
@@ -2139,6 +2105,7 @@ if($("notesArea")){
   });
 }
 function loadNotes(){
+  if(isStandalone()){ if($("notesLine")) $("notesLine").textContent="Notes need the optional Node backend — nothing is saved offline."; loadSketch(); return; }
   fetch(apiUrl("/api/notes")).then(function(r){ return r.json(); }).then(function(res){ if($("notesArea")) $("notesArea").value=res.text||""; }).catch(function(){});
   loadSketch();
 }
@@ -2278,6 +2245,7 @@ if($("videoForm")) $("videoForm").addEventListener("submit", function(e){
 
 /* ---- linkage polling: light, local, only while you look (20s) ---- */
 setInterval(function(){
+  if(isStandalone()) return;
   if(document.visibilityState!=="visible" || !state.agentOk) return;
   fetch(apiUrl("/api/learn"),{method:"POST",headers:{"content-type":"application/json"},
     body:JSON.stringify({type:"context", panes:PANES.filter(paneVisible), mode:state.mode})}).catch(function(){});
@@ -2297,22 +2265,29 @@ function checkBuild(h){
   }
 }
 setInterval(function(){
+  if(isStandalone()) return;
   if(document.visibilityState!=="visible") return;
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(checkBuild).catch(function(){});
 }, 30000);
 function bootAgent(){
+  if(isStandalone()){
+    state.agentOk=true;
+    paintBadge({name:"Basic tools (no model)",via:"lite"});
+    if($("agentStatusText")) $("agentStatusText").textContent="Ready — Basic tools (Node backend missing)";
+    bubble("Ready — Basic tools only (Node backend missing). I can open a site, read the current page, or search the web natively. No model was called; models and staging need npm start.","agent");
+    stream("Basic tools ready — Node backend missing");
+    return;
+  }
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
     checkBuild(h);
     state.agentOk=true;
-    paintBadge({name:"lite agent", via:"lite"});
-    $("agentStatusText").textContent="lite agent on — ask in chat; detail lands here";
-    bubble("Hello. I am your lite agent — always on, local, and I answer here in chat. Ask me anything: chat, search, open pages, draft documents.", "agent");
-    stream("lite agent ON — "+h.brain);
+    if(!state.model) paintBadge({name:"Basic tools (no model)",via:"lite"});
+    $("agentStatusText").textContent="Ready";
+    bubble("Ready. Ask me to open a website or read the current page. Choose a model above for conversation and multi-step requests.", "agent");
+    stream("Agent connection ready");
   }).catch(function(){
-    /* never dead, never apologising about plumbing: retry quietly and
-       answer with the in-page lite brain meanwhile */
     state.agentOk=false;
-    paintBadge({name:"lite agent", via:"lite"});
+    $("agentStatusText").textContent="Connecting to the agent…";
     setTimeout(bootAgent, 4000);
   });
 }

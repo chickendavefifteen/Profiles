@@ -1,101 +1,73 @@
 # Profiles
 
-One press reshapes your whole digital environment — device, energy, brain.
-Meta Global AI Hackathon, Indie track (solo). Deadline Nov 4, 2026, 9pm ET.
-
-Synthetic demo data only. No employer code/data. No games.
+Local-first reading, browsing, writing and agent workspace. Meta Global AI Hackathon, Indie track. Synthetic demo data only; no employer data.
 
 ## Run
 
-**Native app window (Tauri, no browser chrome):**
+Building requires Node.js, the npm dependencies (`npm ci`), and the platform Tauri prerequisites. A copied native executable can run basic browsing and local document reading without Node.
 
-```sh
-npm run app
-```
+- Native development: `npm run app`.
+- Embedded-frontend binary: `npm run app:build`, then `PROFILES_HOME="$PWD" src-tauri/target/debug/profiles`.
+- Optimised binary: `cargo build --release --manifest-path src-tauri/Cargo.toml`; executable at `src-tauri/target/release/profiles`.
+- Web: `npm start`, then `http://localhost:8123/src/`.
 
-One command: boots the local server on :1420 and opens Profiles as a real
-desktop window (title "Profiles", 1200x850) — same `src/` frontend the web
-build uses. `npm run sync-packs` vendors `packs/*.json` into
-`src/vendor-packs/` so app *builds* carry the pack engine too (wired as
-`beforeBuildCommand` in `src-tauri/tauri.conf.json`).
+The native shell uses the OS webview rather than bundling Chromium. When Node and project resources are available through `PROFILES_HOME`, it owns a sidecar on a private loopback port and verifies that the responding process is its own child. Closing the shell stops only that child. If the optional backend is absent or cannot start, the app still opens: a built-in basic agent can navigate/search/read the native browser, local documents remain readable, and profile/mode/layout preferences stay on the device. API/local-model inference, notes and staging require the backend; unavailable features are labelled, never simulated. Set `PROFILES_NO_SIDECAR=1` to exercise this standalone route.
 
-**Web fallback (one command):**
+The web server binds to loopback by default. `PROFILES_BIND` is an explicit remote-binding opt-in; do not expose this unauthenticated personal workspace on an untrusted network. Static serving excludes the vault and backend source.
 
-```sh
-npm start
-```
+## Browsing architecture
 
-Then open **http://localhost:8123/src/** — no build step, no dependencies.
-`npm start` also mounts the **real agent sidecar** under `/api/`, so the
-same command gives you the working agent (below). Or run the agent alone,
-always-on: `npm run agent` (:8799). Full design: `SPEC-REAL-AGENT.md`.
+Desktop browsing uses a genuine child webview inside the browser pane: WebKitGTK on Linux, the platform Tauri webview elsewhere. It loads the original HTTPS site, including scripts, cookies and forms. It is not an HTML-rewriting proxy and is not VNC. Each profile has separate browser storage.
 
-The native window above is the primary app; the web build below stays as
-the testable fallback.
+The agent navigates and reads that same displayed webview through a bounded local command bridge. Remote pages cannot invoke the app's privileged browser commands. Links requesting another window stay in the pane.
 
-## Tour (2 minutes, ask-first)
+The web frontend instead displays a live JPEG stream from its profile's headless Chromium/Playwright page. Pointer and keyboard events go to that same page; the agent does not control a different hidden browser. This route requires Playwright's Chromium installation. Streaming stops when its last viewer disconnects.
 
-1. **Ask tab** — blank screen, one search bar. Type anything
-   (e.g. `dentist letter arrived — file it`) and hit Go: the **Agent tab**
-   opens and the pi-TUI panel works it sense → plan → act → verify → remember,
-   then checkpoints to tasks + ledger.
-2. **Pills 1–5** switch profile instantly — same page, nothing reflows.
-   **Life-ful** is the vibrant showpiece; **Low-Sensory** is a softer dark
-   with motion stopped in code (`gov-freeze`), one quiet line, nothing loud.
-3. **Just ask.** The lite agent is ALWAYS ON (local sidecar) — no
-   settings trip. Answers land in chat; the Agent pane keeps receipts.
-   On this PC a real Qwen2.5-3B (llama.cpp) is downloaded + wired as the
-   brain. Say **"help me get a better agent plugged in"** anywhere and a
-   deterministic setup wizard walks the canvas with you, tap by tap.
-4. Ask `draft a letter about …` or `slides for …` → **Stage tab**: clean
-   preview, export **.md** or a real **.docx** (Word/Google-Docs-openable).
-   Ask `send an email …` → it is **staged as a draft, never sent**:
-   irreversible asks escalate (cloud review + checkpoint + your OK) and
-   cloud is opt-in OFF by default (`PROFILES_ALLOW_CLOUD=1` + key).
-5. **Model ladder** (Settings): bundled tiny (classify/suggest only, never
-   acts — today a <1KB heuristic in the 30–50MB slot, GGUF-drop-in ready) ·
-   mobile ~0.5–1B · laptop 3–8B · cloud Muse Spark 1.3 Contributor xhigh.
-   **Auto profile** only ever *suggests* ("It's late — Chill?") unless you
-   turn on announced auto in Settings.
+Websites can still refuse an engine, require login, or require unsupported DRM. Profiles reports real failures; it does not manufacture a successful page, silently replace a blocked website with a feed, or bypass access controls.
 
-Deep links: `?mode=lite|chill|focus|lifeful|calm`, `?ask=…` runs on boot,
-`?agent=1` enables the real sidecar, `?tab=stage|agent|activity|settings`.
+## Everyday controls
 
-## Accessibility from the start
+- Ask **“show Channel 4 website”**, **“open Sky News”** or a full URL: known destinations open directly in the browser pane without a second instruction. Unknown destinations search rather than opening an arbitrary first hit.
+- The address bar accepts a URL or a search. Search results and subsequent navigation use the same live page.
+- **Ctrl + wheel** inside the browser changes only its content zoom, 50–200%. The browser's A−/A+ buttons do the same. Other panes and the app background have separate scaling targets.
+- **−** minimises a pane to its tab; click the tab to restore its existing content. Closing uses the bin/recovery flow instead.
+- Double-click a pane tab to maximise/restore it. Unlock with the pin, drag edges to resize, then pin again.
+- **Super + A/B/C** selects a person/profile; **Super + 1–6** selects a mode even while an input or browser page is focused. Tapping Super then the letter/number also works briefly. Profile X and xMAX must first be enabled. A compositor-reserved shortcut can intercept the held combination; the tapped sequence avoids holding that global shortcut.
+- Babylite and Calm disable app animation; reduced-motion is respected. Explicit mode choices persist.
 
-- Governor enforces budgets in code (`engine/governor.mjs`, mirrored live in
-  `src/main.js`): Low-Sensory = zero motion, flash hard-capped at 0/s in
-  **all** modes, `prefers-reduced-motion` freezes ambience everywhere.
-- Skip link, aria-live budget meter + model line, 44px+ targets (64 Lite),
-  full keyboard path (1–5 switch, C captures), plain-language agent.
-- Agent suggests switches with a "why" and never auto-switches.
+## Agent models and activity
 
-## Layout
+The model button at the top of chat opens the model picker:
 
-- `src/` — polished frontend (adopted visual-lane prototype, pack-wired)
-- `src-tauri/` — Tauri shell (Rust + tauri.conf.json)
-- `pwa/` — phone PWA placeholder (day summary view)
-- `packs/*.json` — Lite, Chill, Focus, Dev, Low-Sensory
-- `engine/*.mjs` — pack loader/validator, governor, router toggle, ledger
-- `agent/` — real sidecar: `sidecar.mjs` (Pi-shaped loop API), `ladder.mjs`
-  (model ladder + escalation), `tools.mjs` (gated extensions), `staging.mjs`
-  (doc staging + zero-dep .docx writer). Spec: `SPEC-REAL-AGENT.md`
-- `vault/` — local-first folder: notes/tasks/calendar/memory/staging
-- `server.mjs` — zero-dep static server (`npm start`)
-- `tests/run.mjs` — zero-dep checks (`npm test`)
+- **Basic tools (no model):** deterministic website/search/document commands. This is not an LLM and does not pretend to be one.
+- **Muse Spark 1.3 Contributor:** per-profile API key stored in the OS keyring. Default API base `https://api.meta.ai/v1`, wire model `muse-spark-1.3-contributor`. Contributor prompts may be used for training. Plain Muse Spark 1.3 and OpenRouter are refused.
+- **Local endpoint:** an explicitly configured, already-running loopback OpenAI-compatible endpoint.
+- **Installed GGUF:** explicit model selection; one-shot llama.cpp CPU inference, two threads, no GPU offload. No automatic server/model download, hidden provider substitution or cloud fallback. Large models are unavailable when free memory is insufficient.
 
-## Tests
+Model turns can use bounded real browser/document tools. Conversation context is bounded, held per profile in memory, and excluded in private mode. Switching models does not load weights until an ask needs them.
+
+**Traces** shows actual progress and provider-returned reasoning summaries when available; enabled by default. **Tools** shows tool-call detail; disabled by default. These are live events, not simulated thinking, invented reasoning, or access to hidden chain-of-thought. Provider capabilities differ.
+
+## Documents and local state
+
+Choose a local file or enter a document URL. PDF uses vendored PDF.js with a single fitted canvas, page navigation and selectable page text. DOCX/ODT expose paragraphs and tables; XLSX exposes bounded sheets/cells; PPTX exposes slide text. TXT, Markdown, inert HTML, CSV and JSON have local reading views. This is basic document reading, not pixel-perfect Office layout, OCR, macro execution or an Office editor. Legacy `.doc`/`.xls`/`.ppt`, encrypted and malformed files report their limits.
+
+File/download size is capped at 10 MiB; archive expansion, rendered blocks, tables and PDF canvas size are bounded for low-memory devices. Full-backend URL reads use a bounded local byte-fetch endpoint, not a cloud converter or executable proxied document. Standalone URL reads require the source to permit CORS; local file reading does not. PDF.js and fflate are pinned npm dependencies copied locally by `npm run sync-docs`, with their licences in `src/vendor/documents/`.
+
+Pasted text can be staged and exported as Markdown/OOXML `.docx` with the backend. Notes and sketches remain local. Opening a binary reader does not falsely tell the agent that the whole document was extracted or summarised.
+
+Per-person state lives under `vault/<slot>/`. `PROFILES_VAULT_DIR` selects a separate vault for isolated QA. Never commit personal vault contents, browser stores, model weights or API keys. Secrets stay in the OS keyring; `PROFILES_DISABLE_KEYRING=1` disables keyring access during automated QA.
+
+## Verification
 
 ```sh
 npm test
+npm run verify
+npm run app:build
+# After building the release binary:
+npm run verify:native
 ```
 
-109 checks: pack validation, governor clamp/still rules, router OFF-default, chat semantics, quiet learning, deterministic macros, setup/snapshot layer,
-ledger round-trip, minimal ask-first frontend + stable layout, Tauri shell,
-and the real agent — ladder/escalation rules, gated tool registry, staging
-+ real .docx export, sidecar wiring, suggest-first auto.
+The suites own disposable servers/vaults and exercise live navigation, clicks, typing, minimise/restore, zoom ownership, sticky modes, shortcuts, model choice, resizing, touch-sized layouts and real documents. Linux rendering checks require bubblewrap and hide GPU devices; software flags alone are insufficient. Native GTK behavior also requires an isolated native smoke run—Chromium tests do not certify it. See [QUALITY-GATES.md](QUALITY-GATES.md) for the native/device-isolation protocol and [QA-REPORT.md](QA-REPORT.md) for exercised evidence.
 
-## Privacy
-
-Demo uses synthetic data only. Contributor-tier models may train on prompts —
-nothing personal goes in. Standard-mode option is post-hackathon work.
+Chromebook target: 11–13-inch touchscreen, Celeron, 4GB RAM, usually 2–2.5GB free. Desktop software-rendered and narrow/touch tests are useful coverage, **not** evidence of execution on that physical Chromebook. No physical Chromebook or phone release is certified by desktop tests.

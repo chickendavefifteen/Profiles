@@ -1,94 +1,84 @@
-# QA Report — worker-5-qa (feature/qa-gates)
+# Profiles reliability verification — 2026-10-31
 
-Date: 2026-10-29 · Worktree: `worktrees/p-qa` · Base: `841f4f1` (shared overnight base)
+## Candidate
 
-## Deliverables
+- Lane: `profiles-reliability-prof-20261031`; branch `fix/profiles-prof-reliability-20261031`.
+- Base: `b01fb79921b468f313ded606d4f6449a97234034`.
+- Optimised executable: `src-tauri/target/release/profiles`, **6,478,776 bytes**.
+- SHA-256: `544dcf24ed8053080f06e8144858e599d7ddeeb105039174ea8936849124bf77`.
+- A separate copied executable was also exercised with project/backend resources deliberately absent. The executable uses the installed OS webview; it does not include Chromium, Node or model weights.
 
-- `tests/qa/overnight-gates.mjs` — Playwright E2E suite for the five overnight gates
-  (self-spawns `server.mjs` on `QA_PORT`, honours `QA_BASE` / `QA_HEADED`).
-- `package.json` — new scripts `qa:gates` (pins must hold) and `qa:gates:strict`
-  (pins + target gates; for post-merge CI).
+This report replaces the historical pin/gate reports. Passing only existing pins while target behavior remained broken is no longer a successful release gate.
 
-## Method: pins vs gates
+## Automated results
 
-- `pin(name, cond)` — behaviour true TODAY that must never regress.
-- `gate(name, cond)` — target contract owned by a sibling branch; fails until merged.
-- Default exit: nonzero iff any pin fails. `--strict` also fails on open gates.
+`npm run verify:native && node scripts/sync-document-vendor.mjs --check` completed successfully on this candidate:
 
-## Results (this worktree, 2026-10-29)
+| Check | Observed result |
+| --- | --- |
+| Composite native verification | 8 passed, 0 failed |
+| Core behavioral checks | 94 passed |
+| Model/tool contracts | 57 passed |
+| Native broker contracts | 40 passed |
+| Native frontend races/readiness | Passed |
+| Live web reliability scenarios | 53/53 passed |
+| Real document scenarios | 64/64 passed |
+| Desktop D-Bus lifetime regression | Browser remained interactive after the disposable bus was killed |
+| Document vendor provenance | Exact pinned assets and licences matched; unexpected extra files rejected |
 
-- Unit: `npm test` → **208 passed, 0 failed**.
-- Existing QA: `npm run qa` → **14/14 passed** (against this worktree's own server
-  on a private port; the shared :8123 is held by another session — see note).
-- New gates: `npm run qa:gates` → **25/25 pins holding, 5/22 target checks passing**.
-  17 open gates map to sibling branches (see below). Exit 0 (non-strict).
+Verification owned disposable PID/build-identified servers, private vaults and browser state. It exercised real local pages, pointer/keyboard interaction on the same actor page, URL/search navigation, per-pane zoom, held edge resizing and persistence, minimize/restore with retained draft/history, mode persistence, profile shortcuts, model choice, touch/narrow layouts, and actual PDF/Office contents. No shared server or user profile was reset. The native freshness check passed against the embedded frontend and Rust inputs.
 
-### Open gates by owner
+The document scenarios cover actual PDF pages/canvas/text; DOCX/ODT paragraphs and tables; XLSX sheets/cells; PPTX text; TXT/Markdown/CSV/JSON and inert HTML. They include malformed/unsupported files, fetch failures, bounded input/decompression/rendering, superseding reads, privacy and narrow-screen fit. These are basic reading views, not pixel-perfect Office editing or OCR.
 
-- worker-1-core: X-activation git rollback repo (1).
-- worker-2-modes: Adaptive toggle + position + persistence, 6th-mode hotkey,
-  spec pill labels, a/b/c slot hotkeys (9).
-- worker-4-ui: unpinned border-drag resize, trash outside-click dismissal (2).
-- worker-3-canvas: + menu Video/Activity removal, sketch canvas + draw + persist (5).
+## Actual Linux native runtime
 
-Already-green target checks (no sibling work needed): rollback wording via
-snapshots, addMenu/brandMenu outside dismissal, xMAX absent while X off,
-everything-on single-click X entry, A/B/C + X isolation proofs.
+The final native runs used the release executable inside an owned Xvfb/private-D-Bus session, with the entire launcher inside a bubblewrap `/dev` namespace. NVIDIA/DRI devices were absent; Mesa EGL/GLX and llvmpipe were selected. Device absence was checked against both running app processes, and the owned native scope was audited for GPU device handles. Test audio was unavailable. No host window, input, clipboard or browser profile was used.
 
-## Notes for the merge run
+Observed in the final device-hidden native runs:
 
-1. Run `npm run qa:gates:strict` after the linear reconciliation — all 22 gates
-   must pass there, plus 208 unit + 14 QA with zero regressions.
-2. Do NOT run `npm run qa` against the shared :8123 blindly; verify which
-   worktree that server roots at first (it is owned by another session).
-3. Selector contracts the suite assumes (align sibling implementations or update
-   the suite): `#adaptiveToggle` checkbox labelled "Adaptive" left of `.pills`;
-   six pills `babylite/chill/FOCUSMAX/Vibes/xMAX/calm`; hotkeys `1-6`, `a/b/c/x`;
-   edge-drag resize on `.pane.unpinned`; outside-click hides `#trashPop`;
-   no Video/Activity in `#addMenu`; drawable `#pane-doc canvas` that persists.
+- The copied executable with a missing Node backend opened **Channel 4 on the first “show channel 4 website” request**. The actual site and its real consent screen appeared inside the pane. No cookie acceptance was automated.
+- The basic fallback identifies itself as **Basic tools (no model)** rather than pretending to be a local LLM. Profile B/Chill settings survived restart in the private test state.
+- From a focused document URL input, Super+A switched to Profile A. A had its own empty browser and chat, not B's Channel 4 page or document. Calm remained selected in A.
+- A restored agent retained the typed question, accepted Enter, and displayed **“Two plus two equals four.”** after the actual window was resized to **1024×700**. The completed answer remained visible.
+- Ctrl+wheel inside the native browser changed its reported zoom to **1.1**, while the neighboring chat and app chrome retained their scale. The page remained contained in its pane after resizing. Super+5 selected Calm from the native page.
+- A controlled page whose image never finishes loading became visible and usable in **239 ms**. Its actual title was `DOM-READY-NOT-ALL-RESOURCES`, with `loading:true`; the fixture recorded both page and unfinished-image requests. This checks usable main-document readiness rather than waiting for every ad/image to finish.
+- Actual installed LFM2.5 1.2B GGUF inference ran through llama.cpp with CPU-only arguments. A current-page question returned the displayed fixture title without navigating elsewhere. Subsequent unrelated arithmetic/day-count/greeting turns completed. A later current-page turn read the unfinished-resource fixture correctly.
+- Native standalone PDF loading reached page 1 of 2 and pagination reached page 2 of 2. Its PDF canvas and initial page text were inspected. A DOCX URL rendered the real fixture paragraph and four identifiable table cells in WebKit, not a pointer card or fabricated summary.
 
-## Merge reconciliation
+The full native scope was constrained to **one CPU core equivalent, 2500 MiB memory maximum and no swap** during the final local-model/browser checks. An observed cgroup memory peak was 835,301,376 charged bytes, but this is **not total or cold-start application RAM**: reused shared file cache may be charged elsewhere. A fast Desky core is not a Celeron.
 
-Sibling branches (`feature/profile-x-core`, `feature/modes-adaptive`,
-`feature/canvas-browser`, `feature/ui-pin-popups`) contain **zero commits**
-beyond the shared base at check time — nothing to merge yet. This branch is
-base + one QA commit, fast-forwardable into master with no conflicts
-(app code untouched: only `package.json` scripts + new test files).
+### Inspected native screenshots
 
-## 2026-10-31 Chromebook review fallout (QA lane, master worktree)
+These are local evidence files outside Git, not user data or repository fixtures:
 
-Method: pins (hold today) vs gates (target contracts, may stay open with owner).
-Headless only (Chromium default, `QA_BROWSER=firefox` escape), muted, software
-rendering. Every claim behind `scripts/preflight.mjs` stamp-match; both suites
-self-spawn on probed-free private ports (see gotcha).
+- `/tmp/profiles-standalone-device-hidden-v6-channel4.png`: first-request actual Channel 4 page.
+- `/tmp/profiles-native-device-hidden-v10-draft.png`: restored agent draft beside the real native page.
+- `/tmp/profiles-native-device-hidden-v10-small-final.png`: 1024×700, completed local-model answer, Calm, correctly contained unfinished-resource page.
+- `/tmp/profiles-standalone-device-hidden-v6-pdf-restored.png` and `...-pdf-page2.png`: actual PDF canvas and page transition.
+- `/tmp/profiles-standalone-device-hidden-v6-docx.png`: actual Word paragraph/table contents.
+- `/tmp/profiles-standalone-device-hidden-v6-profile-a.png`: focused-input Super shortcut and separate empty profile browser.
 
-Results:
-- G0 `npm test` → **371 passed, 0 failed** (includes mode-stickiness, header
-  order, shingle overlap, babylite luminance/contrast, browser-fit mechanism,
-  perf opacity-only keyframes, X-widening load-proof, BrowserDocs/Mode/Perf blocks).
-- `node tests/qa/core-flows.mjs` → **44/44** (headless Chromium, self-spawned
-  private port, build stamp matches disk).
-- `node tests/qa/overnight-gates.mjs` → **25/25 pins**; `--strict` → **19/24
-  gates**, 5 open (all ownerless lanes — BLOCKED list below, file:line evidence).
-- Native G3 BLOCKED: `src-tauri/target/{debug,release}/profiles` predate the
-  worktree (release 4.25MB Oct 30); rebuild + relaunch only after final reconcile.
+## Defects found and corrected during native verification
 
-BLOCKED (strict-gate opens, no active owner lane):
-- `activating X verifies a private git rollback repo` — neither `vault/X/.git`
-  nor `vault/.git` exists on disk; creation is activation-lazy (`agent/profilex.mjs`
-  `ensureXGitRepo`), gate checks without activating. Needs X-core lane decision.
-- `border drag resizes the unlocked pane` (`tests/qa/overnight-gates.mjs` gate3)
-  — mechanism present (`src/main.js` `addHandles`/`startResize`/`applyResize`),
-  8 handles attach, zero page errors, but the gate gesture (+80px east drag)
-  yields −35px width in isolation probe. Needs ui lane triage of resize math.
-- sketch ×3 (`native sketch canvas lives in the doc pane`, `mouse stroke lands
-  pixels`, `survives reload`) — canvas landed in pane-notes (`src/index.html`
-  ~L693, inside `#pane-notes` 680–697), gates expect pane-doc. Design question
-  for owner; no canvas lane active.
+- GTK child sizing needed four-sided overlay constraints; a size request alone is only a minimum.
+- Profile initialization/queued resize could reveal another person's browser. Selection now has a single owner; async work captures the person/generation and Rust refuses revealing an inactive view.
+- Main-app inputs needed GTK Super-key handling as well as native-page handling.
+- Waiting for complete resource loading hid otherwise usable documents and caused false timeouts.
+- A native sidecar with a missing lease could use an unseen Chromium actor. Native-shell admission now waits for the displayed bridge and never substitutes a hidden browser.
+- Plain-text assistant history broke the constrained local-model action protocol. History now preserves actual chat roles and encodes prior assistant answers in the same JSON protocol; grounded page questions and unrelated follow-ups were exercised afterward.
+- Resizing could hide the latest completed chat answer. Following the chat tail now survives viewport/pane changes without overriding deliberate user scroll-back.
+- Chromium inherited an ephemeral desktop D-Bus connection and aborted when that bus died. Browser launches now detach desktop/audio environment; the regression kills a real disposable bus and verifies a subsequent click/title change.
 
-Quirks paid this run (also one-lined in QUALITY-GATES.md): ghost servers from
-deleted worktrees holding ports with stale code (`:8125`, deleted p-qa path,
-health without build stamp — probe BUILD, scan PORT..+9, never trust `r.ok`
-alone); trusted clicks misdropping under iframe layout shift (in-page dispatch
-+ poll); deterministic staging ids + persistent vault breaking count-growth
-asserts (assert id-presence, unique payload per run).
+## Verification safety correction
+
+Earlier native runs used software-rendering flags but still opened NVIDIA/DRI device handles. Those owned runs were stopped and their process exits checked; they are **not CPU-only evidence**. The final route hides GPU devices before starting Xvfb, explicitly selects Mesa EGL as well as GLX, and asserts device absence. Linux QA/preflight/verify entry points now enforce the same fail-closed device-hiding policy when GPU nodes are present. A device-hidden initial launch exposed an NVIDIA EGL initialization abort; selecting the Mesa EGL vendor corrected that verification setup without disabling the WebKit sandbox.
+
+## Limits and release interpretation
+
+- No physical Chromebook or phone was available. Narrow/touch emulation and the owned cgroup restriction are approximations, not device certification.
+- No real app API key was read or used in QA. Contributor provider selection/wire contracts were tested, but this report does not claim live cloud inference from the app. Implementation/review workers used the requested Contributor tier separately.
+- Website login, cookie consent, engine restrictions and DRM remain real platform/site constraints. No access control bypass or substituted feed is counted as successful browsing.
+- Native browsing is an OS child webview, not VNC or rewritten HTML. The web frontend uses a JPEG stream and input forwarding to the same Playwright page controlled by its agent.
+- A backend-free copied binary retains native browsing, basic navigation/read commands and local document reading. API/local-model inference, notes and staging need the optional backend. Standalone remote document reads require source CORS; the full backend supplies bounded local byte fetching.
+- Browser/model tools are bounded application operations, not unrestricted control of the owner's desktop. Activity displays show real events/provider-returned summaries, not hidden chain-of-thought.
+- The original running application and unrelated dirty vault files were left unchanged. This is a verified branch candidate, not a claim of deployment to another machine or a successful remote CI run.

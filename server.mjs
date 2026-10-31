@@ -1,11 +1,12 @@
 // Profiles zero-dep static server — `npm start`.
-// Serves the repo root so ../packs/*.json fetches work from src/.
+// Serves only public app assets; private vault/backend files are never static.
 // Usage: npm start [-- --port 8123]  →  http://localhost:8123/src/
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleAgent } from './agent/sidecar.mjs';
+import { activeSlot, withSlot, SLOTS } from './agent/slots.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const argPort = process.argv.includes('--port')
@@ -28,13 +29,18 @@ const MIME = {
 
 const server = createServer(async (req, res) => {
   try {
-    if (req.url.startsWith('/api/') && await handleAgent(req, res, '/api')) return;
+    if (req.url.startsWith('/api/')) {
+      const requested=new URL(req.url,'http://localhost').searchParams.get('profileSlot');
+      if(requested && !SLOTS.includes(requested)) {
+        res.writeHead(400,{'content-type':'application/json'}); res.end(JSON.stringify({ok:false,error:'Unknown profile'})); return;
+      }
+      if(await withSlot(requested || await activeSlot(), () => handleAgent(req, res, '/api'))) return;
+    }
     const url = new URL(req.url, 'http://localhost');
     let path = decodeURIComponent(url.pathname);
     if (path.endsWith('/')) path += 'index.html';
-    // Lock to repo root (no .. escapes).
     const file = normalize(join(root, '.' + path));
-    if (!file.startsWith(root)) {
+    if (!file.startsWith(root) || (!/^\/(?:src|packs|engine)\//.test(path) && path !== '/index.html')) {
       res.writeHead(403, { 'content-type': 'text/plain' });
       res.end('forbidden');
       return;
@@ -62,7 +68,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => {
+server.listen(port, process.env.PROFILES_BIND || '127.0.0.1', () => {
   console.log(`Profiles → http://localhost:${port}/src/  (try ?mode=lifeful and ?mode=calm)`);
   console.log(`Packs + engine served from repo root; Ctrl+C to stop.`);
 });

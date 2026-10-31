@@ -8,121 +8,33 @@
 // over JSON-RPC HTTP) — the runtime executes, the model suggests.
 import { viewGo, viewCurrent, viewRead, webSearch } from './browseract.mjs';
 
-const SITES = { 'bbc news': 'https://www.bbc.co.uk/news', bbc: 'https://www.bbc.co.uk/news',
-  'bc news': 'https://www.bbc.co.uk/news', 'bbc news website': 'https://www.bbc.co.uk/news',
-  'sky news': 'https://news.sky.com/uk', sky: 'https://news.sky.com/uk',
-  'investing': 'https://www.investing.com/', 'investing dot com': 'https://www.investing.com/',
-  google: 'https://www.google.com', news: 'https://www.bbc.co.uk/news',
-  youtube: 'https://www.youtube.com', github: 'https://github.com', wikipedia: 'https://en.wikipedia.org',
-  'channel 4': 'https://www.channel4.com', channel4: 'https://www.channel4.com',
-  '4od': 'https://www.channel4.com', 'channel four': 'https://www.channel4.com',
-  itv: 'https://www.itv.com', itvx: 'https://www.itvx.com',
-  my5: 'https://www.channel5.com', 'channel 5': 'https://www.channel5.com',
-  channel5: 'https://www.channel5.com', more4: 'https://www.channel4.com/collection/more4',
-  e4: 'https://www.channel4.com/collection/e4', film4: 'https://www.film4.com' };
-const GOOGLE_TLD = { germany: 'de', france: 'fr', spain: 'es', italy: 'it', uk: 'co.uk', japan: 'co.jp', canada: 'ca', australia: 'com.au', brazil: 'com.br', india: 'co.in', netherlands: 'nl', ireland: 'ie', sweden: 'se' };
-function siteFor(target) {
-  let t = target.replace(/^(?:the\s+)?(?:website|site|webpage|page)\s+(?:of\s+|for\s+)?/i, '')
-    .replace(/\s+(?:website|site|webpage|page)\s*$/i, '')
-    .replace(/\s+(properly|please|for me)\s*$/i, '')
-    .replace(/\s+dot\s+/g, '.').replace(/\sdot\s/g, '.').trim();
-  t = t.replace(/\bsk\s+y\b/gi, 'sky').replace(/\bch\s*annel\b/gi, 'channel');
-  if (SITES[t]) return SITES[t];
-  const gm = t.match(/^google\s+([a-z]+)$/);
-  if (gm && GOOGLE_TLD[gm[1]]) return 'https://www.google.' + GOOGLE_TLD[gm[1]] + '/';
-  if (/^bb?c\b/.test(t) || /bbc/.test(t)) return 'https://www.bbc.co.uk/news';
-  if (/^sk\s*y\b/i.test(t)) return SITES['sky news'];
-  return null;
-}
-
-export const AGENT_TOOLS = [
-  { name: 'browser_open', description: 'Open a website in the integrated browser pane', input: 'url or site name' },
-  { name: 'browser_read', description: 'Read the current browser page (title + text)', input: 'none' },
-  { name: 'web_search', description: 'Search the web through the integrated browser', input: 'query' },
-  { name: 'browser_current', description: 'Show what the browser is currently on', input: 'none' },
-  { name: 'doc_open', description: 'Open a pasted text/markdown/HTML document link in the Document pane (staged)', input: 'document url' },
-];
-
-/* Document links route to the Document pane, never the browser: pasted
-   text/markdown/HTML renders a sanitized preview + stages; heavy binaries
-   get the honest fallback. Pure, tested. */
-export function isDocUrl(u) {
-  const s = String(u || '').replace(/\s+dot\s+/gi, '.').trim();
-  return /\.(md|markdown|txt|text|html?)([?#/]|$)/i.test(s);
-}
-
-/** Deterministic tool decision. Returns {tool, args} or null. */
-export function decideTool(query) {
-  const q = String(query || '');
-  const low = q.toLowerCase().trim();
-  let rm0 = low.match(/^(?:open|show|go to)\s+result\s+(\d{1,2})$/);
-  if (rm0) return { tool: 'open_result', args: { n: Number(rm0[1]) } };
-  /* "open this doc <url>" / "paste this doc" routes to the Document pane;
-     browser_open stays the browser pane. No URL and no paste visible here
-     means an honest pointer, never a faked open. */
-  const pm = low.match(/^(?:please\s+)?paste\s+(this\s+|that\s+|the\s+)?(doc|document|draft|pasted?\s+document|paste|it)\b\s*(.*)$/);
-  if (pm) {
-    const urlm = /https?:\/\/\S+/.exec(q);
-    if (urlm) return { tool: 'doc_open', args: { url: urlm[0].replace(/[.,;!?)]+$/, '') } };
-    return { tool: 'doc_paste_hint', args: {} };
-  }
-  const dm = low.match(/^(?:please\s+)?(?:open|show)\s+(?:this\s+|that\s+|the\s+)?(?:doc|document|draft|pasted?\s+document|paste)\b\s*(.*)$/);
-  if (dm) {
-    const urlm = /https?:\/\/\S+/.exec(q);
-    if (urlm) return { tool: 'doc_open', args: { url: urlm[0].replace(/[.,;!?)]+$/, '') } };
-    const rest = (dm[1] || '').replace(/^(at|from)\s+/, '').trim();
-    if (rest && isDocUrl(rest)) return { tool: 'doc_open', args: { url: /^https?:/.test(rest) ? rest : 'https://' + rest } };
-    return { tool: 'doc_paste_hint', args: {} };
-  }
-  let m = low.match(/^(?:please\s+)?(?:open|show|launch|go to|take me to|browse|visit)\s+(?:a\s+|the\s+)?(?:browser\s+(?:on|to|for)\s+|brower\s+(?:on|to)\s+)?(.+)$/);
-  if (/^(open|show|launch)\s+(a\s+)?(browser|brower)$/.test(low)) return { tool: 'browser_open', args: { url: 'https://www.google.com' } };
-  if (m && !/^(draft|write|file|slides|letter)/.test(low)) {
-    let rawTarget = m[1].replace(/\s+please\s*$/, '').trim();
-    let target = rawTarget.replace(/^(?:the\s+)?(?:website|site|webpage|page)\s+(?:of\s+|for\s+)?/i, '')
-      .replace(/\s+(?:website|site|webpage|page)\s*$/i, '')
-      .trim();
-    if (!target) target = rawTarget;
-    const known = siteFor(target);
-    if (known) return { tool: 'browser_open', args: { url: known } };
-    const spoken = target.replace(/\s+dot\s+/g, '.').replace(/\s+(properly|please)\s*$/, '').trim();
-    if (isDocUrl(spoken)) {
-      return { tool: 'doc_open', args: { url: /^https?:/.test(spoken) ? spoken : 'https://' + spoken.replace(/^www\./, '') } };
-    }
-    if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(spoken) || /^https?:/.test(spoken)) {
-      return { tool: 'browser_open', args: { url: /^https?:/.test(spoken) ? spoken : 'https://www.' + spoken.replace(/^www\./, '') } };
-    }
-    if (target.length > 2) return { tool: 'web_search', args: { query: target, openTop: true } };
-  }
-  m = low.match(/^search\s+(?:the\s+web\s+)?(?:for\s+)?(.+)$/) || low.match(/^(?:google|look up|find)\s+(.+)$/);
-  if (m) return { tool: 'web_search', args: { query: m[1] } };
-  if (/\b(what'?s|what is)\s+on\s+(this page|the page|bbc|the news)\b/.test(low) || /^read (this|the) page/.test(low)) {
-    return { tool: 'browser_read', args: {} };
-  }
-  if (/\b(latest|today'?s?)\s+(news|headlines)\b/.test(low)) return { tool: 'web_search', args: { query: 'BBC News headlines today' } };
-  const bare = low.replace(/\s+(please|properly|for me)\s*$/g, '').trim();
-  if (bare && !/^(hi|hey|hello|yo|hiya|heya|howdy|sup|thanks|thank you|ok|okay|yes|no|bye)\b/.test(bare)
-      && !/\?\s*$/.test(bare) && !/^(what|why|how|when|who|can|could|do|does|is|are|will|would|should|am)\b/.test(bare)
-      && !/^(draft|write|make|create|file|save|log|add|send|delete|remind|schedule|help me get|reply|repeat|say |echo|tell me)/.test(bare)) {
-    const known = siteFor(bare);
-    if (known) return { tool: 'browser_open', args: { url: known } };
-    if (/^[a-z0-9][a-z0-9 .'-]{1,60}$/.test(bare) && bare.split(/\s+/).length <= 6) {
-      return { tool: 'web_search', args: { query: q.trim() } };
-    }
-  }
-  return null;
-}
-
 const lastResults = new Map();
 export async function runTool(slot, decision) {
   if (decision.tool === 'open_result') {
     const list = lastResults.get(slot) || [];
-    const hit = list[(decision.args.n || 1) - 1];
-    if (!hit) return { tool: 'open_result', ok: false, observation: 'No saved result with that number — search first, then say "open result 1".' };
+    const n = decision.args?.n;
+    if (!Number.isInteger(n) || n < 1 || n > list.length) return { tool: 'open_result', ok: false, observation: list.length ? `No saved result ${String(n).slice(0, 8)} — say "open result 1" through "open result ${list.length}".` : 'No saved result with that number — search first, then say "open result 1".' };
+    const hit = list[n - 1];
     const out = await viewGo(slot, hit.href);
-    return { tool: 'open_result', ok: out.ok, observation: `Opened result ${decision.args.n}: ${hit.title} — ${out.url}. Showing in the Browser pane.`,
+    // Never claim a successful navigation on error/blocked pages.
+    const blocked = /Access Denied|403 Forbidden|Reference #[0-9a-f.]+|Attention Required|Security Check/i.test(String(out.title || '')) ||
+      /Access Denied|403 Forbidden/i.test(String(out.error || ''));
+    if (blocked) {
+      return { tool: 'open_result', ok: false,
+        observation: `The site returned ${out.title || 'Access Denied'} for result ${decision.args.n}. The denial page is visible; the requested content was not opened. I cannot bypass the site's access controls.`,
+        ui: { showPane: 'pane-browser', browser: out } };
+    }
+    if (!out.ok) {
+      return { tool: 'open_result', ok: false,
+        observation: `Browser could not open result ${decision.args.n} (${out.error || 'unavailable'}) — nothing opened.`,
+        ui: { showPane: 'pane-browser', browser: out } };
+    }
+    return { tool: 'open_result', ok: true, observation: `Opened result ${decision.args.n}: ${hit.title} — ${out.url}. Showing in the Browser pane.`,
       ui: { showPane: 'pane-browser', browser: out } };
   }
   switch (decision.tool) {
+  // Accepted navigation can still have slow subresources; report that state
+  // instead of inventing a loaded page or replacing its real WebView.
     case 'browser_open': {
       const out = await viewGo(slot, decision.args.url);
       const isBlocked = /Access Denied|403 Forbidden|Reference #[0-9a-f.]+|Attention Required|Security Check/i.test(out.title || '');
@@ -130,14 +42,15 @@ export async function runTool(slot, decision) {
         return {
           tool: decision.tool,
           ok: false,
-          observation: `This site blocked embedded viewing (${out.title || 'Access Denied'}). It cannot be displayed inside the pane — use ↗ in the Browser header to open it in your real browser.`,
+          observation: `The site returned ${out.title || 'Access Denied'} in the Browser pane. Its requested content is unavailable; I cannot bypass the site's access controls.`,
           ui: { showPane: 'pane-browser', browser: out }
         };
       }
       if (!out.ok) {
-        return { tool: decision.tool, ok: false, observation: `Browser could not snapshot (${out.error || 'unavailable'}) — opening ${out.url || decision.args.url} directly in the Browser pane instead.`,
+        return { tool: decision.tool, ok: false, observation: `Browser could not open ${decision.args.url} (${out.error || 'unavailable'}). No successful navigation was verified.`,
           ui: { showPane: 'pane-browser', browser: out } };
       }
+      if(out.loading && !out.title) return {tool:decision.tool,ok:true,observation:`The Browser pane is loading ${out.url || decision.args.url}. Its content is not yet verified.`,ui:{showPane:'pane-browser',browser:out}};
       return { tool: decision.tool, ok: out.ok, observation: `Browser opened ${out.url} — “${out.title}”. It is showing in the Browser pane.`,
         ui: { showPane: 'pane-browser', browser: out } };
     }
@@ -154,7 +67,8 @@ export async function runTool(slot, decision) {
       if (!out.ok) {
         return { tool: decision.tool, ok: false, observation: `Could not read the page (${out.error || 'unavailable'}) — open it in the Browser pane and I will try again.` };
       }
-      return { tool: decision.tool, ok: true, observation: `Page “${out.title}” (${out.url}):\n${String(out.text || '').slice(0, 1200)}`, pageText: out.text };
+      const page={title:out.title,url:out.url,text:String(out.text || '').slice(0,1200)};
+      return { tool: decision.tool, ok: true, observation: `Page “${page.title}” (${page.url}):\n${page.text}`, page };
     }
     case 'doc_paste_hint': {
       return { tool: decision.tool, ok: true,
@@ -162,12 +76,11 @@ export async function runTool(slot, decision) {
         ui: { showPane: 'pane-doc' } };
     }
     case 'doc_open': {
-      /* Doc-pane fetch: same framing proxy + slot cookie jar as the
-         browser, only the rendering differs (sanitized preview + stage).
-         Heavy binaries get the honest fallback — never a faked render. */
+      // Text can be staged; modern binary documents go to the real client
+      // reader, without manufacturing an editable draft or a fake preview.
       const target = String(decision.args.url || '');
       const { fetchUpstream, docKindForUrl, sanitizeDocHtml } = await import('./proxy.mjs');
-      const { makePastedDoc, markdownToHtml, binaryFallbackHtml } = await import('./staging.mjs');
+      const { makePastedDoc, markdownToHtml } = await import('./staging.mjs');
       const { slotPaths } = await import('./slots.mjs');
       const { mkdir, writeFile } = await import('node:fs/promises');
       const { join } = await import('node:path');
@@ -182,15 +95,11 @@ export async function runTool(slot, decision) {
           observation: 'That didn\u2019t look like a document link — paste the text or a full https:// link into the Document pane Read box.',
           ui: { showPane: 'pane-doc' } };
       }
-      if (docKindForUrl(target) === 'binary') {
-        const draft = makePastedDoc({ title: titleOf(target),
-          markdown: 'Pointer to ' + target + ' — open it in its own app; export here when handy.', sourceUrl: target });
-        await saveDoc(draft);
-        const html = binaryFallbackHtml(titleOf(target), target);
-        return { tool: decision.tool, ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind },
-          observation: `“${draft.title}” needs its own app, so I staged a pointer in the Document pane (export .md/.docx when handy, or open it externally).`,
-          ui: { showPane: 'pane-doc', doc: { id: draft.id, title: draft.title, html } } };
+      if(/\.(pdf|docx|odt|xlsx|pptx)(?:[?#]|$)/i.test(target)){
+        return {tool:decision.tool,ok:true,observation:`Opening “${titleOf(target)}” in the Document reader. Document text has not been returned to the model; do not claim to have read or summarised it.`,
+          ui:{showPane:'pane-doc',doc:{title:titleOf(target),sourceUrl:target,binary:true}}};
       }
+      if(docKindForUrl(target)==='binary') return {tool:decision.tool,ok:false,observation:'This legacy document needs conversion to PDF, DOCX, ODT, XLSX or PPTX.',ui:{showPane:'pane-doc'}};
       let up;
       try { up = await fetchUpstream(target, slot); }
       catch (e) {
@@ -198,16 +107,11 @@ export async function runTool(slot, decision) {
           observation: `I could not fetch ${target} (${String(e && e.message || e).slice(0, 120)}) — nothing staged, nothing faked.`,
           ui: { showPane: 'pane-doc' } };
       }
+      if(up.status<200 || up.status>=300) return {tool:decision.tool,ok:false,observation:'Document server returned HTTP '+up.status+'.',ui:{showPane:'pane-doc'}};
       const ctype = String((up.headers && (up.headers.get ? up.headers.get('content-type') : up.headers['content-type'])) || '').toLowerCase();
       const isText = /text\/|markdown|json|xml|javascript/.test(ctype) || docKindForUrl(target) === 'text';
       if (!isText || !up.body || !up.body.length) {
-        const draft = makePastedDoc({ title: titleOf(up.url || target),
-          markdown: 'Pointer to ' + (up.url || target) + ' — open it in its own app; export here when handy.', sourceUrl: up.url || target });
-        await saveDoc(draft);
-        const html = binaryFallbackHtml(titleOf(up.url || target), up.url || target);
-        return { tool: decision.tool, ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind },
-          observation: `“${draft.title}” isn\u2019t plain text I can preview, so I staged a pointer in the Document pane (export .md/.docx when handy, or open it externally).`,
-          ui: { showPane: 'pane-doc', doc: { id: draft.id, title: draft.title, html } } };
+        return {tool:decision.tool,ok:false,observation:'This response is not a supported text document. Use a PDF, DOCX, ODT, XLSX, PPTX or text file.',ui:{showPane:'pane-doc'}};
       }
       const raw = up.body.toString('utf8').slice(0, 60000);
       if (!raw.trim()) {
@@ -226,26 +130,22 @@ export async function runTool(slot, decision) {
     case 'web_search': {
       const out = await webSearch(slot, decision.args.query);
       if (out.ok && out.results && out.results.length) lastResults.set(slot, out.results);
+      // UI always carries the actual browser location + native flag — never a bare pane switch.
+      const browser = { url: out.pageUrl || '', native: !!out.native, via: out.via || '' };
       if (!out.ok) {
-        return { tool: decision.tool, ok: false, observation: `Web search “${decision.args.query}” could not run (${out.error || 'unavailable'}) — try opening a site directly (“open bbc news”).`,
-          ui: { showPane: 'pane-browser' }, results: [] };
-      }
-      if (decision.args.openTop && out.results && out.results.length) {
-        const first = out.results[0];
-        const go = await viewGo(slot, first.href);
-        const where = (go && go.url) || first.href;
-        return { tool: decision.tool, ok: true,
-          observation: `Opened ${first.title} (${where}) for “${decision.args.query}” — it is showing in the Browser pane.`,
-          ui: { showPane: 'pane-browser', browser: go }, results: out.results };
+        const where = out.pageUrl ? ` (Browser pane: ${out.pageUrl}${out.native ? ' — native view' : ''})` : '';
+        return { tool: decision.tool, ok: false, observation: `Web search “${decision.args.query}” could not run (${out.error || 'unavailable'})${where} — try opening a site directly (“open bbc news”).`,
+          ui: { showPane: 'pane-browser', browser }, results: [] };
       }
       const lines = (out.results || []).map((r, i) => `${i + 1}. ${r.title} — ${r.snippet} (${r.href})`).join('\n');
+      const where = out.pageUrl ? ` [${out.pageUrl}${out.native ? ' — native' : ''}]` : (out.native ? ' [native]' : '');
       const obs = lines
-        ? `Web search “${decision.args.query}”:\n${lines}`
+        ? `Web search “${decision.args.query}”${where}:\n${lines}`
         : (out.pageUrl
-          ? `Web search “${decision.args.query}” is showing live in your Browser pane (${out.pageUrl}) — results are rendering there; tell me what you see or say "read this page" and I'll read it.`
+          ? `Web search “${decision.args.query}” is showing live in your Browser pane (${out.pageUrl}${out.native ? ' — native view' : ''}) — results are rendering there; tell me what you see or say "read this page" and I'll read it.`
           : `Web search “${decision.args.query}” is showing live in your Browser pane — tell me what you see or say "read this page".`);
       return { tool: decision.tool, ok: true, observation: obs,
-        ui: { showPane: 'pane-browser' }, results: out.results };
+        ui: { showPane: 'pane-browser', browser }, results: out.results };
     }
     default: return { tool: decision.tool, ok: false, observation: 'unknown tool' };
 }

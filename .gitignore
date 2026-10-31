@@ -1,6 +1,5 @@
 node_modules/
-agent/models/*.gguf
-agent/models/*.sha256
+/agent/models
 src-tauri/target/
 vault/*/pi-sessions/
 vault/*/staging/browser/

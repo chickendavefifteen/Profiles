@@ -5,7 +5,8 @@
 // PROFILES_API_BASE, OpenAI-compatible). Standalone: npm run agent (:8799).
 // Mounted by server.mjs under /api/ so `npm start` gives a real agent too.
 import { createServer } from 'node:http';
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { freemem } from 'node:os';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,12 +15,18 @@ import { classifyIntent, pickTier, suggestProfile, TIERS } from './ladder.mjs';
 import { toolsForMode, liveToolsForMode, toolById } from './tools.mjs';
 import { makeDraft, draftToMarkdown, draftToDocx, makeScriptDraft } from './staging.mjs';
 import { capabilities, loadConfig, saveConfig, setupPlan, runSetupStep, makeSnapshot, listSnapshots, restoreSnapshot, DEFAULT_CONFIG } from './system.mjs';
-import { localBrainAnswer } from './localbrain.mjs';
 import { recordEvent, loadEvents, computePreferences, savePreferences, learnedSuggestion, ensureMacro, listMacros, norm } from './learning.mjs';
 
+import { slotPaths, activeSlot, withSlot, setActiveSlot, ensureSlot, SLOTS } from './slots.mjs';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-import { slotPaths, activeSlot, setActiveSlot, ensureSlot } from './slots.mjs';
+const vaultRoot = process.env.PROFILES_VAULT_DIR || join(root, 'vault');
 async function paths() { const sl = await activeSlot(); return { slot: sl, ...slotPaths(sl) }; }
+let configQueue = Promise.resolve();
+// Per-slot conversation generation: config reset or privateMode-on bumps
+// the epoch and clears the slot. In-flight turns capture the epoch first
+// and never write back after a reset/private switch (no resurrection).
+const convEpoch = new Map();
+function bumpConvEpoch(slot) { convEpoch.set(slot, (convEpoch.get(slot) || 0) + 1); conversations.delete(slot); }
 /* Build stamp: frontend polls this to detect stale windows. Any code
    change -> new stamp -> window offers Reload. Stale-window bugs die. */
 import { execSync } from 'node:child_process';
@@ -64,24 +71,15 @@ async function listStaged() {
   return out.sort((a, b) => String(b.created).localeCompare(String(a.created)));
 }
 
-/* Model identity for /api/ask: the badge paints from this, never a guess. */
-function friendlyLocalModel(file){
-  var f=String(file||"").toLowerCase();
-  if(f.indexOf("qwen2.5-3b")>=0) return "Qwen2.5-3B local";
-  if(f.indexOf("lfm2.5-1.2b")>=0||f.indexOf("lfm")>=0) return "LFM2.5-1.2B local";
-  if(f.indexOf("qwen2.5-0.5b")>=0) return "Qwen2.5-0.5B local";
-  if(f.indexOf("nemotron")>=0||f.indexOf("minitron")>=0) return "Nemotron local";
-  if(f.indexOf("gemma")>=0) return "Gemma local";
-  var base=String(file||"").replace(/\.gguf$/i,"").slice(0,40)||"local model";
-  return base+" local";
-}
-function liteModel(){ return { name: "lite agent", via: "lite" }; }
-function piModel(){ return { name: "pi muse-spark", via: "pi" }; }
-function localModel(file){ return { name: friendlyLocalModel(file), via: "local" }; }
+function liteModel(){ return { name: "Basic tools (no model)", via: "lite" }; }
+const conversations = new Map();
 
 /** The local brain: deterministic, files real things, never phones home. */
-export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
-  const intent = classifyIntent(query);
+export async function runAsk(query, mode = 'lifeful', device = 'desktop', onEvent = null) {
+  const { decideTool } = await import('../src/agent-routing.mjs');
+  const { runTool } = await import('./agentloop.mjs');
+  const decision = decideTool(query);
+  const intent = decision ? {kind:'tool',tool:decision.tool,risk:'low',needsConfirm:false} : classifyIntent(query);
   // Quiet learning: remember the ask, grow deterministic macros from repeats.
   // Private mode (per slot): nothing is recorded, full stop.
   const profEarly = await loadConfig();
@@ -122,104 +120,60 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
       setup: setupPlan(caps, cfg), capabilities: caps };
   }
   const events = [];
+  if (onEvent) events.push = function(...items) {
+    for (const event of items) onEvent(event);
+    return Array.prototype.push.apply(this, items);
+  };
   const at = () => new Date().toISOString();
-  events.push({ stage: 'sense', text: `sense ✓ "${query}" — intent ${intent.kind}, risk ${intent.risk}`, at: at() });
-  events.push({ stage: 'plan', text: `plan → tier ${pick.tier} (${pick.action}): ${pick.reason}`, at: at() });
+  events.push({ stage:'sense', kind:'trace', text:'Request received · '+(decision?decision.tool:intent.kind), at:at() });
   const ledger = await loadLedger();
   let staged = null, result = '';
-  {
-    const slotId0 = (await paths()).slot;
-    if (slotId0 === 'X') {
-      const prof0 = await loadConfig();
-      if (prof0.piPower && prof0.piBrain && !['irreversible', 'setup'].includes(intent.kind)) {
-        const { piBrainAnswer } = await import('./pibrain.mjs');
-        events.push({ stage: 'act', text: 'act ✓ Profile X: real pi process working (tools live, ringfenced to vault/X)', at: at() });
-        const piAns = await piBrainAnswer(query, slotId0, prof0);
-        if (piAns.ok) {
-          events.push({ stage: 'verify', text: 'verify ✓ pi run complete — ' + piAns.model, at: at() });
-          events.push({ stage: 'remember', text: 'remember ✓ pi session persists in vault/X/pi-sessions only', at: at() });
-          return { query, mode, device, intent, pick: { tier: 'cloud', action: 'pi-brain', reason: 'Profile X pi brain (full pi, X only)' }, events,
-            model: piModel(),
-            result: piAns.text, chat: piAns.text, staged: null };
-        }
-        events.push({ stage: 'verify', text: 'verify ! pi brain unavailable (' + piAns.reason + ') — lite brain instead', at: at() });
-      }
+  const { runModelTurn, resolveSelection } = await import('./model-agent.mjs');
+  const selection = resolveSelection(profEarly).selection;
+  const direct = decision && decision.tool !== 'web_search';
+  if (!direct && ['cloud', 'local'].includes(selection) && intent.risk !== 'high' && intent.kind !== 'irreversible') {
+    const runSlot = (await paths()).slot;
+    const startEpoch = convEpoch.get(runSlot) || 0;
+    const history = profEarly.privateMode ? [] : (conversations.get(runSlot) || []);
+    const answer = await runModelTurn({ slot: runSlot, profile: profEarly, query, modeLabel: mode, events, history });
+    if (answer.ok && !profEarly.privateMode && (convEpoch.get(runSlot) || 0) === startEpoch) conversations.set(runSlot, history.concat(
+      { role: 'user', content: String(query).slice(0,6000) },
+      { role: 'assistant', content: answer.text.slice(0,6000) }).slice(-10));
+    if (!answer.ok) {
+      // Keep the selected route visible; never substitute another answer.
+      const text = 'The selected model could not answer: ' + answer.error;
+      return { query, mode, device, intent, pick: { tier: selection, action: 'model-tools' }, events,
+        model: liteModel(), selectedModel: { name: selection === 'cloud' ? (profEarly.cloudModel || 'muse-spark-1.3-contributor') : (profEarly.localModel || profEarly.modelFile || 'Local model'), via: selection },
+        result: text, chat: text, ui: answer.ui || null, ok: false };
     }
+    const text = answer.text;
+    return { query, mode, device, intent, pick: { tier: selection, action: 'model-tools' }, events,
+      model: answer.model || liteModel(),
+      result: text, chat: text, ui: answer.ui || null, ok: true };
   }
   // Tool loop: decide -> act -> observe -> answer (deterministic first).
   {
-    const { decideTool, runTool } = await import('./agentloop.mjs');
-    const decision = decideTool(query);
     if (decision) {
       events.push({ stage: 'plan', text: `plan → tool ${decision.tool} ${JSON.stringify(decision.args)}`, at: at() });
       try {
         const out = await runTool((await paths()).slot, decision);
-        events.push({ stage: 'act', text: `act ✓ tool ${decision.tool} observed`, at: at() });
+        events.push({ stage: 'act', kind: 'tool', text: `Tool ${decision.tool} ${out.ok ? 'completed' : 'failed'}`, at: at() });
         let answer = out.observation;
-        if ((decision.tool === 'web_search' || decision.tool === 'browser_read') && true) {
-          const sum = await localBrainAnswer(`Summarise this for the user in 2-4 short sentences, plain language. If it is search results, name the top items.\n\n${out.observation.slice(0, 2200)}`, mode).catch(() => ({ ok: false }));
-          if (sum.ok) answer = sum.text + '\n\n' + (decision.tool === 'web_search' ? (decision.args && decision.args.openTop ? '(from a live web search — opened the top hit in your Browser pane)' : '(from a live web search in your browser — say "open result 1" style asks next)') : '(read from the live page in your browser)');
-        }
-        events.push({ stage: 'verify', text: 'verify ✓ observation in chat; browser state is live in the Browser pane', at: at() });
-        events.push({ stage: 'remember', text: 'remember ✓ tool run checkpointed in this profile', at: at() });
+        events.push({ stage: 'verify', kind: 'tool', text: out.ok ? 'Browser action completed on the active page.' : 'Browser action failed: ' + out.observation, at: at() });
         return { query, mode, device, intent: { kind: 'tool', tool: decision.tool, risk: 'low' }, pick: { tier: 'tool-loop', action: decision.tool, reason: 'agent tool hook' },
-          model: liteModel(),
+          model: liteModel(), selectedModel: { name: selection === 'cloud' ? (profEarly.cloudModel || 'muse-spark-1.3-contributor') : selection === 'local' ? (profEarly.localModel || profEarly.modelFile || 'Local model') : 'Basic tools (no model)', via: selection === 'cloud' ? 'cloud' : selection === 'local' ? 'local' : 'lite' },
           events, result: answer, chat: answer, staged: null, ui: out.ui || null };
       } catch (e) {
         events.push({ stage: 'act', text: `act ! tool failed honestly: ${String(e.message).slice(0, 140)}`, at: at() });
+        const failure = 'That action failed: ' + String(e.message || e).slice(0,180);
+        return { ok:false, query, mode, events, model:liteModel(), result:failure, chat:failure };
       }
     }
   }
   if (intent.kind === 'chat' || intent.kind === 'question') {
-    const caps = await capabilities();
-    const slot = await loadConfig();
-    const slotId = (await paths()).slot;
-    if (slotId === 'X' && slot.piPower && slot.piBrain) {
-      const { piBrainAnswer } = await import('./pibrain.mjs');
-      events.push({ stage: 'act', text: 'act ✓ Profile X: real pi process thinking (tools live, ringfenced to vault/X)', at: at() });
-      const piAns = await piBrainAnswer(query, slotId, slot);
-      if (piAns.ok) {
-        events.push({ stage: 'verify', text: 'verify ✓ pi run complete — ' + piAns.model, at: at() });
-        events.push({ stage: 'remember', text: 'remember ✓ pi session persists in vault/X/pi-sessions only', at: at() });
-        return { query, mode, device, intent, pick: { tier: 'cloud', action: 'pi-brain', reason: 'Profile X pi brain' }, events,
-          model: piModel(),
-          result: piAns.text, chat: piAns.text, staged: null };
-      }
-      events.push({ stage: 'verify', text: 'verify ! pi brain unavailable (' + piAns.reason + ') — lite brain instead', at: at() });
-    }
-    const { wantsDeep, orchestrate } = await import('./orchestrate.mjs');
-    if (wantsDeep(query) && caps.modelsPresent.length) {
-      const orch = await orchestrate(query.replace(/\b(ultrathink|think hard|orchestrate|sub-?agents?)\b/gi, '').trim() || query, mode);
-      for (const e of orch.events) events.push(e);
-      if (orch.ok) return { query, mode, device, intent, pick: { tier: 'laptop-local', action: 'orchestrate', reason: 'bounded Scout/Worker/Critic fan-out, parent accepted' }, events, model: localModel(slot.modelFile || caps.modelsPresent[0]), result: orch.text, chat: orch.text, staged: null };
-      events.push({ stage: 'verify', text: 'verify ! orchestration fell back (' + orch.reason + ') — single brain instead', at: at() });
-    }
-    if (slot.cloudEnabled) {
-      const { cloudAnswer } = await import('./cloud.mjs');
-      const cAns = await cloudAnswer((await paths()).slot, slot, query, mode);
-      if (cAns.ok) {
-        events.push({ stage: 'act', text: `act ✓ cloud brain answered (${cAns.model}) — cloud was opted in for this profile`, at: at() });
-        events.push({ stage: 'verify', text: 'verify ✓ answered in chat; cloud use is per-profile and shown, never silent', at: at() });
-        events.push({ stage: 'remember', text: 'remember ✓ conversation kept in this session pane', at: at() });
-        return { query, mode, device, intent, pick: { tier: 'cloud', action: 'cloud-answer', reason: 'profile opted into cloud' }, events, model: { name: cAns.model, via: 'cloud' }, result: cAns.text, chat: cAns.text, staged: null };
-      }
-      events.push({ stage: 'act', text: `act ! cloud opted in but unavailable (${cAns.reason}) — local brain instead, labelled`, at: at() });
-    }
-    const { piBrainAnswer } = await import('./pibrain.mjs');
-    const modelAns = caps.modelsPresent.length ? await localBrainAnswer(query, mode) : await piBrainAnswer(query, slotId, slot);
-    events.push({ stage: 'act', text: modelAns.ok ? `act ✓ local model thinking (${modelAns.model})` : 'act ✓ lite brain answering from live status (deterministic)', at: at() });
-    let answer;
-    if (/agentic|what can you do|who are you/i.test(query)) {
-      answer = `Yes - lite-agentic, honestly: I can chat, file tasks into your vault, stage letters and slide decks for export, write scripts for you to run, and suggest profile switches. My tools right now: ${liveToolsForMode(mode).map((t) => t.id).join(', ')}. ` +
-        (caps.modelsPresent.length ? `A local model (${caps.modelsPresent.join(', ')}) is downloaded and wired in as my brain via llama.cpp - general questions go to it, nothing leaves this PC. ` : 'No local LLM is downloaded yet - say "help me get a better agent plugged in" and I will set one up step by step. ') +
-        `Cloud is ${cloudOptIn && hasApiKey ? 'opted in' : 'OFF (your choice, in Advanced)'}. Nothing leaves this machine.`;
-    } else if (modelAns.ok) answer = modelAns.text;
-    else {
-      answer = `I heard you. I am the always-on lite agent - I can answer properly once a local model is wired (${modelAns.reason}), and right now I can file tasks, stage documents/slides, write scripts, and run the setup wizard. Try "draft a letter about..." or "help me get a better agent plugged in".`;
-    }
-    events.push({ stage: 'verify', text: 'verify ✓ answered in chat; loop detail stays in the Agent pane', at: at() });
-    events.push({ stage: 'remember', text: 'remember ✓ conversation kept in this session pane', at: at() });
-    return { query, mode, device, intent, pick, events, model: modelAns.ok ? (caps.modelsPresent.length ? localModel(modelAns.model || slot.modelFile || caps.modelsPresent[0]) : piModel()) : liteModel(), result: answer, chat: answer, staged: null };
+    const answer = 'Basic tools are ready: I can open websites, search, read the current page and stage documents. For conversation and multi-step requests, choose your model using the button at the top of this pane.';
+    return { query, mode, device, intent, pick: { tier: 'basic', action: 'capabilities' }, events,
+      model: { name: 'Basic tools (no model)', via: 'lite' }, result: answer, chat: answer };
   }
   if (pick.action === 'stage-draft-only') {
     staged = makeDraft(query, 'stage-doc');
@@ -240,13 +194,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop') {
     const t = createTask(ledger, { title: query, device });
     advance(ledger, t.id, { nextStep: 'review staged work', device });
     events.push({ stage: 'act', text: `act ✓ filed → tasks/ledger.json (${t.id})`, at: at() });
-    if (intent.kind === 'question') {
-      const { piBrainAnswer: pba } = await import('./pibrain.mjs');
-      const ans = caps.modelsPresent.length ? await localBrainAnswer(query, mode) : await pba(query, (await paths()).slot, slot);
-      if (ans.ok) { result = ans.text + '\n— answered by your local model (' + ans.model + '), nothing left this machine.';
-        events.push({ stage: 'act', text: `act ✓ local model answered (${ans.model})`, at: at() }); }
-      else result = `Lite brain (always on): I filed your question. The local model is not wired yet (${ans.reason}) - say "help me get a better agent plugged in" and I will walk it through, or ask "draft …" to stage a document.`;
-    } else result = `Filed "${query}" into your vault tasks with a checkpoint.`;
+    result = `Filed "${query}" into your vault tasks with a checkpoint.`;
     var taskRef = t;
   }
   events.push({ stage: 'verify', text: `verify ✓ tools live here: ${liveToolsForMode(mode).map((t) => t.id).join(', ') || 'none'}`, at: at() });
@@ -268,16 +216,75 @@ export async function handleAgent(req, res, prefix = '/api') {
   if (!url.pathname.startsWith(prefix)) return false;
   const path = url.pathname.slice(prefix.length);
   try {
+    const requestOrigin = req.headers.origin;
+    const ownOrigins = new Set(['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost',
+      `http://${req.headers.host}`, `https://${req.headers.host}`]);
+    if (requestOrigin && !ownOrigins.has(requestOrigin)) {
+      json(res, 403, { error: 'This origin is not allowed to control Profiles' }); return true;
+    }
+    if (path.startsWith('/browser/native/')) {
+      const origin = req.headers.origin;
+      const allowed = new Set(['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost',
+        `http://localhost:${process.env.PROFILES_SERVER_PORT || 1420}`, `http://127.0.0.1:${process.env.PROFILES_SERVER_PORT || 1420}`]);
+      if (!origin || !allowed.has(origin)) { json(res, 403, { error: 'Native bridge is restricted to the Profiles shell' }); return true; }
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204, { 'access-control-allow-origin': origin, 'access-control-allow-methods': 'POST',
+          'access-control-allow-headers': 'content-type' }); res.end(); return true;
+      }
+      if (req.method !== 'POST') { json(res, 405, { error: 'POST required' }); return true; }
+      let raw = ''; for await (const chunk of req) { raw += chunk; if (raw.length > 65536) break; }
+      if (raw.length > 65536) { json(res, 413, { error: 'Bridge payload too large' }); return true; }
+      const body = JSON.parse(raw || '{}');
+      const bridge = await import('./native-browser.mjs');
+      if (path === '/browser/native/register') { json(res, 200, { ok: true, ...bridge.registerNative((await paths()).slot) }); return true; }
+      if (path === '/browser/native/poll') {
+        const out = bridge.pollNative(body.token);
+        json(res, out ? 200 : 401, out || { error: 'Native session expired' }); return true;
+      }
+      if (path === '/browser/native/result') {
+        const ok = bridge.completeNative(body.token, body.id, body.result);
+        json(res, ok ? 200 : 409, { ok }); return true;
+      }
+      json(res, 404, { error: 'Unknown bridge operation' }); return true;
+    }
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST', 'access-control-allow-headers': 'content-type' }); res.end(); return true; }
     if (path === '/health' && req.method === 'GET') {
-      json(res, 200, { ok: true, build: BUILD, startedAt: STARTED_AT,
-        brain: tinyModelFile ? 'bundled-tiny (gguf found)' : 'bundled-tiny (heuristic classifier)',
-        cloud: cloudOptIn && hasApiKey ? 'opted-in' : 'off', tiers: TIERS.map((t) => t.id), note: 'Pi-shaped sidecar; per-slot vaults, zero carry-across' });
+      const profile=await loadConfig();
+      const {resolveSelection}=await import('./model-agent.mjs');
+      const selected=resolveSelection(profile).selection;
+      const {hasNative}=await import('./native-browser.mjs');
+      const nativeBrowserReady=process.env.PROFILES_NATIVE_SHELL!=='1' || hasNative((await paths()).slot);
+      json(res, 200, { ok: true, pid:process.pid, build: BUILD, startedAt: STARTED_AT,
+        nativeBrowserReady,
+        brain:selected==='cloud'?(profile.cloudModel||'muse-spark-1.3-contributor'):selected==='local'?(profile.localModel||profile.modelFile||'Local endpoint'):'Basic tools (no model)',
+        cloud:profile.cloudEnabled?'selected':'off', tiers:TIERS.map(t=>t.id), note:'Bounded tool loop · isolated per-profile state' });
       return true;
     }
     if (path === '/capabilities' && req.method === 'GET') { json(res, 200, await capabilities()); return true; }
+    if (path === '/agent/models' && req.method === 'GET') {
+      const profile = await loadConfig(), { cloudStatus } = await import('./cloud.mjs');
+      const { resolveSelection, resolveCloudTarget, resolveLocalTarget } = await import('./model-agent.mjs');
+      const cloud = await cloudStatus((await paths()).slot, profile), target = resolveCloudTarget(profile);
+      const local = resolveLocalTarget(profile);
+      const files = await readdir(join(root,'agent','models')).catch(()=>[]);
+      const { chooseContext: pickCtx, hasEnoughMemory: fitsMem } = await import('./localbrain.mjs');
+      const freeNow = freemem();
+      const installed = await Promise.all(files.filter(f=>/^[\w.-]+\.gguf$/i.test(f)).map(async modelFile=>{
+        const info=await stat(join(root,'agent','models',modelFile));
+        const fits=fitsMem(info.size, freeNow, pickCtx(info.size, freeNow));
+        return {id:'local',modelFile,name:modelFile.replace(/\.gguf$/i,''),available:fits,
+          detail:fits?'Installed file · CPU only · loaded on your next ask.':'Not enough free memory for this model.'};
+      }));
+      json(res, 200, { selected: resolveSelection(profile).selection, selectedFile:(profile.localSource==='file'||local.error)?profile.modelFile||null:null, choices: [
+        { id: 'lite', name: 'Basic tools (no model)', available: true, detail: 'Offline navigation and document commands. No model calls.' },
+        { id: 'cloud', name: target.model || 'muse-spark-1.3-contributor', available: cloud.hasKey && !target.error,
+          detail: target.error || (cloud.hasKey ? 'Contributor API — prompts may be used for training.' : 'Add your API key in Setup first.') },
+        ...(!local.error ? [{ id:'local', name:profile.localModel||'Local endpoint', available:true, detail:'Already configured loopback endpoint; no cloud substitution.' }] : []),
+        ...installed
+      ] }); return true;
+    }
     if (path === '/appconfig' && req.method === 'GET') {
-      try { json(res, 200, JSON.parse(await readFile(join(root, 'vault', 'app.json'), 'utf8'))); }
+      try { json(res, 200, JSON.parse(await readFile(join(vaultRoot, 'app.json'), 'utf8'))); }
       catch { json(res, 200, { showX: false, extraSlots: [] }); }
       return true;
     }
@@ -285,9 +292,10 @@ export async function handleAgent(req, res, prefix = '/api') {
       let b = ''; for await (const c of req) b += c;
       const patch = JSON.parse(b || '{}');
       let cur = { showX: false, extraSlots: [] };
-      try { cur = { ...cur, ...JSON.parse(await readFile(join(root, 'vault', 'app.json'), 'utf8')) }; } catch {}
+      try { cur = { ...cur, ...JSON.parse(await readFile(join(vaultRoot, 'app.json'), 'utf8')) }; } catch {}
       const next = { ...cur, ...patch };
-      await writeFile(join(root, 'vault', 'app.json'), JSON.stringify(next, null, 2));
+      await mkdir(vaultRoot,{recursive:true});
+      await writeFile(join(vaultRoot, 'app.json'), JSON.stringify(next, null, 2));
       json(res, 200, next); return true;
     }
     if (path === '/profilex/disclaimer' && req.method === 'GET') {
@@ -313,16 +321,27 @@ export async function handleAgent(req, res, prefix = '/api') {
     if (path === '/config' && req.method === 'POST') {
       let b = ''; for await (const c of req) b += c;
       const patch = JSON.parse(b || '{}');
-      const cfg = await loadConfig();
-      if (patch.reset === true) { await makeSnapshot('before reset');
-        try {
-          const { readdir, rm } = await import('node:fs/promises');
-          const pp = slotPaths(await activeSlot());
-          for (const f of (await readdir(pp.macros).catch(() => []))) { try { await rm(join(pp.macros, f)); } catch {} }
-          try { await rm(pp.events, { force: true }); } catch {}
-        } catch {} const fresh = { ...structuredClone(DEFAULT_CONFIG), brain: cfg.brain, tier: cfg.tier, modelFile: cfg.modelFile }; await saveConfig(fresh); json(res, 200, { ok: true, reset: true, slot: await activeSlot(), profile: fresh }); return true; }
-      if (patch.slot && typeof patch.slot === 'object') Object.assign(cfg, patch.slot);
-      await saveConfig(cfg); json(res, 200, { slot: await activeSlot(), profile: cfg }); return true;
+      const slotId = patch.slotId || await activeSlot();
+      if (!SLOTS.includes(slotId)) { json(res, 400, { error: 'Unknown profile' }); return true; }
+      const update = configQueue.catch(() => {}).then(async () => {
+        const cfg = await loadConfig(slotId);
+        if (patch.reset === true) {
+          await makeSnapshot('before reset', slotId);
+          const { rm } = await import('node:fs/promises'), pp = slotPaths(slotId);
+          for (const f of await readdir(pp.macros).catch(() => [])) await rm(join(pp.macros, f)).catch(() => {});
+          await rm(pp.events, { force: true }).catch(() => {});
+          bumpConvEpoch(slotId);
+          const fresh = { ...structuredClone(DEFAULT_CONFIG), brain: cfg.brain, tier: cfg.tier, modelFile: cfg.modelFile };
+          await saveConfig(fresh, slotId);
+          return { ok: true, reset: true, slot: slotId, profile: fresh };
+        }
+        if (patch.slot && typeof patch.slot === 'object') Object.assign(cfg, patch.slot);
+        if (patch.slot && patch.slot.privateMode) bumpConvEpoch(slotId);
+        await saveConfig(cfg, slotId);
+        return { slot: slotId, profile: cfg };
+      });
+      configQueue = update;
+      json(res, 200, await update); return true;
     }
     if (path === '/snapshots' && req.method === 'GET') { json(res, 200, { snapshots: await listSnapshots() }); return true; }
     if (path === '/snapshots' && req.method === 'POST') {
@@ -438,33 +457,21 @@ export async function handleAgent(req, res, prefix = '/api') {
     if (streamMatch && req.method === 'GET') {
       const slot = (await paths()).slot;
       try {
-        const { ensureScreencast } = await import('./browseract.mjs');
+        const { ensureScreencast, stopScreencast } = await import('./browseract.mjs');
         const sess = await ensureScreencast(slot);
         if (!sess || !sess.cdp || !sess.stream) throw new Error('screencast unavailable');
-        /* Headers FIRST, always: a client must never stare at a silent
-           socket while we prepare frames. Parts follow as ready. */
         res.writeHead(200, { 'content-type': 'multipart/x-mixed-replace; boundary=' + sess.boundary,
-          'cache-control': 'no-cache, no-store, max-age=0', connection: 'keep-alive', 'access-control-allow-origin': '*' });
-        /* Every consumer gets an instant first frame: a fresh screenshot
-           taken for THIS request (proves the render, ~200ms). Live paint
-           frames follow. No consumer ever stares at a silent stream. */
-        try {
-          const { page: proofPage } = await (await import('./browseract.mjs')).ensureSession(slot);
-          const proof = await Promise.race([
-            proofPage.screenshot({ type: 'jpeg', quality: 70 }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('shot timeout')), 9000)),
-          ]);
-          if (proof && proof.length > 500) {
-            res.write(`--${sess.boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${proof.length}\r\n\r\n`);
-            res.write(proof); res.write('\r\n');
-          } else if (sess.proof) {
-            res.write(`--${sess.boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${sess.proof.length}\r\n\r\n`);
-            res.write(sess.proof); res.write('\r\n');
-          }
-        } catch {}
+          'cache-control': 'no-cache, no-store, max-age=0', connection: 'keep-alive' });
+        if (sess.proof) {
+          res.write(`--${sess.boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${sess.proof.length}\r\n\r\n`);
+          res.write(sess.proof); res.write('\r\n');
+        }
         const onData = (chunk) => { try { res.write(chunk); } catch {} };
         sess.stream.on('data', onData);
-        req.on('close', () => { try { sess.stream.off('data', onData); } catch {} });
+        res.on('close', () => {
+          sess.stream.off('data', onData);
+          if (!sess.stream.listenerCount('data')) stopScreencast(slot).catch(()=>{});
+        });
         return true;
       } catch (e) { json(res, 503, { error: 'live view unavailable: ' + String(e && e.message || e).slice(0, 140) }); return true; }
     }
@@ -492,6 +499,11 @@ export async function handleAgent(req, res, prefix = '/api') {
       const { viewSize } = await import('./browseract.mjs');
       json(res, 200, await viewSize((await paths()).slot, body.w, body.h)); return true;
     }
+    if (path === '/browser/zoom' && req.method === 'POST') {
+      let raw = ''; for await (const chunk of req) raw += chunk;
+      const { viewZoom } = await import('./browseract.mjs');
+      json(res, 200, await viewZoom((await paths()).slot, JSON.parse(raw || '{}').zoom)); return true;
+    }
     /* Deterministic click target for QA: a full-viewport button. Clicking
        anywhere in the frame flips the title — proves the whole loop
        (frontend mapping -> /mouse -> live session -> render) with zero
@@ -514,8 +526,12 @@ export async function handleAgent(req, res, prefix = '/api') {
       try {
         const ba = await import('./browseract.mjs');
         const slot = (await paths()).slot;
-        const { page } = await ba.ensureSession(slot);
-        json(res, 200, { ok: true, url: page.url(), title: await page.title().catch(() => ''), frames: ba.getFrameSeq(slot) });
+        const { hasNative } = await import('./native-browser.mjs');
+        if (hasNative(slot)) json(res, 200, await ba.viewCurrent(slot));
+        else {
+          const { page } = await ba.ensureSession(slot);
+          json(res, 200, { ok: true, url: page.url(), title: await page.title().catch(() => ''), frames: ba.getFrameSeq(slot) });
+        }
       } catch (e) { json(res, 200, { ok: false, error: String(e && e.message || e).slice(0, 120) }); }
       return true;
     }
@@ -684,27 +700,27 @@ export async function handleAgent(req, res, prefix = '/api') {
       }
       return true;
     }
-    /* Document paste-through: paste text/markdown/HTML (or a fetched page
-       the pane already pulled through /api/proxy with the slot jar) ->
-       sanitized inline preview + staged draft. Heavy binaries get the
-       honest fallback: a staged pointer + export/open-external, never a
-       faked render. No auth, no websockets, no deep integration. */
+    if(path==='/doc/source' && req.method==='GET'){
+      try{
+        const {fetchDocumentSource}=await import('./document-source.mjs');
+        const source=await fetchDocumentSource(url.searchParams.get('url')||'');
+        const type=source.contentType.split(';')[0].toLowerCase();
+        res.writeHead(200,{'content-type':'application/octet-stream','content-disposition':'attachment; filename="document"',
+          'content-length':source.bytes.length,'cache-control':'no-store','x-content-type-options':'nosniff',
+          'access-control-allow-origin':requestOrigin || `http://${req.headers.host}`,'vary':'Origin',
+          'x-profiles-document-type':/^[\w.+/-]+$/.test(type)?type:'application/octet-stream'});
+        res.end(source.bytes);
+      }catch(error){json(res,error.status||502,{ok:false,error:String(error.message||error)});}
+      return true;
+    }
+    // Editable pasted text is staged separately from binary document viewing.
     if (path === '/doc/stage' && req.method === 'POST') {
       let b = ''; for await (const c of req) b += c;
       let body = {};
       try { body = JSON.parse(b || '{}'); } catch { json(res, 400, { error: 'bad json' }); return true; }
-      const { makePastedDoc, markdownToHtml, binaryFallbackHtml } = await import('./staging.mjs');
+      const { makePastedDoc, markdownToHtml } = await import('./staging.mjs');
       const { sanitizeDocHtml } = await import('./proxy.mjs');
-      if (body.binary) {
-        const name = String(body.filename || (body.sourceUrl || '').split('/').pop() || 'file').slice(0, 120);
-        const draft = makePastedDoc({ title: name,
-          markdown: 'Pointer to ' + (body.sourceUrl || name) + ' — open it in its own app; export here when handy.',
-          sourceUrl: body.sourceUrl || null });
-        await saveStage(draft);
-        json(res, 200, { ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind },
-          html: binaryFallbackHtml(name, body.sourceUrl || null) });
-        return true;
-      }
+      if(body.binary){json(res,415,{ok:false,error:'Binary files belong in the Document reader, not an editable text draft.'});return true;}
       const text = String(body.text || '').slice(0, 60000);
       if (!text.trim()) { json(res, 400, { error: 'nothing to stage — paste text or a link first' }); return true; }
       const fmt = body.format === 'html' || body.format === 'markdown' ? body.format
@@ -715,6 +731,19 @@ export async function handleAgent(req, res, prefix = '/api') {
       const html = fmt === 'html' ? sanitizeDocHtml(text) : sanitizeDocHtml(markdownToHtml(text));
       json(res, 200, { ok: true, staged: { id: draft.id, title: draft.title, kind: draft.kind }, html });
       return true;
+    }
+    if (path === '/ask/stream' && req.method === 'POST') {
+      let body = ''; for await (const chunk of req) body += chunk;
+      const { query, mode = 'Vibes', device = 'desktop' } = JSON.parse(body || '{}');
+      if (!query || typeof query !== 'string') { json(res, 400, { error: 'query required' }); return true; }
+      res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store',
+        'access-control-allow-origin': '*' });
+      const send = value => { if (!res.destroyed) res.write(JSON.stringify(value) + '\n'); };
+      try {
+        const out = await runAsk(query.slice(0, 2000), mode, device, event => send({ type: 'event', event }));
+        send({ type: 'result', result: out });
+      } catch (error) { send({ type: 'error', error: String(error.message || error) }); }
+      res.end(); return true;
     }
     if (path === '/ask' && req.method === 'POST') {
       let body = '';
@@ -733,8 +762,11 @@ export async function handleAgent(req, res, prefix = '/api') {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PROFILES_AGENT_PORT || 8799);
   createServer(async (req, res) => {
-    if (await handleAgent(req, res, '')) return;
-    if (await handleAgent(req, res, '/api')) return;
+    const requested=new URL(req.url,'http://localhost').searchParams.get('profileSlot');
+    if(requested && !SLOTS.includes(requested)){json(res,400,{ok:false,error:'Unknown profile'});return;}
+    const slot=requested || await activeSlot();
+    if (await withSlot(slot, () => handleAgent(req, res, ''))) return;
+    if (await withSlot(slot, () => handleAgent(req, res, '/api'))) return;
     json(res, 404, { error: 'profiles-agent: use /ask /health /tools /stage /suggest' });
-  }).listen(port, () => console.log(`Profiles agent sidecar → http://localhost:${port}/  (cloud ${cloudOptIn && hasApiKey ? 'opted-in' : 'OFF'}, brain: local)`));
+  }).listen(port, process.env.PROFILES_BIND || '127.0.0.1', () => console.log(`Profiles agent sidecar → http://localhost:${port}/ (explicit model selection)`));
 }
