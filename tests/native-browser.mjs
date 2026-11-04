@@ -4,7 +4,8 @@
 // Asserts routing behaviour only (queue / complete / reject), never payload
 // copy. Covers: same-slot request completes with its result, a wrong token
 // cannot poll or complete, unsupported actions fail without queueing, a
-// re-register expires the previous lease, and slots stay isolated.
+// re-register expires the previous lease, scoped awaits cannot adopt a new
+// lease, tab results refresh selection, and slots stay isolated.
 //
 // Run: node tests/native-browser.mjs
 // Exit: 0 when every check passes, 1 otherwise.
@@ -14,6 +15,7 @@ import {
   completeNative,
   requestNative,
   hasNative,
+  withNativeTab,
 } from '../agent/native-browser.mjs';
 
 const results = [];
@@ -52,14 +54,31 @@ check('other slot cannot complete the job', completeNative(regC.token, cmdB.id, 
 check('right token still completes after rejections', completeNative(regA.token, cmdB.id, { ok: true, url: 'u', title: 't', text: 'x' }) === true);
 const outB = await pendingB;
 
-// ---- re-register expires the previous lease ----
+// ---- reconnect rejects delivered and queued old work, not replacement work ----
 const regOld = registerNative('B');
-const pendingOld = requestNative('B', 'read');
-registerNative('B'); // reconnect: old lease must die loudly, not linger
+const pendingOld = requestNative('B', 'navigate', { url: 'https://example.org/old' });
+const deliveredOld = pollNative(regOld.token).commands[0];
+const queuedOld = requestNative('B', 'read');
+const regNew = registerNative('B');
 check('old token polls nothing after reconnect', pollNative(regOld.token) === null);
-check('old token completes nothing after reconnect', completeNative(regOld.token, 'whatever', { ok: true }) === false);
-const outOld = await pendingOld;
-check('in-flight request fails honestly on reconnect', !!outOld && outOld.ok === false);
+check('delivered old navigation fails honestly on reconnect', (await pendingOld).ok === false);
+check('undelivered old read fails honestly on reconnect', (await queuedOld).ok === false);
+check('replacement lease does not inherit stale queued work', pollNative(regNew.token).commands.length === 0);
+const pendingNew = requestNative('B', 'navigate', { url: 'https://example.org/new' });
+const deliveredNew = pollNative(regNew.token).commands[0];
+check('old completion is rejected after reconnect',
+  completeNative(regOld.token, deliveredOld.id, { ok: true, url: 'https://example.org/old' }) === false);
+check('old token cannot settle replacement navigation',
+  completeNative(regOld.token, deliveredNew.id, { ok: true, url: 'https://example.org/old' }) === false);
+check('replacement token cannot resurrect expired navigation',
+  completeNative(regNew.token, deliveredOld.id, { ok: true, url: 'https://example.org/old' }) === false);
+check('replacement navigation remains completable',
+  completeNative(regNew.token, deliveredNew.id, { ok: true, url: 'https://example.org/new', title: 'New document' }) === true);
+const replacement = await pendingNew;
+check('consumer sees only the replacement navigation document',
+  replacement.ok === true && replacement.slot === 'B' && replacement.url === 'https://example.org/new' && replacement.title === 'New document');
+check('late duplicate result cannot overwrite a completed navigation',
+  completeNative(regNew.token, deliveredNew.id, { ok: false, error: 'Late cancellation' }) === false);
 
 // ---- slots stay isolated ----
 const regA2 = registerNative('A');
@@ -150,6 +169,105 @@ check('expired token polls nothing', expiredPoll === null);
 check('in-flight read fails honestly on TTL expiry', !!outH && outH.ok === false);
 check('post-expiry request fails without queueing', !!freshReq && freshReq.ok === false);
 check('post-expiry unknown token still rejected', completeNative(regH.token, 'nope', { ok: true }) === false);
+
+// A queued click is bound before the next poll changes the displayed tab.
+const tabLease = registerNative('T', 'tab-1');
+const oldClick = requestNative('T', 'click', {selector:'#hit'});
+const switchedPoll = pollNative(tabLease.token, 'tab-2');
+const queuedClick = switchedPoll.commands[0];
+completeNative(tabLease.token, queuedClick.id, {ok:true,tabId:'tab-2',title:'WRONG DOCUMENT'});
+check('tab switch rejects a result from a different displayed document', (await oldClick).ok === false);
+const selectedRead = requestNative('T', 'read');
+const selectedCommand = pollNative(tabLease.token).commands[0];
+completeNative(tabLease.token, selectedCommand.id, {ok:true,tabId:'tab-2',text:'SECOND DOCUMENT'});
+check('subsequent actions observe the newly selected live document', (await selectedRead).text === 'SECOND DOCUMENT');
+const pinnedRead = withNativeTab('T','tab-1',()=>requestNative('T','read'));
+const pinnedCommand = pollNative(tabLease.token).commands[0];
+completeNative(tabLease.token,pinnedCommand.id,{ok:true,tabId:'tab-1',text:'ORIGINAL DOCUMENT'});
+check('multi-step task keeps its originating tab instead of adopting a new selection', (await pinnedRead).text === 'ORIGINAL DOCUMENT');
+check('invalid tab capability fails without an action', (await withNativeTab('T','../tab-2',()=>requestNative('T','click',{}))).ok === false);
+
+// Provider waits must retain the exact app lease, even when a reconnect
+// reuses both the profile and tab id. No timers or provider/browser needed.
+for (const tabId of ['tab-1', undefined]) {
+  const slot = tabId ? 'await-explicit' : 'await-selected';
+  registerNative(slot, 'tab-1');
+  let resume;
+  const providerWait = new Promise(resolve => { resume = resolve; });
+  const staleTurn = withNativeTab(slot, tabId, async () => {
+    await providerWait;
+    return requestNative(slot, 'click', { selector: '#replacement-must-not-receive-this' });
+  });
+  const nextLease = registerNative(slot, 'tab-1');
+  resume();
+  await Promise.resolve();
+  const unexpected = pollNative(nextLease.token).commands;
+  check(`${slot}: old scope never queues into a replacement lease`, unexpected.length === 0);
+  // Settle any wrongly queued work so a regression reports instead of timing out.
+  for (const command of unexpected) completeNative(nextLease.token, command.id, { ok: true, tabId: 'tab-1' });
+  const staleResult = await staleTurn;
+  check(`${slot}: old scope fails honestly after its provider wait`, staleResult.ok === false && /changed|disconnect/i.test(staleResult.error));
+  const freshTurn = withNativeTab(slot, tabId, () => requestNative(slot, 'read'));
+  const freshCommand = pollNative(nextLease.token).commands[0];
+  check(`${slot}: fresh scope still queues on the replacement`, freshCommand?.tabId === 'tab-1');
+  if (freshCommand) completeNative(nextLease.token, freshCommand.id, { ok: true, tabId: 'tab-1', text: 'fresh lease' });
+  check(`${slot}: fresh same-lease command completes`, (await freshTurn).text === 'fresh lease');
+}
+
+// Optional-tab scopes capture selection at entry, not after a provider wait.
+const selectedLease = registerNative('await-same', 'tab-1');
+let resumeSame;
+const sameWait = new Promise(resolve => { resumeSame = resolve; });
+const sameTurn = withNativeTab('await-same', undefined, async () => {
+  await sameWait;
+  return requestNative('await-same', 'read');
+});
+pollNative(selectedLease.token, 'tab-2');
+resumeSame();
+await Promise.resolve();
+const sameCommand = pollNative(selectedLease.token).commands[0];
+check('same-lease awaited ask retains its originally displayed tab', sameCommand?.tabId === 'tab-1');
+if (sameCommand) completeNative(selectedLease.token, sameCommand.id, { ok: true, tabId: 'tab-1', text: 'same lease' });
+check('same-lease awaited command still completes', (await sameTurn).text === 'same lease');
+
+// Text-only native asks need no connected browser. A browser connected later
+// must not become a capability of the already-running no-browser ask.
+check('no-browser scope can run a text-only ask', await withNativeTab('await-cold', undefined, () => 'text only') === 'text only');
+let resumeCold;
+const coldWait = new Promise(resolve => { resumeCold = resolve; });
+const coldTurn = withNativeTab('await-cold', undefined, async () => {
+  await coldWait;
+  return requestNative('await-cold', 'read');
+});
+const coldLease = registerNative('await-cold');
+resumeCold();
+await Promise.resolve();
+const coldCommands = pollNative(coldLease.token).commands;
+check('no-browser scope cannot adopt a later app connection', coldCommands.length === 0);
+for (const command of coldCommands) completeNative(coldLease.token, command.id, { ok: true, tabId: 'tab-1' });
+check('no-browser scope rejects later browser work honestly', (await coldTurn).ok === false);
+
+// Tab operations report the new selection before the next UI poll. That
+// result must immediately become the default for following unscoped tools.
+const tabsLease = registerNative('tabs-result', 'tab-1');
+const switchTabs = requestNative('tabs-result', 'tabs', { action: 'switch', tabId: 'tab-2' });
+const switchCommand = pollNative(tabsLease.token).commands[0];
+completeNative(tabsLease.token, switchCommand.id, { ok: true, tabId: 'tab-2', activeTabId: 'tab-2', tabs: [{ id: 'tab-1' }, { id: 'tab-2' }] });
+check('successful tabs result completes', (await switchTabs).ok === true);
+const afterSwitch = requestNative('tabs-result', 'read');
+const afterSwitchCommand = pollNative(tabsLease.token).commands[0];
+check('successful tabs result refreshes default tab without another selection poll', afterSwitchCommand?.tabId === 'tab-2');
+completeNative(tabsLease.token, afterSwitchCommand.id, { ok: true, tabId: 'tab-2' });
+await afterSwitch;
+const failedSwitch = requestNative('tabs-result', 'tabs', { action: 'switch', tabId: 'tab-3' });
+const failedSwitchCommand = pollNative(tabsLease.token).commands[0];
+completeNative(tabsLease.token, failedSwitchCommand.id, { ok: false, tabId: 'tab-3', activeTabId: 'tab-3' });
+await failedSwitch;
+const afterFailure = requestNative('tabs-result', 'read');
+const afterFailureCommand = pollNative(tabsLease.token).commands[0];
+check('failed tabs result cannot change the default tab', afterFailureCommand?.tabId === 'tab-2');
+completeNative(tabsLease.token, afterFailureCommand.id, { ok: true, tabId: 'tab-2' });
+await afterFailure;
 
 const failed = results.filter(([, ok]) => !ok);
 console.log(`\nnative-browser: ${results.length - failed.length}/${results.length} checks passed`);

@@ -32,6 +32,7 @@ export async function piBrainAnswer(query, slot = "main", profile = {}) {
   const args = [
     "--print", "--mode", "text",
     "--provider", "meta", "--model", "muse-spark-1.3-contributor",
+    "--thinking", "xhigh",
     "--session-dir", sessDir, "--session-id", `profiles-${slotName}-main`,
     "--append-system-prompt", `You are running inside the Profiles desktop assistant (Profile ${slotName}). Working directory: ${cwd}. Be concise, helpful, and natural.`,
     String(query).slice(0, 1500)

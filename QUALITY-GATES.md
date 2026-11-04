@@ -7,11 +7,13 @@ A green web suite does not certify the packaged app. Run each affected surface a
 `npm run verify` owns disposable servers and vaults. It runs:
 
 1. Preflight: actual health/build identity, model availability, and a local fixture opened/rendered by the owned headless browser.
-2. `npm test`: pack/governor/router/document contracts, model selection/tool boundaries, native lease isolation and asynchronous frontend profile-switch regressions.
-3. `npm run qa`: real frontend navigation, agent-to-browser action, click/typing on the same actor, minimise/restore, retained draft/history, Calm persistence, held/latched Super shortcuts, model selection, browser-only zoom, desktop/touch viewport fit, and border dragging while held plus persistence.
+2. `npm test`: pack/governor/router/document contracts, Contributor xhigh demo selection, actual multimodal provider-request boundaries, native lease isolation and asynchronous frontend profile/tab/navigation regressions.
+3. `npm run qa`: real frontend navigation, agent-to-browser action, click/typing on the same actor, minimise/restore, retained draft/history, Calm persistence, held Super shortcuts, all-pane adjustment/dismissal, model selection, browser-only zoom, desktop/touch viewport fit, border dragging while held, and independent browser tabs.
 4. A separate disposable proxy/local-fixture click round trip.
 
 `node tests/qa/documents.mjs` exercises real PDF pages/canvas/text, Office paragraphs/tables/cells/slides, inert HTML, malformed/unsupported files, cross-origin byte fetching without source CORS, byte/resource limits, superseding reads, profile privacy and narrow-screen fit. Vendor assets must match the pinned packages: `node scripts/sync-document-vendor.mjs --check`.
+
+`npm run qa:tabs` exercises live unsaved forms, JavaScript memory and scroll without a reload; per-tab history; same-person cookies and cross-person isolation; popup/final-tab close; stale actions; and the real frontend's Super handlers. Simulated native events are not GTK input proof. Ordinary page operations and model screenshots must not write screenshot receipts to disk.
 
 Every failure exits nonzero. There is no pin/gate split that returns success with named failures, no source-string certification, no numerical test-count parsing, and no shared slot-E reset. The obsolete core-flows/overnight-gates harnesses were removed; use the commands above.
 
@@ -28,9 +30,9 @@ Exercise and inspect:
 - A requested site/fixture opens in the displayed native browser without a second instruction.
 - Native viewport remains inside its pane, including after resizing the real window.
 - Ctrl+wheel changes browser zoom without scaling the neighbouring pane or app chrome; A−/A+ stay in sync.
-- Super shortcuts work from the native page as well as app inputs; the tapped sequence is also checked.
-- Minimise/restore leaves the agent usable and preserves the browser's actual page/form state.
-- Profile changes cannot redirect an earlier profile's pending command into the new person's browser.
+- Super shortcuts work from the native page as well as app inputs. A lone tap highlights all visible boxes; an ordinary next click/key exits without click-through. Header dragging and edge resizing must survive the initial GTK press, then lock on release.
+- Minimise/restore and switching browser tabs preserve the actual document, unsaved form values, JavaScript state and independent history. Opening a new tab must not show the preceding stream. Closing the final tab leaves a new blank document.
+- Profile/tab changes and native bridge replacement cannot redirect an earlier pending command. Last requested selection wins even with delayed responses/polls. Ctrl+L followed by Ctrl+Tab updates the address to the selected document.
 - Errors identify real failures, not a manufactured successful page or a substituted news feed.
 - Repeat basic navigation, page reading and profile/mode persistence with `PROFILES_NO_SIDECAR=1`; no optional backend must mean reduced capability, not a dead app.
 - Open real PDF/Office fixtures in the native document reader. Check PDF worker/CSP/font loading in WebKit, not just Chromium.
@@ -58,11 +60,13 @@ A low-memory approximation can cap only the owned isolated desktop's cgroup to `
 
 ## Stream and state invariants
 
-- The web viewer and agent use one Playwright page, not separate hidden browsers.
+- The web viewer and agent use the same selected Playwright page, with one persistent context per person and a separate live page per tab.
 - A multipart header is not a JPEG. Read a complete image part, and inspect actual click/typing effects.
 - CDP acknowledges each frame with its session ID. An idle page need not emit another frame; a current screenshot provides the initial proof.
 - The last stream viewer disconnecting stops encoding; restoring reconnects to the existing actor page.
 - Profile identity is captured per request and native navigation poll; a later global slot switch cannot change that request's person.
+- Every mutating browser action checks the captured tab/session/selection generation before acting. Disposed streams cannot send queued input into a hidden tab. Replacing a native lease invalidates in-flight provider work, even when the tab ID is reused.
+- Screenshots are bounded transient PNG model input, not a filename-only vision claim or an automatic disk receipt. Inspect a real multimodal canary separately from provider-body contract tests; use synthetic non-private page content.
 - Persisted layout applies on initial load/world switch, not on every config response. Explicit mode selection must not be overwritten by a late config response.
 - A browser action may complete before a connection fails. Never automatically replay a failed ask or claim no side effect occurred without evidence.
 

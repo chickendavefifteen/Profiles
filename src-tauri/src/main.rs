@@ -51,6 +51,7 @@ fn spawn_sidecar(port: u16) -> Option<Child> {
     .args([server.as_str(), "--port", &port.to_string()])
     .current_dir(&home)
     .env("PROFILES_NATIVE_SHELL","1")
+    .env("PROFILES_DEMO_MODE", std::env::var("PROFILES_DEMO_MODE").unwrap_or_else(|_| "1".into()))
     .stdin(std::process::Stdio::null())
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::inherit())
@@ -137,11 +138,20 @@ fn main() {
       browser::browser_resize,
       browser::browser_navigate,
       browser::browser_back,
+      browser::browser_forward,
+      browser::browser_reload,
+      browser::browser_close,
       browser::browser_current,
       browser::browser_read,
       browser::browser_zoom,
       browser::browser_visible,
-      browser::browser_switch
+      browser::browser_switch,
+      browser::browser_click,
+      browser::browser_type,
+      browser::browser_press,
+      browser::browser_dark,
+      browser::browser_cursor,
+      browser::browser_screenshot
     ])
     .build(tauri::generate_context!())
     .expect("error while building Profiles")

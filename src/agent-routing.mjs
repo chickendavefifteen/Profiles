@@ -41,6 +41,10 @@ export const AGENT_TOOLS = [
   { name: 'browser_read', description: 'Read the current browser page (title + text)', input: 'none' },
   { name: 'web_search', description: 'Search the web through the integrated browser', input: 'query' },
   { name: 'browser_current', description: 'Show what the browser is currently on', input: 'none' },
+  { name: 'browser_click', description: 'Click an element, link, or coordinates on the active page', input: 'selector or text' },
+  { name: 'browser_type', description: 'Type text into an input field on the web page', input: 'text, optional selector' },
+  { name: 'browser_press', description: 'Press a keyboard key on the web page', input: 'key name' },
+  { name: 'browser_screenshot', description: 'Capture a real web-page screenshot where supported; unsupported backends report an error', input: 'optional fullPage' },
   { name: 'doc_open', description: 'Open a PDF, Office or text document in the Document pane', input: 'document url' },
 ];
 
@@ -57,6 +61,26 @@ export function decideTool(query) {
   const low = q.toLowerCase().trim();
   let rm0 = low.match(/^(?:open|show|go to)\s+result\s+(\d{1,2})$/);
   if (rm0) return { tool: 'open_result', args: { n: Number(rm0[1]) } };
+  const cm = q.trim().match(/^(?:please\s+)?click\s+(?:on\s+|the\s+)?(.+)$/i);
+  if (cm && !/^(here|pin|close|minimise|tab|profile|mode)\b/i.test(cm[1])) {
+    return { tool: 'browser_click', args: { selector: cm[1].trim().replace(/^["']|["']$/g, '') } };
+  }
+  const tm = q.trim().match(/^(?:please\s+)?type\s+["']?([^"']+)["']?\s+(?:in|into|on)\s+(?:the\s+)?(.+)$/i);
+  if (tm) {
+    return { tool: 'browser_type', args: { text: tm[1].trim(), selector: tm[2].trim() } };
+  }
+  const tm2 = q.trim().match(/^(?:please\s+)?type\s+["']([^"']+)["']$/i);
+  if (tm2) {
+    return { tool: 'browser_type', args: { text: tm2[1].trim() } };
+  }
+  const prm = low.match(/^(?:please\s+)?press\s+(?:the\s+)?(enter|tab|escape|space|backspace|arrowdown|arrowup|return)\b/i);
+  if (prm) {
+    const keys = { enter: 'Enter', tab: 'Tab', escape: 'Escape', space: 'Space', backspace: 'Backspace', arrowdown: 'ArrowDown', arrowup: 'ArrowUp', return: 'Enter' };
+    return { tool: 'browser_press', args: { key: keys[prm[1].toLowerCase()] } };
+  }
+  if (/\b(?:take\s+a\s+screenshot|screenshot\s+(?:the\s+)?page|capture\s+(?:the\s+)?page)\b/i.test(low)) {
+    return { tool: 'browser_screenshot', args: {} };
+  }
   /* "open this doc <url>" / "paste this doc" routes to the Document pane;
      browser_open stays the browser pane. No URL and no paste visible here
      means an honest pointer, never a faked open. */

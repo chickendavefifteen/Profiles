@@ -9,9 +9,9 @@
  * back to the sidecar /api/browser/native route.
  *
  * Backend commands (snake_case args): browser_ensure/resize/navigate/back/
- * current/read/zoom/visible/switch. Tauri events profiles-browser-state and
- * profiles-browser-zoom are re-dispatched as DOM CustomEvents of the same
- * name with the payload as `detail`.
+ * forward/reload/close/current/read/zoom/visible/switch. Browser state, zoom,
+ * shortcut, input and popup events are re-dispatched as DOM CustomEvents
+ * of the same name with the payload as `detail`.
  *
  * Zoom policy: Ctrl+wheel over a slot is handled exactly once by the native
  * engine (zoom_hotkeys_enabled). Never add an app-level wheel-zoom handler;
@@ -67,11 +67,17 @@
     return Promise.resolve(function () {});
   }
 
-  // Bridge backend events -> DOM CustomEvents (principal dispatches its own
-  // profiles-browser-shortcut events for Super / latched Super+A/B/C/1..6).
-  var eventReady=Promise.all(['profiles-browser-state', 'profiles-browser-zoom', 'profiles-browser-shortcut', 'profiles-open-url'].map(function (name) {
+  function profileOf(slot) { return String(slot || '').split('--')[0]; }
+
+  // Keep inactive-tab metadata live. Input/shortcuts belong to the selected
+  // view, while a background tab may request a popup in the same profile.
+  var eventReady=Promise.all(['profiles-browser-state', 'profiles-browser-zoom', 'profiles-browser-shortcut', 'profiles-browser-input', 'profiles-open-url'].map(function (name) {
     return listenTauri(name, function (payload) {
-      if(payload && payload.slot && active && payload.slot!==active) return;
+      if(payload && payload.slot && active && payload.slot!==active) {
+        var metaRelease=name==='profiles-browser-shortcut' && payload.key==='Meta' && payload.phase==='up';
+        if((name==='profiles-browser-shortcut' && !metaRelease) || name==='profiles-browser-input') return;
+        if(name==='profiles-open-url' && profileOf(payload.slot)!==profileOf(active)) return;
+      }
       try {
         window.dispatchEvent(new CustomEvent(name, { detail: payload }));
       } catch (e) { /* ignore */ }
@@ -121,6 +127,28 @@
       if(!slot) return Promise.resolve(needActive());
       return call('browser_back', { slot: slot }).then(function(out){return settled(out,slot);});
     },
+    forward: function (slot) {
+      slot=slot||active;
+      if(!slot) return Promise.resolve(needActive());
+      return call('browser_forward', { slot: slot }).then(function(out){return settled(out,slot);});
+    },
+    reload: function (slot) {
+      slot=slot||active;
+      if(!slot) return Promise.resolve(needActive());
+      return call('browser_reload', { slot: slot }).then(function(out){return settled(out,slot);});
+    },
+    close: function (slot) {
+      slot=slot||active;
+      if(!slot) return Promise.resolve(needActive());
+      var epoch=selectionEpoch;
+      return call('browser_close', { slot: slot }).then(function(out){
+        if(out.ok && epoch===selectionEpoch && active===slot) {
+          active=null;
+          selectionEpoch++;
+        }
+        return out;
+      });
+    },
     current: function (slot) {
       slot=slot||active;
       if(!slot) return Promise.resolve(needActive());
@@ -146,6 +174,41 @@
     switchSlot: function (slot) {
       var epoch=++selectionEpoch;
       return call('browser_switch', { slot: slot }).then(function(out){if(out.ok && epoch===selectionEpoch) active=slot;return out;});
+    },
+    click: function (args, slot) {
+      slot = slot || active;
+      if (!slot) return Promise.resolve(needActive());
+      var a = args || {};
+      return call('browser_click', { slot: slot, selector: a.selector, fx: a.fx, fy: a.fy });
+    },
+    type: function (args, slot) {
+      slot = slot || active;
+      if (!slot) return Promise.resolve(needActive());
+      var a = args || {};
+      return call('browser_type', { slot: slot, text: a.text || '', selector: a.selector, press: a.press, clear: a.clear });
+    },
+    press: function (args, slot) {
+      slot = slot || active;
+      if (!slot) return Promise.resolve(needActive());
+      var a = args || {};
+      return call('browser_press', { slot: slot, key: a.key || '' });
+    },
+    dark: function (on, slot) {
+      slot = slot || active;
+      if (!slot) return Promise.resolve(needActive());
+      return call('browser_dark', { slot: slot, on: !!on });
+    },
+    cursor: function (args, slot) {
+      slot = slot || active;
+      if (!slot) return Promise.resolve(needActive());
+      var a = args || {};
+      return call('browser_cursor', { slot: slot, show: a.show !== false, fx: a.fx, fy: a.fy });
+    },
+    screenshot: function (args, slot) {
+      slot = slot || active;
+      if (!slot) return Promise.resolve(needActive());
+      if (args && args.fullPage) return Promise.resolve({ok:false,error:'Native screenshots capture the visible page only.'});
+      return call('browser_screenshot', { slot: slot });
     },
 
     onState: function (fn) { return listenTauri('profiles-browser-state', fn); },

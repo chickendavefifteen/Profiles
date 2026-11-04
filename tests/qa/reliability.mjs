@@ -247,12 +247,11 @@ try {
   await page.waitForTimeout(600);
   const superMode = await page.evaluate(() => document.body.dataset.mode);
   check('Super+digit switches mode from inside an input', superMode === 'chill', superMode);
-  await page.keyboard.press('Meta'); // latch Super...
-  await page.waitForTimeout(200);
-  await page.keyboard.press('4'); // ...then digit lands the same switch
-  await page.waitForTimeout(600);
-  const latchMode = await page.evaluate(() => document.body.dataset.mode);
-  check('latched Super then digit switches mode', latchMode === 'Vibes', latchMode);
+  await page.keyboard.press('Meta');
+  check('lone Super enters all-pane adjust mode', await page.evaluate(() => window.isAdjustMode()));
+  await page.keyboard.press('4');
+  check('next digit locks panes without changing the mode', !(await page.evaluate(() => window.isAdjustMode())) &&
+    (await page.evaluate(() => document.body.dataset.mode)) === 'chill');
   await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
 
   // ---- T7: ABC keys switch profiles; returning keeps isolation ----
@@ -404,6 +403,46 @@ try {
   await page.reload({waitUntil:'domcontentloaded'});
   await waitFor(async()=>Math.abs((await page.locator('#pane-chat').boundingBox()).width-savedWidth)<3||null,10000,100);
   check('resized pane width survives reload',Math.abs((await page.locator('#pane-chat').boundingBox()).width-savedWidth)<3);
+  // ---- Super/Windows key highlight toggle ----
+  const unpinnedBeforeSuper = await page.locator('.pane.unpinned').count();
+  check('no pane unpinned before Super press', unpinnedBeforeSuper === 0);
+  await page.keyboard.press('Meta');
+  await page.waitForTimeout(400);
+  const unpinnedAfterSuper = await page.locator('.pane.unpinned').count();
+  const visiblePaneCount = await page.locator('.canvas > .pane:visible').count();
+  check('Super key highlights all visible boxes in adjust mode', unpinnedAfterSuper > 0 && unpinnedAfterSuper === visiblePaneCount,
+    JSON.stringify({ unpinned: unpinnedAfterSuper, visible: visiblePaneCount }));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  const unpinnedAfterKey = await page.locator('.pane.unpinned').count();
+  check('next key press turns adjust mode off', unpinnedAfterKey === 0, 'unpinned=' + unpinnedAfterKey);
+
+  // ---- Multi-tab browser pane ----
+  const initialTabs = await page.locator('#browserTabsList .browser-tab').count();
+  check('browser tab bar has at least one tab', initialTabs >= 1);
+  await page.click('#browserTabNew');
+  await page.waitForTimeout(400);
+  const tabsAfterNew = await page.locator('#browserTabsList .browser-tab').count();
+  check('clicking new tab button creates a second tab', tabsAfterNew === initialTabs + 1);
+  const activeTabVal = await page.inputValue('#urlInput');
+  check('new tab opens with ready/empty address input', activeTabVal === '');
+  await page.locator('#browserTabsList .browser-tab.active .browser-tab-close').click();
+  await page.waitForTimeout(400);
+  const tabsAfterClose = await page.locator('#browserTabsList .browser-tab').count();
+  check('closing active tab removes it and switches to remaining tab', tabsAfterClose === initialTabs);
+
+  // Tool receipts alone are not proof: inspect the same actor's actual DOM.
+  await post(apiBase, '/api/config', {slot:{agentModel:'lite'}});
+  await post(apiBase, '/api/browser/view', {url:apiBase+fixturePath});
+  const agentClick = await post(apiBase, '/api/ask', { query: 'click #hit', mode: 'Vibes' });
+  const clickedState=await stateOf();
+  check('agent click changes the displayed page title',agentClick.json?.ok===true && clickedState.title==='HIT');
+  const agentType = await post(apiBase, '/api/ask', { query: 'type "test" into #q', mode: 'Vibes' });
+  const agentPress = await post(apiBase, '/api/ask', { query: 'press Enter', mode: 'Vibes' });
+  const submittedState=await stateOf();
+  check('agent typing and Enter change the actual form state',agentType.json?.ok===true && agentPress.json?.ok===true && submittedState.title==='TYPED:test');
+  const missing=await post(apiBase,'/api/ask',{query:'click #does-not-exist',mode:'Vibes'});
+  check('missing agent target fails without changing the page',missing.json?.ok===false && (await stateOf()).title==='TYPED:test');
 
   check('no uncaught page errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
   await shot(page, 'final');

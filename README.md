@@ -17,11 +17,13 @@ The web server binds to loopback by default. `PROFILES_BIND` is an explicit remo
 
 ## Browsing architecture
 
-Desktop browsing uses a genuine child webview inside the browser pane: WebKitGTK on Linux, the platform Tauri webview elsewhere. It loads the original HTTPS site, including scripts, cookies and forms. It is not an HTML-rewriting proxy and is not VNC. Each profile has separate browser storage.
+Desktop browsing uses a genuine child webview inside the browser pane: WebKitGTK on Linux, the platform Tauri webview elsewhere. It loads the original HTTPS site, including scripts, cookies and forms. It is not an HTML-rewriting proxy and is not VNC.
 
-The agent navigates and reads that same displayed webview through a bounded local command bridge. Remote pages cannot invoke the app's privileged browser commands. Links requesting another window stay in the pane.
+Each tab owns a live document with separate history, unsaved forms, scroll and zoom. Switching tabs shows the existing document without navigating again; closing disposes it. Cookies/storage are shared by tabs belonging to the same person, never between people. Tab documents live for the current application session; website storage remains persistent.
 
-The web frontend instead displays a live JPEG stream from its profile's headless Chromium/Playwright page. Pointer and keyboard events go to that same page; the agent does not control a different hidden browser. This route requires Playwright's Chromium installation. Streaming stops when its last viewer disconnects.
+The agent operates the displayed tab through a bounded local command bridge. Requests retain their originating person/tab; closing or switching cannot silently retarget an old action. Remote pages cannot invoke the app's privileged browser commands. Links requesting another window create a new in-pane tab.
+
+The web frontend displays a live JPEG stream from the selected tab's headless Chromium/Playwright page. All tabs for a person share one private context. Pointer, keyboard and agent actions use those same pages. Changing tabs closes the previous stream without killing the new one.
 
 Websites can still refuse an engine, require login, or require unsupported DRM. Profiles reports real failures; it does not manufacture a successful page, silently replace a blocked website with a feed, or bypass access controls.
 
@@ -32,12 +34,16 @@ Websites can still refuse an engine, require login, or require unsupported DRM. 
 - **Ctrl + wheel** inside the browser changes only its content zoom, 50–200%. The browser's A−/A+ buttons do the same. Other panes and the app background have separate scaling targets.
 - **−** minimises a pane to its tab; click the tab to restore its existing content. Closing uses the bin/recovery flow instead.
 - Double-click a pane tab to maximise/restore it. Unlock with the pin, drag edges to resize, then pin again.
-- **Super + A/B/C** selects a person/profile; **Super + 1–6** selects a mode even while an input or browser page is focused. Tapping Super then the letter/number also works briefly. Profile X and xMAX must first be enabled. A compositor-reserved shortcut can intercept the held combination; the tapped sequence avoids holding that global shortcut.
+- Tap **Super/Windows** alone to highlight/unpin all visible panes. Resize an edge or drag a pane header; releasing the adjustment locks it. Otherwise, the next key or click exits. Held Super shortcuts remain available.
+- **+ / Ctrl+T** opens a browser tab; **Ctrl+W** closes it; **Ctrl+Tab / Ctrl+Shift+Tab** cycles tabs; **Ctrl+L** selects the address. Tabs also have close buttons and support middle-click close. Back, Forward and Reload operate on the selected tab.
+- Hold **Super + A/B/C** to select a person/profile; **Super + 1–6** selects a mode even while an input or browser page is focused. Profile X and xMAX must first be enabled. Tapping Super alone enters adjustment, not a latched shortcut; the next key only locks the layout. A compositor-reserved shortcut may intercept the held combination.
 - Babylite and Calm disable app animation; reduced-motion is respected. Explicit mode choices persist.
 
 ## Agent models and activity
 
-The model button at the top of chat opens the model picker:
+The native app and `npm start` default to **demo mode** (`PROFILES_DEMO_MODE=1`): the only model route is `muse-spark-1.3-contributor` at `https://api.meta.ai/v1`, with **xhigh** reasoning. Saved local models, alternate cloud endpoints and lower efforts cannot override this. Missing credentials/provider failures remain failures, not local or Basic-tool model substitutions. Deterministic navigation commands still identify that no model was called.
+
+`PROFILES_DEMO_MODE=0` explicitly restores the optional non-demo model picker:
 
 - **Basic tools (no model):** deterministic website/search/document commands. This is not an LLM and does not pretend to be one.
 - **Muse Spark 1.3 Contributor:** per-profile API key stored in the OS keyring. Default API base `https://api.meta.ai/v1`, wire model `muse-spark-1.3-contributor`. Contributor prompts may be used for training. Plain Muse Spark 1.3 and OpenRouter are refused.
@@ -45,6 +51,8 @@ The model button at the top of chat opens the model picker:
 - **Installed GGUF:** explicit model selection; one-shot llama.cpp CPU inference, two threads, no GPU offload. No automatic server/model download, hidden provider substitution or cloud fallback. Large models are unavailable when free memory is insufficient.
 
 Model turns can use bounded real browser/document tools. Conversation context is bounded, held per profile in memory, and excluded in private mode. Switching models does not load weights until an ask needs them.
+
+Browser actions operate on the displayed tab: click a CSS selector, exact label or viewport coordinates, type into an explicit field, and submit with Enter. Missing/disabled controls fail rather than clicking/typing elsewhere. Native page keys currently support Enter, Tab/Shift+Tab and Escape; unsupported keys report an error. Native Linux screenshots contain actual visible-page PNG pixels; full-page capture is unsupported. Screenshot tool results now supply bounded PNG pixels to the model's next multimodal request, not just a filename. Images remain invocation-local, outside conversation history and activity traces. Page text and pixels are untrusted content; credentials and external/account actions still require the relevant owner confirmation.
 
 **Traces** shows actual progress and provider-returned reasoning summaries when available; enabled by default. **Tools** shows tool-call detail; disabled by default. These are live events, not simulated thinking, invented reasoning, or access to hidden chain-of-thought. Provider capabilities differ.
 
@@ -68,6 +76,9 @@ npm run app:build
 npm run verify:native
 ```
 
-The suites own disposable servers/vaults and exercise live navigation, clicks, typing, minimise/restore, zoom ownership, sticky modes, shortcuts, model choice, resizing, touch-sized layouts and real documents. Linux rendering checks require bubblewrap and hide GPU devices; software flags alone are insufficient. Native GTK behavior also requires an isolated native smoke run—Chromium tests do not certify it. See [QUALITY-GATES.md](QUALITY-GATES.md) for the native/device-isolation protocol and [QA-REPORT.md](QA-REPORT.md) for exercised evidence.
+`npm run qa:tabs` verifies live unsaved forms, JavaScript state and scroll survive tab changes without a reload; independent history; profile cookies; popup creation/close; stale-action rejection; and Super adjust/dismissal. It runs automatically in `npm run qa`. This is headless Chromium evidence, not a substitute for the explicitly approved native WebKit run.
+With fresh owner permission for a disposable isolated native window, `PROFILES_NATIVE_QA_APPROVED=1 npm run qa:native` exercises the actual release executable against local HTTP fixtures. It requires `agent-isolated-desktop`, bubblewrap and the installed GTK/WebKit runtime; it refuses a GPU-visible fallback, uses private state with keyring disabled, and checks owned-process teardown. It is deliberately excluded from the automatic headless gate. Real provider inference and public-site checks are separate explicit canaries, not mocked or asserted by this local regression suite.
+
+The suites own disposable servers/vaults and exercise live navigation, clicks, typing, minimise/restore, zoom ownership, sticky modes, shortcuts, model choice, resizing, touch-sized layouts and real documents. `tests/qa/native-actions.mjs` exercises the exact script embedded in the native binary against real controls and default HTTP form submissions; it does not replace a native shell run. Retry/page-error recovery, stale navigation completion and profile-selection races have deterministic behavioral regressions. Linux rendering checks require bubblewrap and hide GPU devices; software flags alone are insufficient. Native GTK behavior also requires an isolated native smoke run—Chromium tests do not certify it. See [QUALITY-GATES.md](QUALITY-GATES.md) for the native/device-isolation protocol and [QA-REPORT.md](QA-REPORT.md) for exercised evidence.
 
 Chromebook target: 11–13-inch touchscreen, Celeron, 4GB RAM, usually 2–2.5GB free. Desktop software-rendered and narrow/touch tests are useful coverage, **not** evidence of execution on that physical Chromebook. No physical Chromebook or phone release is certified by desktop tests.

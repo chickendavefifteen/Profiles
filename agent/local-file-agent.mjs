@@ -6,8 +6,9 @@ import { stat } from 'node:fs/promises';
 import { freemem } from 'node:os';
 import { fileURLToPath } from 'node:url';
 const schema = { type: 'object', properties: {
-  action: { type: 'string', enum: ['answer', 'browser_open', 'browser_read', 'browser_current', 'web_search', 'open_result', 'doc_open'] },
-  text: { type: 'string', minLength: 1 }, url: { type: 'string' }, query: { type: 'string' }, n: { type: 'integer' }
+  action: { type: 'string', enum: ['answer', 'browser_open', 'browser_read', 'browser_current', 'browser_click', 'browser_type', 'browser_press', 'browser_screenshot', 'web_search', 'open_result', 'doc_open'] },
+  text: { type: 'string', minLength: 1 }, url: { type: 'string' }, query: { type: 'string' }, n: { type: 'integer' },
+  selector: { type: 'string' }, fx: { type: 'number' }, fy: { type: 'number' }, press: { type: 'string' }, key: { type: 'string' }
 }, required: ['action', 'text'], additionalProperties: false };
 export async function runFileTurn({ slot, profile, query, modeLabel, events, history }) {
   const file = profile?.modelFile;

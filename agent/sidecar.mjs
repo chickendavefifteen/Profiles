@@ -15,7 +15,7 @@ import { classifyIntent, pickTier, suggestProfile, TIERS } from './ladder.mjs';
 import { toolsForMode, liveToolsForMode, toolById } from './tools.mjs';
 import { makeDraft, draftToMarkdown, draftToDocx, makeScriptDraft } from './staging.mjs';
 import { capabilities, loadConfig, saveConfig, setupPlan, runSetupStep, makeSnapshot, listSnapshots, restoreSnapshot, DEFAULT_CONFIG } from './system.mjs';
-import { recordEvent, loadEvents, computePreferences, savePreferences, learnedSuggestion, ensureMacro, listMacros, norm } from './learning.mjs';
+import { recordEvent, loadEvents, computePreferences, savePreferences, learnedSuggestion, ensureMacro, listMacros, norm, recordMacroTrace, groupMacroTraces, macroReplayFor, slimArgs } from './learning.mjs';
 
 import { slotPaths, activeSlot, withSlot, setActiveSlot, ensureSlot, SLOTS } from './slots.mjs';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -104,6 +104,32 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop', onEven
         staged: stagedM ? { id: stagedM.id, title: stagedM.title, kind: stagedM.kind } : null, macro };
     }
     if (macro && cand.count === 3) var macroCreated = macro;
+    // Graduated tool macros: the identical all-ok sequence ran 3+ times for
+    // this exact ask — replay it with no model loop. A failed replay falls
+    // through; the normal flow below re-runs from scratch.
+    var replay = macroReplayFor(evs, query);
+    if (replay) {
+      const rslot = (await paths()).slot;
+      const rOuts = [];
+      let rOk = true;
+      for (const s of replay.steps) {
+        try {
+          const rOut = await runTool(rslot, { tool: s.tool, args: s.args });
+          rOuts.push(rOut && rOut.ok ? String(rOut.observation || 'done').slice(0, 160) : 'failed');
+          if (!rOut || !rOut.ok) { rOk = false; break; }
+        } catch (e) { rOk = false; break; }
+      }
+      if (rOk) {
+        const mfile = await ensureMacro(norm(query), query, replay.steps);
+        return { query, mode, device, intent, pick: { tier: 'macro', action: 'deterministic-macro', reason: 'recorded tool sequence replayed — no model loop' },
+          model: liteModel(),
+          events: [{ stage: 'act', text: `act ✓ macro "${mfile.id}" replayed (${replay.steps.length} step${replay.steps.length === 1 ? '' : 's'}, no model loop)`, at: new Date().toISOString() },
+            { stage: 'remember', text: 'remember ✓ macro lives in vault/macros/ — delete the file to unlearn', at: new Date().toISOString() }],
+          result: `Done — replayed your "${mfile.id}" macro (${rOuts.join(' · ').slice(0, 400)}).`,
+          chat: `Done — replayed your "${mfile.id}" macro (${rOuts.join(' · ').slice(0, 400)}).`,
+          staged: null, macro: mfile };
+      }
+    }
   }
   const pick = pickTier(intent, { device, cloudOptIn, hasApiKey, tinyModelFile });
   if (intent.kind === 'setup') {
@@ -129,7 +155,8 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop', onEven
   const ledger = await loadLedger();
   let staged = null, result = '';
   const { runModelTurn, resolveSelection } = await import('./model-agent.mjs');
-  const selection = resolveSelection(profEarly).selection;
+  const selectionRaw = resolveSelection(profEarly).selection;
+  const selection = selectionRaw === 'none' ? 'lite' : selectionRaw;
   const direct = decision && decision.tool !== 'web_search';
   if (!direct && ['cloud', 'local'].includes(selection) && intent.risk !== 'high' && intent.kind !== 'irreversible') {
     const runSlot = (await paths()).slot;
@@ -143,10 +170,14 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop', onEven
       // Keep the selected route visible; never substitute another answer.
       const text = 'The selected model could not answer: ' + answer.error;
       return { query, mode, device, intent, pick: { tier: selection, action: 'model-tools' }, events,
-        model: liteModel(), selectedModel: { name: selection === 'cloud' ? (profEarly.cloudModel || 'muse-spark-1.3-contributor') : (profEarly.localModel || profEarly.modelFile || 'Local model'), via: selection },
+        model: answer.model || liteModel(), selectedModel: answer.model || { name: selection === 'cloud' ? 'muse-spark-1.3-contributor' : (profEarly.localModel || profEarly.modelFile || 'Local model'), via: selection },
         result: text, chat: text, ui: answer.ui || null, ok: false };
     }
     const text = answer.text;
+    if (!profEarly.privateMode) {
+      const trace = events.filter((e) => e && e.kind === 'tool' && e.tool).map((e) => ({ tool: e.tool, args: slimArgs(e.args), ok: e.ok !== false }));
+      if (trace.length && trace.every((s) => s.ok)) await recordMacroTrace(query, trace);
+    }
     return { query, mode, device, intent, pick: { tier: selection, action: 'model-tools' }, events,
       model: answer.model || liteModel(),
       result: text, chat: text, ui: answer.ui || null, ok: true };
@@ -157,12 +188,13 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop', onEven
       events.push({ stage: 'plan', text: `plan → tool ${decision.tool} ${JSON.stringify(decision.args)}`, at: at() });
       try {
         const out = await runTool((await paths()).slot, decision);
-        events.push({ stage: 'act', kind: 'tool', text: `Tool ${decision.tool} ${out.ok ? 'completed' : 'failed'}`, at: at() });
+        events.push({ stage: 'act', kind: 'tool', tool: decision.tool, ok: out.ok === true, text: `Tool ${decision.tool} ${out.ok ? 'completed' : 'failed'}`, at: at() });
+        if (out.ok && !profEarly.privateMode) await recordMacroTrace(query, [{ tool: decision.tool, args: slimArgs(decision.args), ok: true }]);
         let answer = out.observation;
-        events.push({ stage: 'verify', kind: 'tool', text: out.ok ? 'Browser action completed on the active page.' : 'Browser action failed: ' + out.observation, at: at() });
+        events.push({ stage: 'verify', kind: 'tool', tool: decision.tool, ok: out.ok === true, text: out.ok ? 'Browser action completed on the active page.' : 'Browser action failed: ' + out.observation, at: at() });
         return { query, mode, device, intent: { kind: 'tool', tool: decision.tool, risk: 'low' }, pick: { tier: 'tool-loop', action: decision.tool, reason: 'agent tool hook' },
-          model: liteModel(), selectedModel: { name: selection === 'cloud' ? (profEarly.cloudModel || 'muse-spark-1.3-contributor') : selection === 'local' ? (profEarly.localModel || profEarly.modelFile || 'Local model') : 'Basic tools (no model)', via: selection === 'cloud' ? 'cloud' : selection === 'local' ? 'local' : 'lite' },
-          events, result: answer, chat: answer, staged: null, ui: out.ui || null };
+          model: liteModel(), selectedModel: { name: selection === 'cloud' ? (profEarly.cloudModel || 'muse-spark-1.3-contributor (xhigh)') : selection === 'local' ? (profEarly.localModel || profEarly.modelFile || 'Local model') : 'Basic tools (no model)', via: selection === 'cloud' ? 'cloud' : selection === 'local' ? 'local' : 'lite' },
+          events, result: answer, chat: answer, staged: null, ui: out.ui || null, ok: out.ok === true };
       } catch (e) {
         events.push({ stage: 'act', text: `act ! tool failed honestly: ${String(e.message).slice(0, 140)}`, at: at() });
         const failure = 'That action failed: ' + String(e.message || e).slice(0,180);
@@ -205,6 +237,7 @@ export async function runAsk(query, mode = 'lifeful', device = 'desktop', onEven
 }
 
 function json(res, code, obj) {
+  if (res.destroyed || res.writableEnded) return;
   const body = Buffer.from(JSON.stringify(obj));
   res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'content-length': body.length });
   res.end(body);
@@ -212,6 +245,27 @@ function json(res, code, obj) {
 
 /** Handles /api/* (or /* when standalone). Returns true if handled. */
 export async function handleAgent(req, res, prefix = '/api') {
+  const url = new URL(req.url, 'http://localhost');
+  const path = url.pathname.slice(prefix.length);
+  const tabId = url.searchParams.get('tabId');
+  if (!url.pathname.startsWith(prefix)) return false;
+  const isAsk = /^\/ask(?:\/|$)/.test(path);
+  if ((!isAsk && (!tabId || !/^\/browser\//.test(path))) || path === '/browser/tabs' || path.startsWith('/browser/native/')) {
+    return handleAgentRequest(req, res, prefix);
+  }
+  if (tabId != null && !/^tab-[1-9]\d{0,8}$/.test(tabId)) { json(res, 400, { ok: false, error: 'Invalid browser tab' }); return true; }
+  try {
+    const slot = (await paths()).slot;
+    const bridge = await import('./native-browser.mjs');
+    const run = () => handleAgentRequest(req, res, prefix);
+    const result = bridge.hasNative(slot) || process.env.PROFILES_NATIVE_SHELL === '1'
+      ? await bridge.withNativeTab(slot, tabId, run)
+      : await (await import('./browseract.mjs')).withBrowserTab(slot, tabId, run);
+    if (result && typeof result === 'object') { json(res, 409, result); return true; }
+    return result;
+  } catch (error) { json(res, 409, { ok: false, error: String(error.message || error) }); return true; }
+}
+async function handleAgentRequest(req, res, prefix = '/api') {
   const url = new URL(req.url, 'http://localhost');
   if (!url.pathname.startsWith(prefix)) return false;
   const path = url.pathname.slice(prefix.length);
@@ -232,13 +286,15 @@ export async function handleAgent(req, res, prefix = '/api') {
           'access-control-allow-headers': 'content-type' }); res.end(); return true;
       }
       if (req.method !== 'POST') { json(res, 405, { error: 'POST required' }); return true; }
-      let raw = ''; for await (const chunk of req) { raw += chunk; if (raw.length > 65536) break; }
-      if (raw.length > 65536) { json(res, 413, { error: 'Bridge payload too large' }); return true; }
-      const body = JSON.parse(raw || '{}');
       const bridge = await import('./native-browser.mjs');
-      if (path === '/browser/native/register') { json(res, 200, { ok: true, ...bridge.registerNative((await paths()).slot) }); return true; }
+      const maxBytes = path === '/browser/native/result' ? bridge.MAX_NATIVE_RESULT_BYTES : 65536;
+      let raw = '', bytes = 0;
+      for await (const chunk of req) { bytes += Buffer.byteLength(chunk); if (bytes > maxBytes) break; raw += chunk; }
+      if (bytes > maxBytes) { json(res, 413, { error: 'Bridge payload too large' }); return true; }
+      const body = JSON.parse(raw || '{}');
+      if (path === '/browser/native/register') { json(res, 200, { ok: true, ...bridge.registerNative((await paths()).slot, body.tabId) }); return true; }
       if (path === '/browser/native/poll') {
-        const out = bridge.pollNative(body.token);
+        const out = bridge.pollNative(body.token, body.tabId);
         json(res, out ? 200 : 401, out || { error: 'Native session expired' }); return true;
       }
       if (path === '/browser/native/result') {
@@ -250,14 +306,15 @@ export async function handleAgent(req, res, prefix = '/api') {
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST', 'access-control-allow-headers': 'content-type' }); res.end(); return true; }
     if (path === '/health' && req.method === 'GET') {
       const profile=await loadConfig();
-      const {resolveSelection}=await import('./model-agent.mjs');
+      const {resolveSelection,resolveCloudTarget}=await import('./model-agent.mjs');
       const selected=resolveSelection(profile).selection;
       const {hasNative}=await import('./native-browser.mjs');
       const nativeBrowserReady=process.env.PROFILES_NATIVE_SHELL!=='1' || hasNative((await paths()).slot);
       json(res, 200, { ok: true, pid:process.pid, build: BUILD, startedAt: STARTED_AT,
         nativeBrowserReady,
-        brain:selected==='cloud'?(profile.cloudModel||'muse-spark-1.3-contributor'):selected==='local'?(profile.localModel||profile.modelFile||'Local endpoint'):'Basic tools (no model)',
-        cloud:profile.cloudEnabled?'selected':'off', tiers:TIERS.map(t=>t.id), note:'Bounded tool loop · isolated per-profile state' });
+        brain:selected==='cloud'?resolveCloudTarget(profile).model:selected==='local'?(profile.localModel||profile.modelFile||'Local endpoint'):'Basic tools (no model)',
+        demoMode:process.env.PROFILES_DEMO_MODE==='1', reasoningEffort:selected==='cloud'?(resolveCloudTarget(profile).reasoningEffort||profile.reasoningEffort||'xhigh'):null,
+        cloud:selected==='cloud'?'selected':'off', tiers:TIERS.map(t=>t.id), note:'Bounded tool loop · isolated per-profile state' });
       return true;
     }
     if (path === '/capabilities' && req.method === 'GET') { json(res, 200, await capabilities()); return true; }
@@ -265,6 +322,12 @@ export async function handleAgent(req, res, prefix = '/api') {
       const profile = await loadConfig(), { cloudStatus } = await import('./cloud.mjs');
       const { resolveSelection, resolveCloudTarget, resolveLocalTarget } = await import('./model-agent.mjs');
       const cloud = await cloudStatus((await paths()).slot, profile), target = resolveCloudTarget(profile);
+      if (process.env.PROFILES_DEMO_MODE === '1') {
+        json(res, 200, { selected: 'cloud', selectedFile: null, demoMode: true, choices: [
+          { id: 'cloud', name: 'muse-spark-1.3-contributor (xhigh)', available: cloud.hasKey,
+            detail: cloud.hasKey ? 'Demo: Contributor xhigh only. No local model or provider fallback.' : 'Contributor credentials unavailable. No model will be substituted.' }
+        ] }); return true;
+      }
       const local = resolveLocalTarget(profile);
       const files = await readdir(join(root,'agent','models')).catch(()=>[]);
       const { chooseContext: pickCtx, hasEnoughMemory: fitsMem } = await import('./localbrain.mjs');
@@ -275,11 +338,11 @@ export async function handleAgent(req, res, prefix = '/api') {
         return {id:'local',modelFile,name:modelFile.replace(/\.gguf$/i,''),available:fits,
           detail:fits?'Installed file · CPU only · loaded on your next ask.':'Not enough free memory for this model.'};
       }));
-      json(res, 200, { selected: resolveSelection(profile).selection, selectedFile:(profile.localSource==='file'||local.error)?profile.modelFile||null:null, choices: [
+      const sel = resolveSelection(profile).selection;
+      json(res, 200, { selected: sel === 'none' ? 'lite' : sel, selectedFile:(profile.localSource==='file'||local.error)?profile.modelFile||null:null, choices: [
+        { id: 'cloud', name: (target.model || 'muse-spark-1.3-contributor') + ' (xhigh)', available: cloud.hasKey && !target.error,
+          detail: target.error || (cloud.hasKey ? 'Contributor API (xhigh thinking) — prompts may be used for training.' : 'Add your API key in Setup first.') },
         { id: 'lite', name: 'Basic tools (no model)', available: true, detail: 'Offline navigation and document commands. No model calls.' },
-        { id: 'cloud', name: target.model || 'muse-spark-1.3-contributor', available: cloud.hasKey && !target.error,
-          detail: target.error || (cloud.hasKey ? 'Contributor API — prompts may be used for training.' : 'Add your API key in Setup first.') },
-        ...(!local.error ? [{ id:'local', name:profile.localModel||'Local endpoint', available:true, detail:'Already configured loopback endpoint; no cloud substitution.' }] : []),
         ...installed
       ] }); return true;
     }
@@ -423,57 +486,79 @@ export async function handleAgent(req, res, prefix = '/api') {
       const { googlePush } = await import('./cloud.mjs');
       json(res, 200, await googlePush((await paths()).slot, stagedId, draftToDocx)); return true;
     }
-    const viewMatch = path.match(/^\/browser\/(view|home|click|type|back)$/);
+    if (path === '/browser/tabs' && (req.method === 'GET' || req.method === 'POST')) {
+      let raw = ''; if (req.method === 'POST') for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw || '{}');
+      const slot = (await paths()).slot;
+      const bridge = await import('./native-browser.mjs');
+      if (bridge.hasNative(slot) || process.env.PROFILES_NATIVE_SHELL === '1') {
+        json(res, 200, await bridge.requestNative(slot, 'tabs', body)); return true;
+      }
+      const browser = await import('./browseract.mjs');
+      const action = body.action || 'list';
+      const out = action === 'create' ? await browser.createBrowserTab(slot, { url: body.url })
+        : action === 'switch' ? await browser.selectBrowserTab(slot, body.tabId)
+        : action === 'close' ? await browser.closeBrowserTab(slot, body.tabId)
+        : action === 'list' ? await browser.browserTabs(slot) : { ok: false, error: 'Unknown tab action' };
+      json(res, out.ok ? 200 : 409, out); return true;
+    }
+    const viewMatch = path.match(/^\/browser\/(view|home|click|type|press|read|screenshot|back|forward|reload)$/);
     if (viewMatch && req.method === 'POST') {
       let b = ''; for await (const c of req) b += c;
       const body = JSON.parse(b || '{}');
       const slot = (await paths()).slot;
       const ba = await import('./browseract.mjs');
       const fn = { view: () => body.url ? ba.viewGo(slot, body.url) : ba.viewCurrent(slot), home: () => ba.viewHome(slot),
-        click: () => ba.viewClick(slot, body.fx, body.fy), type: () => ba.viewType(slot, body.text, body.enter, body.backspace), back: () => ba.viewBack(slot) }[viewMatch[1]];
+        click: () => ba.viewClick(slot, body.fx, body.fy, body.selector),
+        type: () => ba.viewType(slot, body.text, body.selector, body.press, body.clear),
+        press: () => ba.viewPress(slot, body.key), read: () => ba.viewRead(slot),
+        screenshot: () => ba.viewScreenshot(slot, body.fullPage), back: () => ba.viewBack(slot),
+        forward: () => ba.viewForward(slot), reload: () => ba.viewReload(slot) }[viewMatch[1]];
       json(res, 200, await fn()); return true;
-    }
-    const shotMatch = path.match(/^\/browser\/shot\/([\w.-]+)$/);
-    if (shotMatch && req.method === 'GET') {
-      /* stills live on as the fallback/poster behind the stream: if the
-         stream drops, the pane shows the last good frame, never a void */
-      const slot = (await paths()).slot;
-      const file = join(slotPaths(slot).staging, 'browser', shotMatch[1]);
-      try { const buf = await readFile(file); res.writeHead(200, { 'content-type': 'image/png', 'content-length': buf.length }); res.end(buf); }
-      catch { json(res, 404, { error: 'no shot yet' }); }
-      return true;
-    }
-    if (path === '/browser/poster' && req.method === 'GET') {
-      const slot = (await paths()).slot;
-      const file = join(slotPaths(slot).staging, 'browser', `view-${slot}.png`);
-      try {
-        const buf = await readFile(file);
-        res.writeHead(200, { 'content-type': 'image/png', 'content-length': buf.length });
-        res.end(buf);
-      } catch { json(res, 404, { error: 'no frame yet' }); }
-      return true;
     }
     const streamMatch = path.match(/^\/browser\/stream$/);
     if (streamMatch && req.method === 'GET') {
-      const slot = (await paths()).slot;
+      let closed = res.destroyed || res.writableEnded;
+      let slot, sess, stream, stopScreencast;
+      const cleanup = () => {
+        if (!stream) return;
+        stream.off('data', onData);
+        stream.off('end', onEnd);
+        if (!stream.listenerCount('data')) void stopScreencast(slot, sess).catch(() => {});
+      };
+      const onClose = () => { closed = true; cleanup(); };
+      const onData = chunk => { if (!closed && !res.destroyed && !res.writableEnded) res.write(chunk); };
+      const onEnd = () => { cleanup(); if (!closed && !res.destroyed && !res.writableEnded) res.end(); };
+      // Disconnects can happen during module/session/first-frame awaits.
+      res.once('close', onClose);
       try {
-        const { ensureScreencast, stopScreencast } = await import('./browseract.mjs');
-        const sess = await ensureScreencast(slot);
-        if (!sess || !sess.cdp || !sess.stream) throw new Error('screencast unavailable');
+        if (closed) return true;
+        slot = (await paths()).slot;
+        const browser = await import('./browseract.mjs');
+        stopScreencast = browser.stopScreencast;
+        if (closed || res.destroyed || res.writableEnded) return true;
+        sess = await browser.ensureScreencast(slot);
+        stream = sess?.stream;
+        if (closed || res.destroyed || res.writableEnded) { cleanup(); return true; }
+        if (!sess || !sess.cdp || !stream || sess.dead) throw new Error('screencast unavailable');
         res.writeHead(200, { 'content-type': 'multipart/x-mixed-replace; boundary=' + sess.boundary,
           'cache-control': 'no-cache, no-store, max-age=0', connection: 'keep-alive' });
+        stream.on('data', onData);
+        stream.once('end', onEnd);
         if (sess.proof) {
           res.write(`--${sess.boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${sess.proof.length}\r\n\r\n`);
           res.write(sess.proof); res.write('\r\n');
         }
-        const onData = (chunk) => { try { res.write(chunk); } catch {} };
-        sess.stream.on('data', onData);
-        res.on('close', () => {
-          sess.stream.off('data', onData);
-          if (!sess.stream.listenerCount('data')) stopScreencast(slot).catch(()=>{});
-        });
         return true;
-      } catch (e) { json(res, 503, { error: 'live view unavailable: ' + String(e && e.message || e).slice(0, 140) }); return true; }
+      } catch (e) {
+        cleanup();
+        res.off('close', onClose);
+        if (!closed && !res.destroyed && !res.writableEnded) {
+          if (res.headersSent) res.end();
+          else json(res, 503, { error: 'live view unavailable: ' + String(e && e.message || e).slice(0, 140) });
+        }
+        return true;
+      }
     }
     const mouseMatch = path.match(/^\/browser\/mouse$/);
     if (mouseMatch && req.method === 'POST') {
@@ -526,12 +611,7 @@ export async function handleAgent(req, res, prefix = '/api') {
       try {
         const ba = await import('./browseract.mjs');
         const slot = (await paths()).slot;
-        const { hasNative } = await import('./native-browser.mjs');
-        if (hasNative(slot)) json(res, 200, await ba.viewCurrent(slot));
-        else {
-          const { page } = await ba.ensureSession(slot);
-          json(res, 200, { ok: true, url: page.url(), title: await page.title().catch(() => ''), frames: ba.getFrameSeq(slot) });
-        }
+        json(res, 200, await ba.viewCurrent(slot));
       } catch (e) { json(res, 200, { ok: false, error: String(e && e.message || e).slice(0, 120) }); }
       return true;
     }

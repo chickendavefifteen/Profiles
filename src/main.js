@@ -19,7 +19,11 @@ function apiBase(){
 }
 function apiUrl(p){
   var person=typeof state!=="undefined" && state && (state.expectSlot||state.slot);
-  return apiBase()+p+(person?(p.indexOf("?")<0?"?":"&")+"profileSlot="+encodeURIComponent(person):"");
+  var url=apiBase()+p+(person?(p.indexOf("?")<0?"?":"&")+"profileSlot="+encodeURIComponent(person):"");
+  if(/^\/api\/ask(?:\/|$)/.test(p) && window.ProfilesBrowserPane && browserPaneReady){
+    url+=(url.indexOf("?")<0?"?":"&")+"tabId="+encodeURIComponent(ProfilesBrowserPane.getActiveTab().id);
+  }
+  return url;
 }
 /* ---- standalone portability: parent Rust injects window.__PROFILES_STANDALONE__ when the Node/project backend is missing. Full backend path stays unchanged; every branch below is standalone-only. ---- */
 function isStandalone(){ return window.__PROFILES_STANDALONE__===true; }
@@ -62,6 +66,14 @@ async function runStandalone(q){
       else{ said("I could not open "+decision.args.url+" ("+((out&&out.error)||"unavailable")+"). The page was not replaced.","open failed"); }
       return;
     }
+    if(decision.tool==="browser_click"){
+      showPaneEl("pane-browser",true);
+      var out=await ProfilesBrowserPane.click(decision.args||{});
+      if(state.slot!==runSlot) return;
+      if(out&&out.ok){ said("Clicked "+(decision.args&&(decision.args.selector||""))+" — live in the Browser pane.","clicked "+((out&&out.clicked)||"page")); }
+      else{ said("I could not click that ("+((out&&out.error)||"unavailable")+").","click failed"); }
+      return;
+    }
     if(decision.tool==="browser_read"||decision.tool==="browser_current"){
       var cur=decision.tool==="browser_current"?await ProfilesBrowserPane.current():await ProfilesBrowserPane.read();
       if(state.slot!==runSlot) return;
@@ -70,7 +82,7 @@ async function runStandalone(q){
       return;
     }
     if(decision.tool==="web_search"){
-      var url="https://www.bing.com/search?q="+encodeURIComponent(decision.args.query);
+      var url=searchUrl(decision.args.query);
       showPaneEl("pane-browser",true);
       var nav=await ProfilesBrowserPane.navigate(url);
       if(state.slot!==runSlot) return;
@@ -139,7 +151,7 @@ function setAvatar(buddy){
   var av=document.querySelector(".avatarCircle"); if(av) av.title="";
 }
 var state={mode:"Vibes", routing:false, auto:false, agentOk:false, timer:null, modeSince:Date.now(), suggestChecked:false, slot:"A", expectSlot:null, layout:{order:null,hidden:["pane-agent","pane-doc","pane-notes","pane-video","pane-setup","pane-activity"],maxed:null},
-  stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null, traces:true, tools:false, model:null, lastLatency:0, lastTier:""};
+  stage:-1, runCount:0, bg:0, switches:[], cfg:null, speak:false, setupPlan:null, traces:true, tools:false, model:null, demoMode:false, reasoningEffort:null, lastLatency:0, lastTier:""};
 if(isStandalone()){try{var savedSlot=localStorage.getItem("profilesStandaloneSlot");if(/^[ABCDEX]$/.test(savedSlot||"")) state.slot=savedSlot;}catch(e){}}
 
 /* ---- canvas v4: seamless drag-snap tiling + browser-style pane tabs ---- */
@@ -260,6 +272,8 @@ function renderTrash(closed){
     listEl.appendChild(b);
   });
 }
+if($("darkBtn")) $("darkBtn").addEventListener("click", function(){ toggleWebDark(false); });
+paintDarkBtn();
 if($("trashBtn")) $("trashBtn").addEventListener("click", function(){
   var pop=$("trashPop");
   pop.hidden=!pop.hidden;
@@ -408,6 +422,8 @@ $("brandMenuBtn").addEventListener("click", function(){
 document.querySelectorAll("[data-menu]").forEach(function(b){
   b.addEventListener("click", function(){
     $("brandMenu").hidden=true;
+    if(b.dataset.menu==="controls"){ var p=$("controlsPop"); if(p){ if(p.hidden) renderControls(); p.hidden=!p.hidden; } return; }
+    if(b.dataset.menu==="webdark"){ toggleWebDark(false); return; }
     focusPane("pane-setup");
     if(b.dataset.menu==="about") bubble("Profiles — one calm front door over your agent, browser and work apps. A/B/C are the designed experience; X (Settings › Profiles) is the full-access power world. Everything local, per-profile, resettable.", "agent");
   });
@@ -423,7 +439,7 @@ document.addEventListener("pointerdown", function(e){
    Triggers are exempt so toggle-clicks still work; everything else lands here. */
 function dismissAllPopups(){
   var changed=false;
-  [["addMenu"],["brandMenu"],["trashPop"]].forEach(function(pair){
+  [["addMenu"],["brandMenu"],["trashPop"],["controlsPop"]].forEach(function(pair){
     var el=$(pair[0]);
     if(el && !el.hidden){ el.hidden=true; changed=true; }
   });
@@ -440,7 +456,8 @@ function popupDismissForEvent(e){
   var brandTrigger=t.closest && t.closest("#brandMenuBtn");
   var inTrash=t.closest && t.closest("#trashPop");
   var trashTrigger=t.closest && t.closest("#trashBtn");
-  var add=$("addMenu"), brand=$("brandMenu"), trash=$("trashPop");
+  var inControls=t.closest && t.closest("#controlsPop");
+  var add=$("addMenu"), brand=$("brandMenu"), trash=$("trashPop"), controls=$("controlsPop");
   if(add && !add.hidden && !inAdd && !addTrigger) add.hidden=true;
   if(brand && !brand.hidden && !inBrand && !brandTrigger){
     brand.hidden=true;
@@ -448,6 +465,7 @@ function popupDismissForEvent(e){
   }
   /* recycle bin preview: clicking anywhere outside dismisses immediately */
   if(trash && !trash.hidden && !inTrash && !trashTrigger) trash.hidden=true;
+  if(controls && !controls.hidden && !inControls) controls.hidden=true;
 }
 document.addEventListener("pointerdown", popupDismissForEvent, true);
 document.addEventListener("keydown", function(e){
@@ -459,6 +477,7 @@ document.addEventListener("keydown", function(e){
 (function pinTiles(){
   var unpinned=null, dragId=null, startX=0, startY=0, moved=false;
   var resizing=null; /* {id, dir, startX, startY, startW, startH} while edge-dragging */
+  var adjustMode=false;
   var EDGE=34, MIN_W=280, MIN_H=180; /* 34px grab zone: no pixel-hunting */
   var CURSORS={e:"ew-resize",w:"ew-resize",n:"ns-resize",s:"ns-resize",
     ne:"nesw-resize",sw:"nesw-resize",nw:"nwse-resize",se:"nwse-resize"};
@@ -564,6 +583,46 @@ document.addEventListener("keydown", function(e){
       .filter(function(id){ return PANES.indexOf(id)>=0; });
     applyLayout();
   }
+  function enterAdjustMode(){
+    if(unpinned) land();
+    adjustMode = true;
+    document.body.classList.add("adjusting-layout");
+    moved=false; dragId=null;
+    if(browserPaneReady) ProfilesBrowserPane.setAdjusting(true);
+    var all = Array.from(document.querySelectorAll(".canvas > .pane")).filter(function(p){ return paneVisible(p.id); });
+    all.forEach(function(pane){
+      pane.classList.add("unpinned");
+      addHandles(pane);
+    });
+    bubble("Adjust mode active — drag boxes to move, drag edges to resize. Press any key or click to lock.", "sys");
+    stream("layout — adjust mode active via Super key");
+  }
+  function landAll(){
+    if(!adjustMode) return;
+    adjustMode = false;
+    document.body.classList.remove("adjusting-layout");
+    var all = document.querySelectorAll(".canvas > .pane");
+    all.forEach(function(pane){
+      removeHandles(pane);
+      pane.style.cursor = "";
+      if(paneVisible(pane.id)) rememberSize(pane.id);
+      pane.classList.remove("unpinned");
+    });
+    unpinned = null; dragId = null; resizing = null;
+    state.layout.order = Array.prototype.slice.call($("canvas").children).map(function(el){ return el.id; })
+      .filter(function(id){ return PANES.indexOf(id)>=0; });
+    applyLayout();
+    if(browserPaneReady) ProfilesBrowserPane.setAdjusting(false);
+    bubble("All boxes pinned. Layout remembered for this profile.", "sys");
+    stream("layout — all boxes locked");
+  }
+  function toggleAdjustMode(){
+    if(adjustMode) landAll();
+    else enterAdjustMode();
+  }
+  window.toggleAdjustMode = toggleAdjustMode;
+  window.isAdjustMode = function(){ return adjustMode; };
+  window.dismissAdjustMode = landAll;
   document.querySelectorAll(".pane").forEach(function(pane){
     var pin=pane.querySelector(".pinbtn");
     if(pin){ pin.title="Pin: click to unlock and move/resize this pane"; pin.setAttribute("aria-label","Pin or unpin pane");
@@ -580,8 +639,13 @@ document.addEventListener("keydown", function(e){
     /* border resize takes precedence over move: left-button press on any
        edge/border of the highlighted box starts a smooth drag-resize */
     pane.addEventListener("pointerdown", function(e){
-      if(unpinned!==pane.id || resizing) return;
+      if((unpinned!==pane.id && !adjustMode) || resizing) return;
       if(e.button!==undefined && e.button!==0) return; /* left button only */
+      if(adjustMode && e.target.closest(".panehead") && !e.target.closest("button,a,input,select,textarea")){
+        e.preventDefault(); dragId=pane.id; moved=false;
+        try{pane.setPointerCapture(e.pointerId);}catch(err){}
+        return;
+      }
       if(e.target!==pane && isInteractive(e.target) && !e.target.classList.contains("panehead")){
         /* let buttons/inputs/links work normally — except a bare edge click */
         if(!e.target.classList.contains("resize-handle") && !edgeDir(pane, e.clientX, e.clientY)) return;
@@ -594,13 +658,14 @@ document.addEventListener("keydown", function(e){
        mouse (no holding) glides it across its neighbours; click lands it.
        While edge-resizing, the same motion resizes instead of moving. */
     pane.addEventListener("pointermove", function(e){
-      if(unpinned!==pane.id) return;
+      if(unpinned!==pane.id && !adjustMode) return;
       if(resizing && resizing.id===pane.id){
         var dx=e.clientX-resizing.startX, dy=e.clientY-resizing.startY;
         applyResize(pane, resizing.dir, dx, dy, resizing.startW, resizing.startH);
         e.stopPropagation();
         return;
       }
+      if(adjustMode && (dragId!==pane.id || !(e.buttons&1))) return;
       if((!e.buttons || (e.buttons&1)===0) && (!e.pointerType || e.pointerType==="mouse")){
         /* hover affordance: show the resize cursor on any edge/border */
         var hov=(!e.target.classList || isInteractive(e.target)) ? "" : edgeDir(pane, e.clientX, e.clientY);
@@ -635,6 +700,10 @@ document.addEventListener("keydown", function(e){
       }
       dragId=null;
     });
+    pane.addEventListener("pointerup",function(e){
+      try{if(pane.hasPointerCapture(e.pointerId)) pane.releasePointerCapture(e.pointerId);}catch(err){}
+      if(adjustMode) landAll();
+    });
     pane.addEventListener("pointercancel", function(){ if(resizing && resizing.id===pane.id){ rememberSize(pane.id); resizing=null; pane.style.cursor=""; persistLayout(); } dragId=null; });
   });
   document.addEventListener("pointermove", function(e){
@@ -652,13 +721,31 @@ document.addEventListener("keydown", function(e){
   /* outside-land: mouse re-pins on press (instant); touch/pen re-pins on
      tap (press + lift within 12px) so a scroll gesture starting outside
      never yanks a just-unlocked pane away on small touchscreens. */
-  var downPos=null;
+  var downPos=null, consumeAdjustClick=false;
   document.addEventListener("pointerdown", function(e){
+    consumeAdjustClick=false;
     if(resizing) return; /* let the resize finish on pointerup, don't re-pin mid-drag */
+    if(adjustMode){
+      var pane = e.target.closest && e.target.closest(".pane");
+      var onHandle = e.target.classList && e.target.classList.contains("resize-handle");
+      var onEdge = pane && edgeDir(pane, e.clientX, e.clientY) && !e.target.closest("button,a,input,select,textarea");
+      var onHeader=e.target.closest && e.target.closest(".panehead") && !e.target.closest("button,a,input,select,textarea");
+      if(!onHandle && !onEdge && !onHeader){
+        landAll();
+        consumeAdjustClick=true;
+        e.preventDefault(); e.stopImmediatePropagation();
+        return;
+      }
+    }
     downPos={x:e.clientX, y:e.clientY, type:e.pointerType||"mouse"};
     var outside=!(e.target.closest && e.target.closest("#"+unpinned));
     if(unpinned && outside && downPos.type==="mouse") land();
   }, true);
+  document.addEventListener("click",function(e){
+    if(!consumeAdjustClick) return;
+    consumeAdjustClick=false;
+    e.preventDefault(); e.stopImmediatePropagation();
+  },true);
   document.addEventListener("pointerup", function(e){
     if(resizing || !unpinned){ downPos=null; return; }
     var t=e.pointerType||(downPos&&downPos.type)||"mouse";
@@ -762,7 +849,6 @@ function updateXmaxVisibility(){
 document.querySelectorAll(".pills button").forEach(function(b){
   b.addEventListener("click", function(){ setMode(b.dataset.profile, "you switched", {explicit:true}); });
 });
-var superArmedUntil=0;
 function profileShortcut(key){
   var k=String(key||"").toLowerCase();
   var map={"1":"babylite","2":"chill","3":"FOCUSMAX","4":"Vibes","5":"calm","6":"xMAX"}, slots={a:"A",b:"B",c:"C",x:"X"};
@@ -776,18 +862,71 @@ function profileShortcut(key){
   }
   return false;
 }
+var superAlone=false, ignoreSuperRelease=false;
+function finishSuper(){
+  var toggle=superAlone && !ignoreSuperRelease;
+  superAlone=false; ignoreSuperRelease=false;
+  if(toggle && window.toggleAdjustMode) window.toggleAdjustMode();
+}
+function dismissAdjust(){
+  if(window.isAdjustMode && window.isAdjustMode()){window.dismissAdjustMode();return true;}
+  return false;
+}
+function tabShortcut(key){
+  if(!window.ProfilesBrowserPane || !browserPaneReady) return false;
+  if(key==="NewTab"){showPaneEl("pane-browser",true);ProfilesBrowserPane.createTab();return true;}
+  if(key==="CloseTab"){ProfilesBrowserPane.closeActiveTab();return true;}
+  if(key==="NextTab" || key==="PreviousTab"){ProfilesBrowserPane.cycleTab(key==="NextTab"?1:-1);return true;}
+  if(key==="Location"){showPaneEl("pane-browser",true);$("urlInput").focus();$("urlInput").select();return true;}
+  return false;
+}
 document.addEventListener("keydown",function(e){
-  if(e.key==="Meta"||e.key==="OS"){ superArmedUntil=Date.now()+1500; return; }
-  if((e.metaKey || Date.now()<superArmedUntil) && profileShortcut(e.key)){
-    superArmedUntil=0; e.preventDefault(); e.stopPropagation(); return;
+  if(e.repeat && (e.key==="Meta"||e.key==="OS")) return;
+  var wasAdjusting=dismissAdjust();
+  if(e.key==="Meta"||e.key==="OS"){
+    superAlone=!wasAdjusting;ignoreSuperRelease=wasAdjusting;
+    return;
   }
+  if(wasAdjusting){superAlone=false;e.preventDefault();e.stopImmediatePropagation();return;}
+  if(e.metaKey && profileShortcut(e.key)){
+    superAlone=false;e.preventDefault();e.stopPropagation();return;
+  }
+  superAlone=false;
+  if(e.ctrlKey||e.metaKey){
+    var key=e.key.toLowerCase();
+  if(e.metaKey && key==="f1"){superAlone=false;toggleWebDark(false);e.preventDefault();e.stopPropagation();return;}
+    var action=key==="t"?"NewTab":key==="w"?"CloseTab":key==="l"?"Location":
+      key==="tab"?(e.shiftKey?"PreviousTab":"NextTab"):null;
+    if(action && tabShortcut(action)){e.preventDefault();e.stopPropagation();return;}
+  }
+  if(e.key==="F1"){e.preventDefault();toggleWebDark(false);return;}
   if(e.ctrlKey||e.altKey||e.metaKey||e.defaultPrevented) return;
   if(e.target && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) return;
-  if(profileShortcut(e.key)){ e.preventDefault(); return; }
-  if(e.key==="/"){ e.preventDefault(); focusPane("pane-chat"); $("ask").focus(); }
+  if(profileShortcut(e.key)){e.preventDefault();return;}
+  if(e.key==="/"){e.preventDefault();focusPane("pane-chat");$("ask").focus();}
 },true);
-window.addEventListener("blur",function(){ superArmedUntil=0; });
-window.addEventListener("profiles-browser-shortcut",function(e){if(e.detail && e.detail.slot && e.detail.slot!==state.slot) return;profileShortcut(e.detail && (e.detail.key || e.detail));});
+document.addEventListener("keyup",function(e){if(e.key==="Meta"||e.key==="OS") finishSuper();},true);
+window.addEventListener("blur",function(){superAlone=false;ignoreSuperRelease=false;});
+window.addEventListener("profiles-browser-shortcut",function(e){
+  var d=e.detail||{},key=d.key||d;
+  if((key==="Meta"||key==="OS") && d.phase==="up"){finishSuper();return;}
+  if(d.slot && d.slot.split("--")[0]!==state.slot) return;
+  var wasAdjusting=dismissAdjust();
+  if(key==="Meta"||key==="OS"){
+    superAlone=!wasAdjusting;ignoreSuperRelease=wasAdjusting;return;
+  }
+  superAlone=false;
+  if(wasAdjusting) return;
+  if(key==="F1"){superAlone=false;toggleWebDark(false);return;}
+  if(!tabShortcut(key)) profileShortcut(key);
+});
+window.addEventListener("profiles-browser-input",function(e){
+  var d=e.detail||{};
+  // Native chrome duplicates DOM input; only child views need this bridge.
+  if(!d.slot || d.slot.split("--")[0]!==state.slot) return;
+  if(d.kind==="key"){ superAlone=false; if(d.key==="F1"){ toggleWebDark(false); return; } }
+  dismissAdjust();
+});
 
 /* ---- chat: answers are bubbles; agent log is detail ---- */
 function clearThinking(){ var t=$("thinkingBubble"); if(t) t.remove(); }
@@ -1463,22 +1602,103 @@ if($("docOpenExt")) $("docOpenExt").addEventListener("click", function(){
 
 /* The displayed native/streamed page is the page the agent operates. */
 var browserLoaded=false, lastBrowserUrl="";
+/* WEBDARK — universal web dark mode. Pure rules mirror engine/webdark.mjs. */
+var webDarkGlobal=true, webDarkSites={}, lastDarkKey="";
+try{
+  if(localStorage.getItem("profiles.webDark")==="0") webDarkGlobal=false;
+  var _wds=JSON.parse(localStorage.getItem("profiles.webDarkSites")||"{}");
+  if(_wds && typeof _wds==="object") webDarkSites=_wds;
+}catch(e){ webDarkSites={}; }
+function webDarkHost(url){ try{ var u=new URL(String(url||"")); if(u.protocol!=="http:"&&u.protocol!=="https:") return ""; return u.hostname.toLowerCase(); }catch(e){ return ""; } }
+function webDarkFor(url){ var h=webDarkHost(url); if(h&&Object.prototype.hasOwnProperty.call(webDarkSites,h)) return !!webDarkSites[h]; return !!webDarkGlobal; }
+function saveWebDark(){ try{ localStorage.setItem("profiles.webDark",webDarkGlobal?"1":"0"); localStorage.setItem("profiles.webDarkSites",JSON.stringify(webDarkSites)); }catch(e){} }
+function paintDarkBtn(){ var b=$("darkBtn"); if(!b) return; var on=webDarkFor(lastBrowserUrl); b.setAttribute("aria-pressed",on?"true":"false"); b.classList.toggle("on",on); b.title=on?"Web dark mode is ON — Super+F1 or click flips this site":"Web dark mode is OFF for this site — Super+F1 or click flips it"; }
+/* SEARCHENG_MIRROR of engine/searcheng.mjs. Headed user search only — the
+   headless agent passes stay Bing-first so Google never bot-walls this IP. */
+var searchEnginePref="google";
+try{ var _se=String(localStorage.getItem("profiles.searchEngine")||"").toLowerCase(); if(_se==="google"||_se==="bing"||_se==="duckduckgo") searchEnginePref=_se; }catch(e){}
+function searchUrl(q){ q=encodeURIComponent(String(q||"")); if(searchEnginePref==="bing") return "https://www.bing.com/search?q="+q; if(searchEnginePref==="duckduckgo") return "https://html.duckduckgo.com/html/?q="+q; return "https://www.google.com/search?q="+q; }
+function setSearchEngine(e){ searchEnginePref=(e==="bing"||e==="duckduckgo")?e:"google"; try{ localStorage.setItem("profiles.searchEngine",searchEnginePref); }catch(x){} }
+function applyWebDark(){
+  if(!window.ProfilesBrowserPane || !browserPaneReady || !window.ProfilesNativeBrowser || !ProfilesNativeBrowser.available) return;
+  var tab=null; try{ tab=ProfilesBrowserPane.getActiveTab(); }catch(e){}
+  if(!tab || !tab.url) return;
+  var on=webDarkFor(tab.url), key=state.slot+"--"+tab.id+"--"+tab.url+"--"+(on?"1":"0");
+  if(key===lastDarkKey) return; lastDarkKey=key;
+  paintDarkBtn();
+  ProfilesBrowserPane.setDark(on).catch(function(){});
+}
+function toggleWebDark(globalFlip){
+  var host=webDarkHost(lastBrowserUrl);
+  if(globalFlip){ webDarkGlobal=!webDarkGlobal; webDarkSites={}; }
+  else if(host){ webDarkSites[host]=!webDarkFor(lastBrowserUrl); }
+  else webDarkGlobal=!webDarkGlobal;
+  lastDarkKey="";
+  saveWebDark(); paintDarkBtn(); applyWebDark();
+  var on=webDarkFor(lastBrowserUrl);
+  bubble("Web dark "+(on?"ON":"OFF")+(globalFlip?" everywhere":host?(" for "+host):"")+" — Super+F1 flips it. Pages with their own dark mode can be exempted per site from ⌨ Controls.", "sys");
+}
+function renderControls(){
+  var list=$("controlsList"); if(!list) return; list.textContent="";
+  function group(t){ var g=document.createElement("div"); g.className="cgrow"; g.textContent=t; list.appendChild(g); }
+  function row(keys,text){
+    var d=document.createElement("div"); d.className="crow";
+    var k=document.createElement("span"); k.innerHTML=keys.map(function(x){ return "<kbd>"+x+"</kbd>"; }).join(" ");
+    var s=document.createElement("span"); s.textContent=text;
+    d.appendChild(k); d.appendChild(s); list.appendChild(d);
+  }
+  var site=webDarkHost(lastBrowserUrl)||"this site", on=webDarkFor(lastBrowserUrl);
+  group("Web dark");
+  var d=document.createElement("div"); d.className="crow";
+  var cur=document.createElement("span"); cur.textContent=(on?"ON":"OFF")+" for "+site;
+  var f1=document.createElement("button"); f1.type="button"; f1.className="sbtn"; f1.textContent="Flip this site";
+  f1.addEventListener("click",function(){ toggleWebDark(false); renderControls(); });
+  var f2=document.createElement("button"); f2.type="button"; f2.className="sbtn"; f2.textContent="Use for all sites";
+  f2.addEventListener("click",function(){ toggleWebDark(true); renderControls(); });
+  d.appendChild(cur); d.appendChild(f1); d.appendChild(f2); list.appendChild(d);
+  group("Headed search");
+  var s=document.createElement("div"); s.className="crow";
+  var lab=document.createElement("span"); lab.textContent="You search with "+searchEnginePref+" — background agent search stays Bing-first (Google bot-walls headless IPs).";
+  s.appendChild(lab);
+  ["google","bing","duckduckgo"].forEach(function(e){ var b=document.createElement("button"); b.type="button"; b.className="sbtn"; b.textContent=e[0].toUpperCase()+e.slice(1)+(e===searchEnginePref?" ✓":""); b.addEventListener("click",function(){ setSearchEngine(e); renderControls(); }); s.appendChild(b); });
+  list.appendChild(s);
+  group("Keys");
+  row(["Tap Super"],"move + resize panes (tap again or click to lock)");
+  row(["Super","A / B / C"],"jump to profile (D arrives with slots)");
+  row(["Super","1 – 6"],"modes: babylite, chill, FOCUSMAX, Vibes, calm, xMAX");
+  row(["Super","T / W / L"],"new tab / close tab / address bar");
+  row(["Super","F1"],"web dark on/off for this site");
+  row(["/"],"jump to chat");
+  group("Zoom");
+  row(["A-","A+"],"app text size (buttons in Chat pane)");
+  row(["Ctrl","wheel"],"browser page zoom, per tab");
+}
 function normUrl(u){
   u=String(u||"").trim();
   if(!u) return "";
   if(/^https?:\/\//i.test(u)) return u;
   if(/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return "https://"+u;
-  return "https://www.bing.com/search?q="+encodeURIComponent(u);
+  return searchUrl(u);
 }
 function proxyFor(url){ return apiUrl("/api/proxy?url="+encodeURIComponent(url)); }
 function showFallback(msg){
   $("browserFallback").hidden=false; $("browserFallbackText").textContent=msg;
 }
 function hideFallback(){ $("browserFallback").hidden=true; }
+var addressTabKey=null;
 function updateBrowserState(out){
   if(!out) return;
   if(out.slot && out.slot!==state.slot) return;
-  if(out.url){ lastBrowserUrl=out.url; if(document.activeElement!==$("urlInput")) $("urlInput").value=out.url; }
+  if(out.tabId && out.tabId!==ProfilesBrowserPane.getActiveTab().id) return;
+  var tabKey=state.slot+"--"+ProfilesBrowserPane.getActiveTab().id;
+  var selectionChanged=addressTabKey!==tabKey;
+  addressTabKey=tabKey;
+  if(typeof out.zoom==="number"){pageZoom=out.zoom;paneZoom["pane-browser"]=out.zoom;}
+  if(Object.prototype.hasOwnProperty.call(out,"url")){
+    lastBrowserUrl=out.url||"";
+    if(selectionChanged || document.activeElement!==$("urlInput")) $("urlInput").value=lastBrowserUrl;
+  }
+  if(typeof applyWebDark==="function") applyWebDark();
   if(out.ok===false){
     if(out.visible!==false && window.ProfilesNativeBrowser && ProfilesNativeBrowser.available) ProfilesNativeBrowser.setVisible(false);
     showFallback(out.error || "The site could not load. Your page has not been replaced."); return;
@@ -1486,7 +1706,14 @@ function updateBrowserState(out){
   hideFallback(); browserLoaded=true;
 }
 ProfilesBrowserPane.init({host:$("browserSurface"),api:apiUrl,slot:function(){return state.slot;},onState:updateBrowserState});
-window.addEventListener("profiles-open-url",function(e){var url=e.detail&&e.detail.url;if(/^https?:\/\//i.test(url||"")){showPaneEl("pane-browser",true);ProfilesBrowserPane.navigate(url);}});
+window.addEventListener("profiles-open-url",function(e){
+  var d=e.detail||{},url=d.url;
+  if(d.slot && d.slot.split("--")[0]!==state.slot) return;
+  if(/^https?:\/\//i.test(url||"")){
+    showPaneEl("pane-browser",true);
+    if(d.newTab) ProfilesBrowserPane.createTab(url);else ProfilesBrowserPane.navigate(url);
+  }
+});
 browserPaneReady=true;
 ProfilesBrowserPane.setZoom(pageZoom);
 window.addEventListener("profiles-browser-activate",function(){showPaneEl("pane-browser",true);});
@@ -1506,13 +1733,13 @@ $("urlForm").addEventListener("submit",function(e){
   ProfilesBrowserPane.navigate(url).then(function(){ applyPageZoom(false); });
 });
 $("browserBack").addEventListener("click",function(){ ProfilesBrowserPane.back(); });
+$("browserForward").addEventListener("click",function(){ProfilesBrowserPane.forward();});
 document.querySelectorAll("[data-zoom]").forEach(function(b){
   b.addEventListener("click",function(){ stepZoom("pane-browser",Number(b.dataset.zoom),false); });
 });
 $("fallbackRetry").addEventListener("click",function(){
   hideFallback();
-  if(lastBrowserUrl) ProfilesBrowserPane.navigate(lastBrowserUrl);
-  else ProfilesBrowserPane.retry();
+  ProfilesBrowserPane.retry();
 });
 $("fallbackOpen").addEventListener("click",function(){
   if(lastBrowserUrl) window.open(lastBrowserUrl,"_blank","noopener");
@@ -1974,9 +2201,7 @@ if($("driveBtn")) $("driveBtn").addEventListener("click", function(){
   }).catch(function(){ $("driveLine").textContent=""; bubble("Could not prepare browser-act.", "agent"); });
 });
 if($("openExternal")) $("openExternal").addEventListener("click", function(){
-  var u=$("urlInput").value.trim();
-  if(u && !/^https?:\/\//i.test(u)) u="https://"+u;
-  if(u){if(window.ProfilesNativeBrowser && ProfilesNativeBrowser.available) ProfilesBrowserPane.navigate(normUrl(u));else window.open(u,"_blank");}
+  ProfilesBrowserPane.reload();
 });
 /* ---- agent detail: two explicit toggles, Traces ON + Tools OFF by default.
    Traces = reasoning chain lines; Tools = tool calls + extras. Tool lines
@@ -2007,10 +2232,11 @@ function setTools(on){
 }
 function paintBadge(model){
   var b=$("brainBadge"); if(!b) return;
-  var m=model||state.model||{name:"Basic tools (no model)",via:"lite"};
+  var m=state.demoMode ? {name:"muse-spark-1.3-contributor ("+(state.reasoningEffort||"xhigh")+")",via:"cloud"} :
+    model||state.model||{name:"muse-spark-1.3-contributor (xhigh)",via:"cloud"};
   state.model=m;
-  b.textContent=m.name||"Basic tools (no model)";
-  b.title=(m.name||"Basic tools (no model)")+" · "+(m.via||"lite")+" — choose model or view availability";
+  b.textContent=m.name||"muse-spark-1.3-contributor (xhigh)";
+  b.title=(m.name||"muse-spark-1.3-contributor (xhigh)")+" · "+(m.via||"cloud")+" — choose model or view availability";
 }
 function closeModelMenu(){ var menu=$("modelMenu"); if(menu) menu.remove(); $("brainBadge").setAttribute("aria-expanded","false"); }
 if($("brainBadge")) $("brainBadge").addEventListener("click",function(){
@@ -2051,7 +2277,7 @@ if($("brainBadge")) $("brainBadge").addEventListener("click",function(){
         postConfig({slot:patch}).then(closeModelMenu).catch(function(){button.disabled=false;});
       }); menu.appendChild(button);
     });
-    var setup=document.createElement("button"); setup.type="button"; setup.textContent="Configure API key or local model…";
+    var setup=document.createElement("button"); setup.type="button"; setup.textContent=data.demoMode?"Configure Contributor API key…":"Configure API key or local model…";
     setup.addEventListener("click",function(){closeModelMenu();showPane("pane-setup");}); menu.appendChild(setup);
   }).catch(function(){menu.textContent="Could not load model choices. Check the sidecar connection.";});
 });
@@ -2256,6 +2482,11 @@ setInterval(function(){
 var bootBuild=null;
 if($("updatePill")) $("updatePill").addEventListener("click", function(){ location.reload(); });
 function checkBuild(h){
+  if(h && typeof h.demoMode==="boolean"){
+    state.demoMode=h.demoMode;
+    state.reasoningEffort=h.reasoningEffort||null;
+    if(state.demoMode) paintBadge();
+  }
   if(!h || !h.build) return;
   if(!bootBuild){ bootBuild=h.build; return; }
   if(h.build!==bootBuild){
@@ -2281,7 +2512,7 @@ function bootAgent(){
   fetch(apiUrl("/api/health")).then(function(r){ return r.json(); }).then(function(h){
     checkBuild(h);
     state.agentOk=true;
-    if(!state.model) paintBadge({name:"Basic tools (no model)",via:"lite"});
+    if(state.demoMode || !state.model) paintBadge();
     $("agentStatusText").textContent="Ready";
     bubble("Ready. Ask me to open a website or read the current page. Choose a model above for conversation and multi-step requests.", "agent");
     stream("Agent connection ready");

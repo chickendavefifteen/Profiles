@@ -33,7 +33,19 @@ export async function storeSecret(slot, kind, value) {
 }
 export async function getSecret(slot, kind) {
   const r = await secretTool(['lookup', 'service', 'profiles', 'profile', slot, 'kind', kind]);
-  return r.ok && r.out ? r.out : null;
+  if (r.ok && r.out) return r.out;
+  if (kind === 'cloud-api-key') {
+    if (process.env.PROFILES_DISABLE_KEYRING === '1') return null;
+    if (process.env.PROFILES_API_KEY) return process.env.PROFILES_API_KEY;
+    if (process.env.META_API_KEY) return process.env.META_API_KEY;
+    try {
+      const { homedir } = await import('node:os');
+      const authPath = join(homedir(), '.pi', 'agent', 'auth.json');
+      const auth = JSON.parse(await readFile(authPath, 'utf8'));
+      if (auth.meta?.key) return auth.meta.key;
+    } catch {}
+  }
+  return null;
 }
 export async function cloudStatus(slot, profile) {
   const key = await getSecret(slot, 'cloud-api-key');

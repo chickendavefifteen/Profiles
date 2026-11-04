@@ -81,13 +81,14 @@ export async function savePreferences(prefs) {
 }
 
 /** Repeated ask -> deterministic macro file (script, not a model loop). */
-export async function ensureMacro(phrase, sampleQuery) {
+export async function ensureMacro(phrase, sampleQuery, steps) {
   const macroDir = (await paths()).macros;
   await mkdir(macroDir, { recursive: true });
   const id = norm(phrase).replace(/ /g, '-').slice(0, 40) || 'macro';
   const file = join(macroDir, id + '.json');
   if (!existsSync(file)) {
     await writeFile(file, JSON.stringify({ id, phrase: sampleQuery, created: new Date().toISOString(),
+      ...(Array.isArray(steps) && steps.length ? { steps } : {}),
       note: 'Deterministic macro - runs the same steps every time, no LLM loop. Delete this file to unlearn.' }, null, 2));
   }
   return { id, phrase: sampleQuery };
@@ -102,3 +103,44 @@ export async function listMacros() {
   return out;
 }
 export { norm };
+
+/** Slim, JSON-safe tool args for traces: strings capped, depth 1. */
+export function slimArgs(a) {
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(a).slice(0, 12)) {
+    if (typeof v === 'string') out[k] = v.slice(0, 500);
+    else if (typeof v === 'number' || typeof v === 'boolean') out[k] = v;
+  }
+  return out;
+}
+
+/** Record one completed ask as a tool trace for macro graduation. */
+export async function recordMacroTrace(query, steps) {
+  if (!Array.isArray(steps) || !steps.length) return;
+  await recordEvent({ type: 'macro-trace', query: norm(query), steps: steps.slice(0, 12) });
+}
+
+/** Group all-ok traces by normalized query. Pure: takes loaded events. */
+export function groupMacroTraces(events) {
+  const groups = {};
+  for (const e of events || []) {
+    if (!e || e.type !== 'macro-trace' || !e.query || !Array.isArray(e.steps) || !e.steps.length) continue;
+    if (!e.steps.every((s) => s && s.tool)) continue;
+    (groups[e.query] = groups[e.query] || []).push(e.steps);
+  }
+  return groups;
+}
+
+/** Replayable when the same ask ran the identical all-ok sequence 3+ times.
+ *  v1 replays single-step sequences with exact args only; multi-step traces
+ *  are recorded for future templates but never auto-replayed. */
+export function macroReplayFor(events, query) {
+  const groups = groupMacroTraces(events);
+  const seqs = groups[norm(query)] || [];
+  if (seqs.length < 3) return null;
+  const first = JSON.stringify(seqs[0]);
+  if (seqs[0].length !== 1 || !seqs.every((s) => JSON.stringify(s) === first)) return null;
+  if (!seqs[0].every((s) => s.ok !== false)) return null;
+  return { steps: seqs[0] };
+}

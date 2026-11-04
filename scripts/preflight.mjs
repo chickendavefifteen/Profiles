@@ -108,20 +108,23 @@ try {
     ok(false, 'agent models endpoint reachable (read-only): ' + String(e?.message || e).slice(0, 120));
   }
 
-  // Server-side poster render (no headed browser, no host window, no audio/GPU).
+  // Only the owned stack captures pixels. Explicit probes never inspect a
+  // user's page or create a browser; ordinary screenshots remain transient.
   if (!hasExplicitPort) {
     const opened=await fetch(base+'/api/browser/view',{method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({url:base+'/api/test/click-target'}),signal:AbortSignal.timeout(25000)});
     const observed=await opened.json();
     ok(opened.ok && observed.ok && observed.title==='CLICKTEST-READY','owned browser opens the actual local fixture');
-  }
-  try {
-    const poster = await fetch(base + '/api/browser/poster');
-    const buf = Buffer.from(await poster.arrayBuffer());
-    const img = buf.length > 2000 && ((buf[0] === 0xFF && buf[1] === 0xD8) || (buf[0] === 0x89 && buf[1] === 0x50));
-    ok(poster.ok && img, 'browser poster renders server-side (' + buf.length + ' bytes, no headed launch)');
-  } catch (e) {
-    ok(false, 'browser poster renders server-side: ' + String(e?.message || e).slice(0, 120));
+    try {
+      const response=await fetch(base+'/api/browser/screenshot',{method:'POST',headers:{'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(20000)});
+      const screenshot=await response.json();
+      const {validateScreenshot}=await import('../agent/agentloop.mjs');
+      const image=validateScreenshot(screenshot);
+      ok(response.ok && screenshot.ok && !image.error && image.bytes>2000,
+        'owned browser returns validated transient PNG pixels ('+(image.bytes||0)+' bytes, no headed launch)');
+    } catch (e) {
+      ok(false,'owned browser screenshot: '+String(e?.message||e).slice(0,120));
+    }
   }
 } catch (e) {
   ok(false, 'preflight harness error: ' + String(e?.message || e).slice(0, 140));

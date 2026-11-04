@@ -5,22 +5,22 @@
 //! no proxy fetch, no silent substitute pages.
 //!
 //! Trust boundary: every command requires the caller to be the `main` WebView
-//! (`require_main`). Child slot WebViews use per-slot isolated `data_directory`
-//! values under the app local-data dir, are created unfocused, and may only
-//! load http/https — the navigation and new-window handlers enforce this and
-//! anything else is refused with an honest error, never rewritten.
+//! (`require_main`). Child tab WebViews share `data_directory` within the
+//! composite slot's profile prefix, isolated from other profiles. They are
+//! created unfocused and may load http/https or the exact blank page only.
+//! Popups are denied natively and requested as new in-pane tabs through main.
 //!
 //! Events are emitted to `main` only (`emit_to("main", …)`):
 //! - `profiles-browser-state` {ok,slot,url,title,zoom,visible,loading}
 //! - `profiles-browser-zoom`  {ok,slot,zoom}
 //! The frontend (`src/native-browser.js`) bridges these to DOM CustomEvents
-//! of the same name. App-level shortcuts (Super / latched Super+A/B/C/1..6)
-//! stay in the main page; the child never takes host focus.
+//! of the same name. GTK consumes app shortcuts before DOM dispatch, including
+//! Meta down/up; ordinary native input is observed without consuming it.
 //!
 //! Frontend contract (shared with the principal's broker):
-//! commands `browser_ensure/resize/navigate/back/current/read/zoom/visible/switch`
-//! with snake_case args. There is NO generic eval command: `back` and `read`
-//! run fixed allowlisted scripts only.
+//! commands `browser_ensure/resize/navigate/back/forward/reload/close/current/
+//! read/zoom/visible/switch`. There is NO generic eval command: history and
+//! reload run fixed allowlisted scripts only.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -40,9 +40,11 @@ const READ_DEFAULT_MAX: usize = 20_000;
 const READ_HARD_MAX: usize = 100_000;
 
 /// Fixed allowlisted reader. Runs on the slot WebView only; no caller script.
-const READ_SCRIPT: &str = r#"(function(){try{var links=Array.from(document.querySelectorAll('a[href]')).map(function(a){return {title:(a.innerText||a.textContent||'').trim().slice(0,300),href:a.href};}).filter(function(a){return a.title&&/^https?:\/\//i.test(a.href);}).slice(0,100);return JSON.stringify({title:document.title||"",text:((document.body&&document.body.innerText)||"").slice(0,100000),links:links});}catch(e){return JSON.stringify({title:"",text:"",links:[]});}})()"#;
+const READ_SCRIPT: &str = r#"(function(){if(document.readyState==="loading")return JSON.stringify({ready:false});var links=Array.from(document.querySelectorAll('a[href]')).map(function(a){return {title:(a.innerText||a.textContent||'').trim().slice(0,300),href:a.href};}).filter(function(a){return a.title&&/^https?:\/\//i.test(a.href);}).slice(0,100);return JSON.stringify({ready:true,title:document.title||"",text:((document.body&&document.body.innerText)||"").slice(0,100000),links:links});})()"#;
 /// Fixed allowlisted history step. No caller script.
 const BACK_SCRIPT: &str = "history.back()";
+const FORWARD_SCRIPT: &str = "history.forward()";
+const RELOAD_SCRIPT: &str = "location.reload()";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PaneBounds {
@@ -197,6 +199,8 @@ impl SlotMeta {
 struct BrowserInner {
   active: Option<String>,
   slots: HashMap<String, SlotMeta>,
+  #[cfg(target_os = "linux")]
+  meta_down: bool,
 }
 
 #[derive(Debug, Default)]
@@ -233,6 +237,7 @@ fn check_url(raw: &str) -> Result<Url, String> {
     .map_err(|_| format!("bad url: {raw}"))?;
   match url.scheme() {
     "http" | "https" => Ok(url),
+    "about" if url.as_str() == "about:blank" => Ok(url),
     scheme => Err(format!("refused non-http(s) url (scheme={scheme})")),
   }
 }
@@ -241,12 +246,12 @@ fn slot_label(slot: &str) -> String {
   format!("{LABEL_PREFIX}{slot}")
 }
 
-fn slot_data_dir(app: &AppHandle, slot: &str) -> Option<std::path::PathBuf> {
-  app
-    .path()
-    .app_local_data_dir()
-    .ok()
-    .map(|d| d.join("browser-slots").join(slot))
+fn slot_data_dir(app: &AppHandle, slot: &str) -> Result<std::path::PathBuf, String> {
+  let profile = slot.split_once("--").map_or(slot, |(profile, _)| profile);
+  if profile.is_empty() { return Err("bad browser profile id".into()); }
+  app.path().app_local_data_dir()
+    .map(|d| d.join("browser-slots").join(profile))
+    .map_err(|e| format!("browser profile storage unavailable: {e}"))
 }
 
 fn mutate(app: &AppHandle, slot: &str, f: impl FnOnce(&mut SlotMeta)) -> Option<SlotView> {
@@ -273,12 +278,13 @@ fn snapshot(app: &AppHandle, slot: &str) -> Result<SlotView, String> {
 }
 
 fn nav_allowed(app: &AppHandle, slot: &str, url: &Url) -> bool {
-  let allowed = matches!(url.scheme(), "http" | "https");
+  let allowed = matches!(url.scheme(), "http" | "https") || url.as_str() == "about:blank";
   let text = url.to_string();
   let view = mutate(app, slot, |meta| {
     if allowed {
       meta.url = text.clone();
       meta.loading = true;
+      meta.error.clear();
     }
   });
   if let Some(v) = view {
@@ -288,34 +294,89 @@ fn nav_allowed(app: &AppHandle, slot: &str, url: &Url) -> bool {
 }
 
 #[cfg(target_os = "linux")]
-fn dispatch_shortcut(app:&AppHandle,event:&gdk::EventKey,armed:&std::cell::Cell<Option<std::time::Instant>>)->bool {
-  let key=event.keyval();
-  if key==gdk::keys::constants::Super_L || key==gdk::keys::constants::Super_R {
-    armed.set(Some(std::time::Instant::now()));
+fn emit_input(app: &AppHandle, slot: Option<&str>, kind: &str, key: Option<String>) {
+  let _ = app.emit_to("main", "profiles-browser-input", serde_json::json!({
+    "slot": slot, "kind": kind, "key": key
+  }));
+}
+
+#[cfg(target_os = "linux")]
+fn dispatch_shortcut(app: &AppHandle, event: &gdk::EventKey, slot: Option<&str>, pressed: bool) -> bool {
+  let key = event.keyval();
+  let is_meta = key == gdk::keys::constants::Super_L || key == gdk::keys::constants::Super_R
+    || key == gdk::keys::constants::Meta_L || key == gdk::keys::constants::Meta_R;
+  let mgr = app.state::<BrowserManager>();
+  let Ok(mut guard) = mgr.inner.lock() else { return false; };
+  if is_meta {
+    // Shared across chrome and children: main may receive the release after
+    // Meta-down hides a native overlay. Repeated downs must not toggle twice.
+    if pressed == guard.meta_down { return true; }
+    guard.meta_down = pressed;
+    drop(guard);
+    let _ = app.emit_to("main", "profiles-browser-shortcut", serde_json::json!({
+      "key": "Meta", "phase": if pressed { "down" } else { "up" }, "slot": slot
+    }));
     return true;
   }
-  let ch=key.to_unicode().map(|c|c.to_ascii_lowercase());
-  let held=event.state().intersects(gdk::ModifierType::SUPER_MASK | gdk::ModifierType::META_MASK);
-  let latched=armed.get().is_some_and(|t|t.elapsed().as_millis()<1500);
-  if (held || latched) && ch.is_some_and(|c|"abcx123456".contains(c)){
-    armed.set(None);
-    let _=app.emit_to("main","profiles-browser-shortcut",serde_json::json!({"key":ch.unwrap().to_string()}));
+  if !pressed { return false; }
+  let ch = key.to_unicode().map(|c| c.to_ascii_lowercase());
+  let held = guard.meta_down || event.state().intersects(gdk::ModifierType::SUPER_MASK | gdk::ModifierType::META_MASK);
+  let shortcut = if held && ch.is_some_and(|c| "abcx123456".contains(c)) {
+    ch.map(|c| c.to_string())
+  } else if !held && event.state().contains(gdk::ModifierType::CONTROL_MASK)
+    && !event.state().contains(gdk::ModifierType::MOD1_MASK) {
+    match ch {
+      Some('t') => Some("NewTab".into()),
+      Some('w') => Some("CloseTab".into()),
+      Some('l') => Some("Location".into()),
+      _ if key == gdk::keys::constants::Tab || key == gdk::keys::constants::ISO_Left_Tab =>
+        Some(if event.state().contains(gdk::ModifierType::SHIFT_MASK) || key == gdk::keys::constants::ISO_Left_Tab {
+          "PreviousTab"
+        } else { "NextTab" }.into()),
+      _ => None,
+    }
+  } else { None };
+  drop(guard);
+  if let Some(key) = shortcut {
+    let _ = app.emit_to("main", "profiles-browser-shortcut", serde_json::json!({
+      "key": key, "phase": "down", "slot": slot
+    }));
     return true;
   }
+  emit_input(app, slot, "key", key.name().map(|name| name.to_string()));
   false
 }
 
 #[cfg(target_os = "linux")]
-pub fn hook_app_shortcuts(app:&AppHandle,view:&Webview){
+fn hook_input(app: &AppHandle, engine: &webkit2gtk::WebView, slot: Option<&str>) {
   use gtk::prelude::WidgetExt;
   use webkit2gtk::glib::Propagation;
-  let app=app.clone();
-  let _=view.with_webview(move |handle|{
-    let armed=std::cell::Cell::new(None::<std::time::Instant>);
-    handle.inner().connect_key_press_event(move |_wv,event|{
-      if dispatch_shortcut(&app,event,&armed){Propagation::Stop}else{Propagation::Proceed}
-    });
+  let press_app = app.clone();
+  let press_slot = slot.map(str::to_string);
+  engine.connect_key_press_event(move |_wv, event| {
+    if dispatch_shortcut(&press_app, event, press_slot.as_deref(), true) {
+      Propagation::Stop
+    } else { Propagation::Proceed }
   });
+  let release_app = app.clone();
+  let release_slot = slot.map(str::to_string);
+  engine.connect_key_release_event(move |_wv, event| {
+    if dispatch_shortcut(&release_app, event, release_slot.as_deref(), false) {
+      Propagation::Stop
+    } else { Propagation::Proceed }
+  });
+  let pointer_app = app.clone();
+  let pointer_slot = slot.map(str::to_string);
+  engine.connect_button_press_event(move |_wv, _event| {
+    emit_input(&pointer_app, pointer_slot.as_deref(), "pointer", None);
+    Propagation::Proceed
+  });
+}
+
+#[cfg(target_os = "linux")]
+pub fn hook_app_shortcuts(app: &AppHandle, view: &Webview) {
+  let app = app.clone();
+  let _ = view.with_webview(move |handle| hook_input(&app, &handle.inner(), None));
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -333,6 +394,9 @@ fn hook_engine_zoom(app: &AppHandle, view: &tauri::Webview, slot: &str) {
     let failure_app = app_h.clone();
     let failure_slot = slot.clone();
     engine.connect_load_failed(move |_wv, _event, url, error| {
+      // WebKit cancels the previous provisional load during redirects and
+      // replacement navigations. That is not a failure of the new document.
+      if error.matches(webkit2gtk::NetworkError::Cancelled) { return true; }
       if let Some(state) = mutate(&failure_app, &failure_slot, |meta| {
         meta.url = url.to_string(); meta.loading = false; meta.error = error.to_string();
       }) { emit_state(&failure_app, &state); }
@@ -351,10 +415,8 @@ fn hook_engine_zoom(app: &AppHandle, view: &tauri::Webview, slot: &str) {
       }
       Propagation::Stop
     });
-    let shortcut_app = app_h.clone();
-    let armed = std::cell::Cell::new(None::<std::time::Instant>);
+    hook_input(&app_h, &engine, Some(&slot));
     engine.connect_key_press_event(move |wv, event| {
-      if dispatch_shortcut(&shortcut_app,event,&armed){return Propagation::Stop;}
       let ch=event.keyval().to_unicode().map(|c|c.to_ascii_lowercase());
       if event.state().contains(gdk::ModifierType::CONTROL_MASK) {
         let next = match ch {
@@ -417,15 +479,9 @@ pub fn browser_ensure(
   let size = LogicalSize::new(bounds.width, bounds.height);
 
   if let Some(view) = app.get_webview(&label) {
+    // An existing tab is a live session. Ensure only places it; navigation is
+    // exclusively browser_navigate so selection cannot reset forms/history.
     place_view(&view, &bounds)?;
-    if let Some(u) = target {
-      let current = view.url().map(|x| x.to_string()).unwrap_or_default();
-      if current != u {
-        view
-          .navigate(check_url(&u)?)
-          .map_err(|e| format!("navigate failed: {e}"))?;
-      }
-    }
     view.hide().map_err(|e|format!("hide failed: {e}"))?;
     let visible=false;
     let out = mutate(&app, &slot, |meta| {
@@ -450,10 +506,9 @@ pub fn browser_ensure(
   let mut builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(start_url))
     .focused(false)
     .zoom_hotkeys_enabled(false);
-  if let Some(dir) = slot_data_dir(&app, &slot) {
-    let _ = std::fs::create_dir_all(&dir);
-    builder = builder.data_directory(dir);
-  }
+  let dir = slot_data_dir(&app, &slot)?;
+  std::fs::create_dir_all(&dir).map_err(|e| format!("browser profile storage unavailable: {e}"))?;
+  builder = builder.data_directory(dir);
   {
     let app_h = app.clone();
     let slot_c = slot.clone();
@@ -488,10 +543,12 @@ pub fn browser_ensure(
   }
   {
     let popup_app = app.clone();
-    let popup_label = label.clone();
+    let popup_slot = slot.clone();
     builder = builder.on_new_window(move |url, _features| {
       if matches!(url.scheme(), "http" | "https") {
-        if let Some(view) = popup_app.get_webview(&popup_label) { let _ = view.navigate(url); }
+        let _ = popup_app.emit_to("main", "profiles-open-url", serde_json::json!({
+          "slot": popup_slot, "url": url.as_str(), "newTab": true
+        }));
       }
       NewWindowResponse::Deny
     });
@@ -574,6 +631,169 @@ pub fn browser_back(caller: Webview, app: AppHandle, slot: String) -> Result<Slo
 }
 
 #[tauri::command]
+pub fn browser_forward(caller: Webview, app: AppHandle, slot: String) -> Result<SlotView, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  let view = app.get_webview(&slot_label(&slot))
+    .ok_or_else(|| format!("unknown browser slot: {slot}"))?;
+  view.eval(FORWARD_SCRIPT).map_err(|e| format!("forward failed: {e}"))?;
+  snapshot(&app, &slot)
+}
+
+#[tauri::command]
+pub fn browser_reload(caller: Webview, app: AppHandle, slot: String) -> Result<SlotView, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  let view = app.get_webview(&slot_label(&slot))
+    .ok_or_else(|| format!("unknown browser slot: {slot}"))?;
+  view.eval(RELOAD_SCRIPT).map_err(|e| format!("reload failed: {e}"))?;
+  snapshot(&app, &slot)
+}
+
+#[tauri::command]
+pub fn browser_close(caller: Webview, app: AppHandle, slot: String) -> Result<serde_json::Value, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  if let Some(view) = app.get_webview(&slot_label(&slot)) {
+    view.close().map_err(|e| format!("close failed: {e}"))?;
+  }
+  let mgr = app.state::<BrowserManager>();
+  let mut guard = mgr.inner.lock().map_err(|_| "browser state lock poisoned")?;
+  guard.slots.remove(&slot);
+  if guard.active.as_deref() == Some(slot.as_str()) { guard.active = None; }
+  Ok(serde_json::json!({ "ok": true, "slot": slot, "closed": true }))
+}
+async fn page_action(app: &AppHandle, slot: &str, action: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
+  let view = app.get_webview(&slot_label(slot))
+    .ok_or_else(|| format!("unknown browser slot: {slot}"))?;
+  let script = format!("{}({},{})", include_str!("browser-actions.js"), serde_json::to_string(action).map_err(|e|e.to_string())?, args);
+  let (tx, rx) = tokio::sync::oneshot::channel();
+  let tx = std::sync::Arc::new(Mutex::new(Some(tx)));
+  view.eval_with_callback(&script, move |out| {
+    if let Ok(mut sender) = tx.lock() {
+      if let Some(sender) = sender.take() { let _ = sender.send(out); }
+    }
+  }).map_err(|e| format!("{action} failed: {e}"))?;
+  let raw = tokio::time::timeout(std::time::Duration::from_secs(READ_TIMEOUT_SECS), rx).await
+    .map_err(|_| format!("{action} timed out; inspect the page before retrying"))?
+    .map_err(|e| format!("{action} result unavailable: {e}"))?;
+  let mut result: serde_json::Value = serde_json::from_str(&raw).map_err(|e| format!("invalid {action} result: {e}"))?;
+  if let Some(inner) = result.as_str() { result = serde_json::from_str(inner).map_err(|e|format!("invalid {action} result: {e}"))?; }
+  if result.get("ok").and_then(|v|v.as_bool()) != Some(true) {
+    return Err(result.get("error").and_then(|v|v.as_str()).unwrap_or("page action failed").to_string());
+  }
+  let state = snapshot(app, slot)?;
+  result["slot"] = slot.into();
+  result["url"] = state.url.into();
+  result["title"] = state.title.into();
+  result["loading"] = state.loading.into();
+  Ok(result)
+}
+
+#[tauri::command]
+pub async fn browser_click(
+  caller: Webview,
+  app: AppHandle,
+  slot: String,
+  selector: Option<String>,
+  fx: Option<f64>,
+  fy: Option<f64>,
+) -> Result<serde_json::Value, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  page_action(&app, &slot, "click", serde_json::json!({"selector":selector,"fx":fx,"fy":fy})).await
+}
+
+#[tauri::command]
+pub async fn browser_type(
+  caller: Webview,
+  app: AppHandle,
+  slot: String,
+  text: String,
+  selector: Option<String>,
+  press: Option<String>,
+  clear: Option<bool>,
+) -> Result<serde_json::Value, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  page_action(&app, &slot, "type", serde_json::json!({"text":text,"selector":selector,"press":press,"clear":clear.unwrap_or(false)})).await
+}
+
+#[tauri::command]
+pub async fn browser_press(
+  caller: Webview,
+  app: AppHandle,
+  slot: String,
+  key: String,
+) -> Result<serde_json::Value, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  page_action(&app, &slot, "press", serde_json::json!({"key":key})).await
+}
+
+#[tauri::command]
+pub async fn browser_dark(
+  caller: Webview,
+  app: AppHandle,
+  slot: String,
+  on: bool,
+) -> Result<serde_json::Value, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  page_action(&app, &slot, "dark", serde_json::json!({"on":on})).await
+}
+
+#[tauri::command]
+pub async fn browser_cursor(
+  caller: Webview,
+  app: AppHandle,
+  slot: String,
+  show: Option<bool>,
+  fx: Option<f64>,
+  fy: Option<f64>,
+) -> Result<serde_json::Value, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  page_action(&app, &slot, "cursor", serde_json::json!({"show":show.unwrap_or(true),"fx":fx,"fy":fy})).await
+}
+
+#[tauri::command]
+pub async fn browser_screenshot(caller: Webview, app: AppHandle, slot: String) -> Result<serde_json::Value, String> {
+  require_main(&caller)?;
+  check_slot(&slot)?;
+  let view = app.get_webview(&slot_label(&slot)).ok_or_else(|| format!("unknown browser slot: {slot}"))?;
+  #[cfg(target_os = "linux")]
+  {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    view.with_webview(move |handle| {
+      use gtk::prelude::*;
+      use webkit2gtk::WebViewExt;
+      let engine = handle.inner();
+      let width = engine.allocated_width();
+      let height = engine.allocated_height();
+      engine.snapshot(webkit2gtk::SnapshotRegion::Visible, webkit2gtk::SnapshotOptions::empty(),
+        None::<&gtk::gio::Cancellable>, move |surface| {
+          let result = surface.map_err(|e|e.to_string()).and_then(|surface| {
+            let pixels = gdk::pixbuf_get_from_surface(&surface, 0, 0, width, height).ok_or("Page snapshot has no pixels")?;
+            let png = pixels.save_to_bufferv("png", &[]).map_err(|e|e.to_string())?;
+            Ok(serde_json::json!({"ok":true,"dataUrl":format!("data:image/png;base64,{}",gtk::glib::base64_encode(&png)),"mime":"image/png","width":width,"height":height,"fullPage":false}))
+          });
+          let _ = tx.send(result);
+        });
+    }).map_err(|e|format!("snapshot failed: {e}"))?;
+    let mut result = tokio::time::timeout(std::time::Duration::from_secs(READ_TIMEOUT_SECS), rx).await
+      .map_err(|_|"Page snapshot timed out")?.map_err(|_|"Page snapshot cancelled")??;
+    let state = snapshot(&app, &slot)?;
+    result["slot"] = slot.into();
+    result["url"] = state.url.into();
+    result["title"] = state.title.into();
+    Ok(result)
+  }
+  #[cfg(not(target_os = "linux"))]
+  { let _ = view; Err("Page screenshots are not supported on this platform".into()) }
+}
+
+#[tauri::command]
 pub fn browser_current(
   caller: Webview,
   app: AppHandle,
@@ -587,7 +807,7 @@ pub fn browser_current(
   snapshot(&app, &slot)
 }
 
-fn parse_read(out: &str) -> (String, String, Vec<ReadLink>) {
+fn parse_read(out: &str) -> (String, String, Vec<ReadLink>, bool) {
   let value: serde_json::Value = serde_json::from_str(out).unwrap_or(serde_json::Value::Null);
   let inner = match value {
     serde_json::Value::String(s) => {
@@ -607,7 +827,7 @@ fn parse_read(out: &str) -> (String, String, Vec<ReadLink>) {
     .to_string();
   let links = inner.get("links").and_then(|v| serde_json::from_value::<Vec<ReadLink>>(v.clone()).ok())
     .unwrap_or_default().into_iter().filter(|link| check_url(&link.href).is_ok()).take(100).collect();
-  (title, text, links)
+  (title, text, links, inner.get("ready").and_then(|v|v.as_bool())==Some(true))
 }
 
 #[tauri::command]
@@ -623,22 +843,25 @@ pub async fn browser_read(
     .get_webview(&slot_label(&slot))
     .ok_or_else(|| format!("unknown browser slot: {slot}"))?;
   let limit = max_chars.unwrap_or(READ_DEFAULT_MAX).clamp(1, READ_HARD_MAX);
-  let (tx, rx) = tokio::sync::oneshot::channel::<String>();
-  let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
-  view
-    .eval_with_callback(READ_SCRIPT, move |out| {
+  // A title can arrive before the body has even been parsed. Wait for DOM
+  // readiness, not all resources: unfinished images must not block reading.
+  let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(READ_TIMEOUT_SECS);
+  let (title, mut text, links) = loop {
+    let (tx, rx) = tokio::sync::oneshot::channel::<String>();
+    let tx = std::sync::Arc::new(Mutex::new(Some(tx)));
+    view.eval_with_callback(READ_SCRIPT, move |out| {
       if let Ok(mut guard) = tx.lock() {
-        if let Some(sender) = guard.take() {
-          let _ = sender.send(out);
-        }
+        if let Some(sender) = guard.take() { let _ = sender.send(out); }
       }
-    })
-    .map_err(|e| format!("read failed: {e}"))?;
-  let raw = tokio::time::timeout(std::time::Duration::from_secs(READ_TIMEOUT_SECS), rx)
-    .await
-    .map_err(|_| "read timed out (page busy or unreachable)".to_string())?
-    .map_err(|e| format!("read cancelled: {e}"))?;
-  let (title, mut text, links) = parse_read(&raw);
+    }).map_err(|e| format!("read failed: {e}"))?;
+    let raw = tokio::time::timeout_at(deadline, rx).await
+      .map_err(|_| "read timed out waiting for the page document".to_string())?
+      .map_err(|e| format!("read cancelled: {e}"))?;
+    let (title, text, links, ready) = parse_read(&raw);
+    if ready { break (title, text, links); }
+    if tokio::time::Instant::now() >= deadline { return Err("page document is still loading; try reading again".into()); }
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+  };
   let truncated = text.chars().count() > limit;
   if truncated {
     text = text.chars().take(limit).collect();

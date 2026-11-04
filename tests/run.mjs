@@ -199,5 +199,91 @@ for (const f of ['lite.json', 'chill.json', 'focus.json', 'dev.json', 'low-senso
   ok(al3.decideTool('open bbc news').tool === 'browser_open', 'open-top: existing bbc pin still green');
   ok(al3.decideTool('open sky news').tool === 'browser_open', 'open-top: existing sky pin still green');
 }
+// Universal web dark (webdark): pure rules + injected stylesheet contract.
+{
+  const wd = await import('../engine/webdark.mjs');
+  ok(wd.hostOf('https://www.bing.com/search?q=x') === 'www.bing.com', 'webdark: host extracted');
+  ok(wd.hostOf('not a url') === '' && wd.hostOf('about:blank') === '', 'webdark: garbage/about yield no host');
+  ok(wd.effectiveDark('https://a.com/', true, {}) === true, 'webdark: global on wins without override');
+  ok(wd.effectiveDark('https://a.com/', true, { 'a.com': false }) === false, 'webdark: site override beats global');
+  const t1 = wd.toggleSite('https://a.com/', true, {});
+  ok(t1.dark === false && t1.sites['a.com'] === false, 'webdark: site toggle flips effective, stores override');
+  const t2 = wd.toggleGlobal(true);
+  ok(t2.dark === false && t2.globalOn === false && Object.keys(t2.sites).length === 0, 'webdark: global flip clears overrides');
+  const actions = readFileSync(join(root, 'src-tauri/src/browser-actions.js'), 'utf8');
+  ok(actions.includes("action === 'dark'") && actions.includes('profiles-web-dark'), 'webdark: page script carries the dark action');
+  ok(actions.includes('invert(1) hue-rotate(180deg)'), 'webdark: dark stylesheet inverts with hue preservation');
+  const before = (actions.match(/profiles-webdark/g) || []).length;
+  ok(before >= 4 && actions.includes('old.remove()') && actions.includes("classList.add") && actions.includes("classList.remove"), 'webdark: style tag id is created, removed and idempotent');
+  const pane = readFileSync(join(root, 'src/browser-pane.js'), 'utf8');
+  ok(pane.includes('setDark') && pane.includes("kind === 'dark'"), 'webdark: pane routes dark to the native bridge');
+  const bridge = readFileSync(join(root, 'src/native-browser.js'), 'utf8');
+  ok(bridge.includes('browser_dark'), 'webdark: bridge exposes browser_dark');
+  const rust = readFileSync(join(root, 'src-tauri/src/browser.rs'), 'utf8');
+  ok(rust.includes('pub async fn browser_dark'), 'webdark: rust command exists');
+  const rs = readFileSync(join(root, 'src-tauri/src/main.rs'), 'utf8');
+  ok(rs.includes('browser::browser_dark'), 'webdark: rust command is registered');
+  const app = readFileSync(join(root, 'src/main.js'), 'utf8');
+  const markup = readFileSync(join(root, 'src/index.html'), 'utf8');
+  ok(markup.includes('id="darkBtn"') && markup.indexOf('id="darkBtn"') < markup.indexOf('id="sessBtn"'), 'webdark: header toggle sits left of the folder icon');
+  ok(app.includes('$("darkBtn")'), 'webdark: app wires the header toggle');
+  ok(app.includes('Super+F1') || app.includes('key==="f1"'), 'webdark: Super+F1 chord is bound');
+}
+// Headed search engine: Google default for the user, Bing-first kept headless.
+{
+  const se = await import('../engine/searcheng.mjs');
+  ok(se.parseEngine('Google') === 'google' && se.parseEngine('nope') === 'google', 'searcheng: pref parses, garbage falls back to google');
+  ok(se.buildSearchUrl('google', 'a b') === 'https://www.google.com/search?q=a%20b', 'searcheng: google url builds');
+  ok(se.buildSearchUrl('bing', 'a') === 'https://www.bing.com/search?q=a', 'searcheng: bing url builds');
+  ok(se.buildSearchUrl('duckduckgo', 'a') === 'https://html.duckduckgo.com/html/?q=a', 'searcheng: ddg url builds');
+  const app2 = readFileSync(join(root, 'src/main.js'), 'utf8');
+  ok(app2.includes('function searchUrl(q)') && app2.includes('profiles.searchEngine'), 'searcheng: app honors stored engine pref');
+  ok(app2.includes('searchUrl(decision.args.query)'), 'searcheng: headed web_search uses the pref');
+  const start = readFileSync(join(root, 'src/start.html'), 'utf8');
+  ok(start.indexOf('google.com/search?q=') !== -1 && start.indexOf('>Google</a>') < start.indexOf('>Bing</a>'), 'searcheng: start page leads with google');
+  const headless = readFileSync(join(root, 'agent/browseract.mjs'), 'utf8');
+  ok(headless.includes('Headed user search') && headless.includes('bing.com/search?q='), 'searcheng: headless passes stay bing-first with the reason on record');
+}
+// Scaling: one path per gesture, clamped, synced, badged — the regression net.
+{
+  const app3 = readFileSync(join(root, 'src/main.js'), 'utf8');
+  const pane = readFileSync(join(root, 'src/browser-pane.js'), 'utf8');
+  ok(app3.includes('function clampZoom(z){ return Math.min(2,Math.max(0.5,Math.round(z*10)/10)); }'), 'scale: clamp is 0.5..2 rounded to a tenth');
+  ok(app3.includes('pageZoom=reset?1:clampZoom(pageZoom+step)') && app3.includes('paneZoom[id]=reset?1') && app3.includes('appZoom=reset?1'), 'scale: all three scopes reset to exactly 1');
+  ok((app3.match(/addEventListener\("wheel"/g) || []).length === 1, 'scale: exactly one app-level wheel handler');
+  ok(app3.includes('if(e.defaultPrevented || !(e.ctrlKey||e.metaKey) || !e.deltaY) return;'), 'scale: wheel handler yields when already handled');
+  ok(pane.includes("e.preventDefault();") && pane.includes('profiles-browser-zoom-step'), 'scale: fallback stream consumes wheel and emits single steps');
+  ok(app3.includes('if(e.detail===0.1||e.detail===-0.1) stepZoom("pane-browser",e.detail,false);'), 'scale: zoom steps accept exactly +-0.1');
+  ok(app3.includes('profiles-browser-zoom",function(e)') && app3.includes('pageZoom=clampZoom(value); paneZoom["pane-browser"]=pageZoom;'), 'scale: native zoom reports sync back into state + storage');
+  ok(app3.includes('"Browser "+Math.round(pageZoom*100)+"%"') && app3.includes('"App "+Math.round(appZoom*100)+"%"'), 'scale: badges show rounded percent');
+  ok(app3.includes('if(d.key==="F1"){ toggleWebDark(false); return; }'), 'scale: F1 typed in a page toggles web dark via the input bridge');
+}
+// Macro graduation: repeated all-ok tool sequences become replayable scripts.
+{
+  const lg = await import('../agent/learning.mjs');
+  const slim = lg.slimArgs({ selector: '#go', text: 'x'.repeat(600), n: 3, b: true, nested: { a: 1 }, list: [1] });
+  ok(slim.selector === '#go' && slim.n === 3 && slim.b === true, 'macros: slim keeps scalars');
+  ok(slim.text.length === 500 && !('nested' in slim) && !('list' in slim), 'macros: slim caps strings, drops depth');
+  const evs = [
+    { type: 'ask' },
+    { type: 'macro-trace', query: 'open channel 4', steps: [{ tool: 'browser_open', args: { url: 'https://x' }, ok: true }] },
+    { type: 'macro-trace', query: 'open channel 4', steps: [{ tool: 'browser_open', args: { url: 'https://x' }, ok: true }] },
+    { type: 'macro-trace', query: 'open channel 4', steps: [{ tool: 'browser_open', args: { url: 'https://x' }, ok: false }] },
+    { type: 'macro-trace', query: 'open channel 4', steps: [{ tool: 'browser_open', args: { url: 'https://x' }, ok: true }] },
+    { type: 'macro-trace', query: 'other', steps: [{ tool: 'browser_open', args: { url: 'https://x' }, ok: true }] },
+  ];
+  const groups = lg.groupMacroTraces(evs);
+  ok(groups['open channel 4'].length === 4 && !groups['ask'], 'macros: traces group by query, noise ignored');
+  const replay = lg.macroReplayFor(evs, 'Open Channel 4');
+  ok(!replay, 'macros: one failed run blocks replay');
+  const good = evs.filter((e) => !(e.type === 'macro-trace' && e.steps[0].ok === false));
+  const replay2 = lg.macroReplayFor(good, 'open channel 4');
+  ok(replay2 && replay2.steps[0].tool === 'browser_open', 'macros: 3 identical all-ok runs replay');
+  ok(!lg.macroReplayFor(good.slice(0, 2), 'open channel 4'), 'macros: fewer than 3 runs never replay');
+  const multi = good.concat([{ type: 'macro-trace', query: 'open channel 4', steps: [{ tool: 'a', args: {}, ok: true }, { tool: 'b', args: {}, ok: true }] }]);
+  ok(!lg.macroReplayFor(multi, 'open channel 4'), 'macros: mixed sequences never replay');
+  const diff = good.slice(0, 2).concat([{ type: 'macro-trace', query: 'open channel 4', steps: [{ tool: 'browser_open', args: { url: 'https://y' }, ok: true }] }]);
+  ok(!lg.macroReplayFor(diff, 'open channel 4'), 'macros: differing args never replay');
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

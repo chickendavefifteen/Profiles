@@ -33,10 +33,10 @@ input:focus{border-color:#b78ae0}
   <input id="q" type="text" autocomplete="off" placeholder="Search the web, or type a web address…" aria-label="Search or address">
 </form>
 <div class="links">
-  <a href="__API__/api/proxy?url=https%3A%2F%2Fwww.bing.com">Bing</a>
+  <a href="https://www.google.com">Google</a>
   <a href="__API__/api/proxy?url=https%3A%2F%2Fwww.bbc.co.uk%2Fnews">BBC News</a>
   <a href="__API__/api/proxy?url=https%3A%2F%2Fen.wikipedia.org">Wikipedia</a>
-  <a href="__API__/api/proxy?url=https%3A%2F%2Fwww.google.com">Google</a>
+  <a href="__API__/api/proxy?url=https%3A%2F%2Fwww.bing.com">Bing</a>
 </div>
 </div>
 <script>
@@ -48,7 +48,12 @@ document.getElementById('f').addEventListener('submit', function(e){
     var url=/^https?:\/\//i.test(q)?q:'https://'+q;
     location.href=window.__API+'/api/proxy?url='+encodeURIComponent(url);
   } else {
-    location.href=window.__API+'/api/search?q='+encodeURIComponent(q);
+    /* Headed user search: engine pref, Google default. Server /api/search
+       stays Bing-backed for headless safety — never route it here. */
+    var eng="google";
+    try{ eng=String(localStorage.getItem("profiles.searchEngine")||"google").toLowerCase(); }catch(x){}
+    var u=encodeURIComponent(q);
+    location.href=eng==="bing"?"https://www.bing.com/search?q="+u:eng==="duckduckgo"?"https://html.duckduckgo.com/html/?q="+u:"https://www.google.com/search?q="+u;
   }
 });
 window.addEventListener('wheel', function(e){

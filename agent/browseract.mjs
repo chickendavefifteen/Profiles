@@ -1,19 +1,13 @@
-// Browser-act (P4): the agent drives a REAL browser — behind every gate
-// we have, because this is the first tool that touches the live web.
-//   - Profile X only, or any slot with Advanced explicitly on
-//   - Two-step confirm: /prepare mints a 60s token + plain-English
-//     summary; /run consumes it. No token, no driving. Ever.
-//   - Allowlisted actions only: goto, title, text (selector), screenshot
-//   - Headless Chromium (Playwright), screenshots land in the slot's
-//     staging/browser/ as receipts in Activity
-import { createHash, randomBytes } from 'node:crypto';
+// The legacy prepare/run tool is separately confirmed and saves explicit
+// staging/browser receipts. Ordinary live-tab actors keep screenshots in
+// memory only and may mutate only their pinned, still-selected generation.
+import { randomBytes } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { slotPaths } from './slots.mjs';
 import { hasNative, requestNative } from './native-browser.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pending = new Map(); // token -> {slot, url, actions, expires}
 
 const ALLOWED = ['goto', 'title', 'text', 'screenshot', 'wait'];
@@ -41,6 +35,7 @@ export async function runPrepared(token) {
   pending.delete(token);
   if (!job) return { ok: false, error: 'confirm token missing or already used' };
   if (Date.now() > job.expires) return { ok: false, error: 'confirm token expired (60s) — prepare again' };
+  if (usesNative(job.slot)) return { ok: false, error: 'The native shell uses its displayed WebView, not a second headless browser.' };
   let playwright;
   try { playwright = await import('playwright'); }
   catch { return { ok: false, error: 'playwright not installed (npm i -D playwright)' }; }
@@ -73,260 +68,646 @@ export async function runPrepared(token) {
 }
 export { ALLOWED as BROWSER_ACTIONS };
 
-/* ---- live pane sessions: the Browser pane IS a browser ----
-   One headless Chromium per slot, kept open. The user drives it by
-   clicking the screenshot (their click IS the consent); agent-drive
-   above stays token-gated because the agent initiates it. */
+/* Each person owns one persistent context and independent live pages.
+   Changing tabs only changes the selected page; it never navigates. */
 const sessions = new Map();
-/* Never orphan a Chromium on the profile lock: close contexts with the
-   sidecar. An orphaned context was the "Target page closed" restart bug. */
+const pendingSessions = new Map();
+const tabCounters = new Map();
+const browserTarget = new AsyncLocalStorage();
+const screencasts = new Map();
+const pendingScreencasts = new Map();
+const screencastStops = new Map();
+const frameSeq = new Map();
+const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
+
+function reserveTabId(slot, requested) {
+  const next = (tabCounters.get(slot) || 0) + 1;
+  const number = requested === undefined ? next : Number(String(requested).match(/^tab-([1-9]\d*)$/)?.[1]);
+  if (!Number.isSafeInteger(number) || number < next || String(requested ?? `tab-${number}`) !== `tab-${number}`) {
+    throw new Error('New tab id must be an unused, increasing tab-N');
+  }
+  tabCounters.set(slot, number);
+  return `tab-${number}`;
+}
+
+function activateTab(session, tab) {
+  if (session.activeTabId === tab.id) return;
+  session.activeTabId = tab.id;
+  session.generation++;
+  void stopScreencast(session.slot).catch(() => {});
+}
+
+function removeClosedTab(session, tab) {
+  if (session.tabs.get(tab.id) !== tab) return;
+  const ids = [...session.tabs.keys()];
+  const index = ids.indexOf(tab.id);
+  session.tabs.delete(tab.id);
+  if (session.activeTabId !== tab.id) return;
+  session.activeTabId = null;
+  session.generation++;
+  void stopScreencast(session.slot).catch(() => {});
+  const next = [...session.tabs.values()][Math.min(index, session.tabs.size - 1)];
+  if (next) activateTab(session, next);
+  else if (!session.closing) void ensureActiveTab(session).catch(() => {});
+}
+
+function registerTab(session, page, { id, select = true } = {}) {
+  const existing = session.pages.get(page);
+  if (existing) return existing;
+  const tab = { id: id || reserveTabId(session.slot), page, zoom: 1, loading: false };
+  session.tabs.set(tab.id, tab);
+  session.pages.set(page, tab);
+  page.on('request', request => {
+    try { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) tab.loading = true; } catch {}
+  });
+  page.on('requestfailed', request => {
+    try { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) tab.loading = false; } catch {}
+  });
+  page.on('domcontentloaded', () => {
+    tab.loading = false;
+    if (tab.zoom !== 1) void page.evaluate(zoom => { document.documentElement.style.zoom = String(zoom); }, tab.zoom).catch(() => {});
+  });
+  page.on('load', () => { tab.loading = false; });
+  page.on('popup', popup => {
+    if (!session.closing && !popup.isClosed()) registerTab(session, popup);
+  });
+  page.once('close', () => removeClosedTab(session, tab));
+  if (select || !session.activeTabId) activateTab(session, tab);
+  return tab;
+}
+
+async function ensureActiveTab(session) {
+  const current = session.tabs.get(session.activeTabId);
+  if (current && !current.page.isClosed()) return current;
+  if (session.replacement) return session.replacement;
+  session.replacement = (async () => {
+    session.creating++;
+    let page;
+    try { page = await session.ctx.newPage(); }
+    finally { session.creating--; }
+    if (session.closing) {
+      await page.close().catch(() => {});
+      throw new Error('Browser context closed');
+    }
+    return registerTab(session, page);
+  })().finally(() => { session.replacement = null; });
+  return session.replacement;
+}
+
+async function buildSession(slot) {
+  const { chromium } = await import('playwright');
+  const paths = slotPaths(slot);
+  const profileDir = join(paths.root, 'browser-profile-' + (process.env.PROFILES_SERVER_PORT || process.env.PROFILES_AGENT_PORT || 'main'));
+  await mkdir(profileDir, { recursive: true });
+  const opts = { viewport: { width: 1280, height: 800 }, headless: true, env: browserEnv,
+    args: ['--no-first-run', '--mute-audio', '--disable-gpu', '--disable-dev-shm-usage'] };
+  let ctx;
+  try { ctx = await chromium.launchPersistentContext(profileDir, opts); }
+  catch (error) { console.error('[profiles] Browser launch failed for slot ' + slot + ':', error); throw error; }
+  const session = { slot, ctx, browser: ctx, tabs: new Map(), pages: new WeakMap(), activeTabId: null,
+    generation: 0, creating: 0, replacement: null, mutations: Promise.resolve(), closing: false };
+  ctx.on('close', () => {
+    session.closing = true;
+    session.tabs.clear();
+    if (sessions.get(slot) === session) {
+      sessions.delete(slot);
+      void stopScreencast(slot).catch(() => {});
+    }
+  });
+  for (const page of ctx.pages()) {
+    if (!page.isClosed()) registerTab(session, page, { select: false });
+  }
+  ctx.on('page', page => {
+    if (!session.closing && !session.creating && !page.isClosed()) registerTab(session, page);
+  });
+  // New contexts stay genuinely blank until the user requests a URL.
+  await ensureActiveTab(session);
+  return session;
+}
+
+async function ensureState(slot) {
+  if (usesNative(slot)) throw new Error('The native shell uses its displayed WebView, not a second headless browser.');
+  const current = sessions.get(slot);
+  if (current) {
+    if (current.closing) throw new Error('Browser context closed');
+    return current;
+  }
+  if (!pendingSessions.has(slot)) {
+    const pending = buildSession(slot).then(session => {
+      sessions.set(slot, session);
+      return session;
+    }).finally(() => { pendingSessions.delete(slot); });
+    pendingSessions.set(slot, pending);
+  }
+  return pendingSessions.get(slot);
+}
+
+function pinTab(session, tab) {
+  return { slot: session.slot, tabId: tab.id, page: tab.page, ctx: session.ctx, browser: session.browser,
+    tab, session, generation: session.generation };
+}
+
+export async function ensureSession(slot) {
+  const pinned = browserTarget.getStore();
+  if (pinned?.slot === slot) {
+    assertLiveTarget(pinned);
+    return pinned;
+  }
+  // Capture a warm selected page before the first await, not after a tab switch.
+  const current = sessions.get(slot);
+  if (!usesNative(slot) && current && !current.closing) {
+    const tab = current.tabs.get(current.activeTabId);
+    if (tab && !tab.page.isClosed()) return pinTab(current, tab);
+  }
+  const session = await ensureState(slot);
+  return pinTab(session, await ensureActiveTab(session));
+}
+
+export async function withBrowserTab(slot, tabId, fn) {
+  // Text-only asks must not launch a browser, or adopt a tab selected later.
+  const current = sessions.get(slot);
+  if (tabId === undefined || tabId === null || tabId === '') {
+    if (browserTarget.getStore()?.slot === slot) return fn();
+    const tab = current && !current.closing ? current.tabs.get(current.activeTabId) : null;
+    return tab && !tab.page.isClosed() ? browserTarget.run(pinTab(current, tab), fn) : fn();
+  }
+  const session = current || (pendingSessions.has(slot) ? await pendingSessions.get(slot) : null);
+  const tab = session && !session.closing ? session.tabs.get(tabId) : null;
+  if (!tab || tab.page.isClosed()) return { ok: false, slot, tabId, error: 'Browser tab is closed or unknown' };
+  return browserTarget.run(pinTab(session, tab), fn);
+}
+
 export async function closeAllSessions() {
-  for (const [, sess] of sessions) { try { await sess.ctx.close(); } catch {} try { await sess.browser.close(); } catch {} }
+  await Promise.allSettled([...pendingSessions.values()]);
+  const live = [...sessions.values()];
+  for (const session of live) session.closing = true;
+  await Promise.allSettled([...screencasts].map(([slot, cast]) => stopScreencast(slot, cast)));
+  await Promise.allSettled([...pendingScreencasts.values()]);
+  await Promise.allSettled(live.map(session => session.ctx.close()));
   sessions.clear();
 }
 for (const sig of ['SIGTERM', 'SIGINT']) {
   process.once(sig, async () => { await closeAllSessions().catch(() => {}); process.exit(0); });
 }
-async function dismissConsent(page) {
-  /* Presence, not title: the consent wall's page title is just "Google",
-     which is exactly how it slipped past the first version. */
-  try {
-    const btn = page.getByRole('button', { name: /reject all/i });
-    if (await btn.count()) { await btn.first().click({ timeout: 3000 }); await page.waitForTimeout(900); }
-  } catch {}
+
+async function tabSnapshot(session) {
+  const activeTabId = session.activeTabId;
+  const tabs = await Promise.all([...session.tabs.values()].map(async tab => ({
+    id: tab.id, title: await tab.page.title().catch(() => ''), url: tab.page.url(), zoom: tab.zoom, loading: tab.loading
+  })));
+  const current = tabs.find(tab => tab.id === activeTabId);
+  return { ok: true, slot: session.slot, activeTabId, tabs,
+    tabId: activeTabId, url: current?.url || 'about:blank', title: current?.title || '' };
 }
-/* Singleflight: concurrent first-touches (page img + tool call racing
-   on a cold server) must SHARE one launch, never double-launch on the
-   same profile dir — the loser's Chromium blocks on the Singleton lock
-   and the request hangs with zero bytes. */
-const pendingSessions = new Map();
-export async function ensureSession(slot) {
-  if(nativeShell) throw new Error('The native shell uses its displayed WebView, not a second headless browser.');
-  const cur = sessions.get(slot);
-  if (cur) {
-    try { if (!cur.page.isClosed()) return cur; } catch {}
-    sessions.delete(slot); /* dead session: never serve a corpse */
-  }
-  if (pendingSessions.has(slot)) return pendingSessions.get(slot);
-  const p = buildSession(slot).finally(() => pendingSessions.delete(slot));
-  pendingSessions.set(slot, p);
-  const sess = await p;
-  sessions.set(slot, sess);
-  return sess;
+
+function mutateTabs(session, fn) {
+  const result = session.mutations.then(fn);
+  session.mutations = result.catch(() => {});
+  return result;
 }
-async function buildSession(slot) {
-  const { chromium } = await import('playwright');
-  const p = slotPaths(slot);
-  const profileDir = join(p.root, 'browser-profile-' + (process.env.PROFILES_SERVER_PORT || process.env.PROFILES_AGENT_PORT || 'main'));
-  await mkdir(profileDir, { recursive: true });
-  /* Headless, private per-slot storage; no host window, audio or GPU use.
-     A launch failure is logged in full locally, never hidden by a retry. */
-  const opts = { viewport: { width: 1280, height: 800 }, headless: true, env:browserEnv,
-    args: ['--no-first-run', '--mute-audio', '--disable-gpu', '--disable-dev-shm-usage'] };
-  let ctx;
-  try{ctx=await chromium.launchPersistentContext(profileDir,opts);}
-  catch(error){console.error('[profiles] Browser launch failed for slot '+slot+':',error);throw error;}
-  const page = ctx.pages()[0] || await ctx.newPage();
-  // Stay blank until the user asks to browse; no network on cold launch.
-  return { browser: ctx, page, ctx };
+
+export async function browserTabs(slot) {
+  const session = await ensureState(slot);
+  await ensureActiveTab(session);
+  return tabSnapshot(session);
 }
-async function snap(slot) {
-  const { page } = await ensureSession(slot);
-  try {
-    await page.waitForLoadState('domcontentloaded', { timeout: 4000 }).catch(() => {});
-    await page.waitForTimeout(400);
-    const title = await page.title().catch(() => '');
-    const url = page.url();
-    /* The stream is the live view; the still is its poster + receipt.
-       Written best-effort, never allowed to fail the snap. */
-    let shot = null;
+
+export async function createBrowserTab(slot, { id, url } = {}) {
+  const session = await ensureState(slot);
+  return mutateTabs(session, async () => {
+    let page;
     try {
-      const p = slotPaths(slot);
-      const dir = join(p.staging, 'browser');
-      await mkdir(dir, { recursive: true });
-      const file = `view-${slot}.png`;
-      await page.screenshot({ path: join(dir, file) });
-      shot = file;
-    } catch {}
-    return { ok: true, title, url, shot };
-  } catch (e) { return { ok: false, error: 'page closed: ' + String(e && e.message || e).slice(0, 80) }; }
-}
-/* ---- live view: one CDP screencast per slot, MJPEG over HTTP ----
-   Chromium is headless, muted and software-rendered. Screencast frames
-   are the real rendered page (not a stale screenshot). Controls land
-   on the same page the user sees: one actor, not two. */
-const screencasts = new Map();
-const frameSeq = new Map(); /* slot -> frames emitted (stall detector reads this) */
-export function getFrameSeq(slot) { return frameSeq.get(slot) || 0 };
-function withTimeout(p, ms, what) {
-  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timed out')), ms))]);
-}
-/* Robust: reuse only a session that PROVES itself with a real frame
-   within seconds; otherwise tear down and rebuild once, then fail loud
-   (503 -> frontend poster + retry) instead of hanging the request. */
-export async function ensureScreencast(slot) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let sess = screencasts.get(slot) || null;
-    if (sess && sess.dead) { screencasts.delete(slot); sess = null; }
-    if (!sess) {
-      sess = await withTimeout(buildScreencast(slot), 15000, 'screencast setup');
-      screencasts.set(slot, sess);
+      const tabId = reserveTabId(slot, id);
+      session.creating++;
+      try { page = await session.ctx.newPage(); }
+      finally { session.creating--; }
+      registerTab(session, page, { id: tabId });
+      if (url && url !== 'about:blank') await page.goto(normViewUrl(url), { timeout: 15000, waitUntil: 'domcontentloaded' });
+      return tabSnapshot(session);
+    } catch (error) {
+      return { ...(await tabSnapshot(session)), ok: false, error: String(error?.message || error).slice(0, 200) };
     }
-    /* Liveness proof is a real render, not a fresh paint: CDP screencast
-       only emits on repaint, so an idle page starves frame-waits. A
-       screenshot proves the page renders NOW; live frames follow it. */
-    const { page } = await ensureSession(slot);
+  });
+}
+
+export async function selectBrowserTab(slot, tabId) {
+  const session = await ensureState(slot);
+  return mutateTabs(session, async () => {
+    const tab = session.tabs.get(tabId);
+    if (!tab || tab.page.isClosed()) return { ...(await tabSnapshot(session)), ok: false, error: 'Browser tab is closed or unknown' };
+    activateTab(session, tab);
+    return tabSnapshot(session);
+  });
+}
+
+export async function closeBrowserTab(slot, tabId) {
+  const session = await ensureState(slot);
+  return mutateTabs(session, async () => {
+    const tab = session.tabs.get(tabId);
+    if (!tab || tab.page.isClosed()) return { ...(await tabSnapshot(session)), ok: false, error: 'Browser tab is closed or unknown' };
+    try {
+      await tab.page.close({ runBeforeUnload: false });
+      await ensureActiveTab(session);
+      return tabSnapshot(session);
+    } catch (error) {
+      return { ...(await tabSnapshot(session)), ok: false, error: String(error?.message || error).slice(0, 200) };
+    }
+  });
+}
+
+function actionError(target, error, prefix = '') {
+  return { ok: false, ...(target ? { slot: target.slot, tabId: target.tabId } : {}),
+    error: prefix + String(error?.message || error).slice(0, 200) };
+}
+
+async function snap(slot, target) {
+  target ||= await ensureSession(slot);
+  const { page, tabId, tab } = target;
+  try {
+    assertLiveTarget(target);
+    await page.waitForLoadState('domcontentloaded', { timeout: 4000 }).catch(() => {});
+    const title = await page.title();
+    assertLiveTarget(target);
+    return { ok: true, slot, tabId, title, url: page.url(), zoom: tab.zoom, loading: tab.loading };
+  } catch (error) { return actionError(target, error, 'page closed: '); }
+}
+
+export function getFrameSeq(slot) { return frameSeq.get(slot) || 0; }
+
+function withTimeout(promise, ms, what) {
+  let timer;
+  return Promise.race([promise, new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(what + ' timed out')), ms);
+  })]).finally(() => clearTimeout(timer));
+}
+
+function isActiveTarget(target) {
+  const session = sessions.get(target.slot);
+  return session === target.session && !session.closing && session.activeTabId === target.tabId
+    && session.generation === target.generation && !target.page.isClosed();
+}
+
+function assertLiveTarget(target) {
+  const session = sessions.get(target.slot);
+  if (session !== target.session || session.closing || session.tabs.get(target.tabId) !== target.tab || target.page.isClosed()) {
+    throw new Error('Browser tab is closed or its session was replaced');
+  }
+}
+
+function assertActiveTarget(target) {
+  assertLiveTarget(target);
+  if (!isActiveTarget(target)) throw new Error('Browser tab changed before the action; select it and try again');
+}
+
+async function typeOnTarget(target, text) {
+  // Playwright's delayed type() queues the entire string. Check each character
+  // so switching away cannot leave hidden tabs receiving the remaining input.
+  for (const character of text) {
+    assertActiveTarget(target);
+    await target.page.keyboard.type(character);
+  }
+}
+
+export async function ensureScreencast(slot) {
+  const target = await ensureSession(slot);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const pending = pendingScreencasts.get(slot);
+    if (pending) await pending.catch(() => {});
+    if (!isActiveTarget(target)) throw new Error('Browser tab changed before the stream opened');
+    let cast = screencasts.get(slot);
+    if (cast && (cast.dead || cast.page !== target.page || cast.generation !== target.generation)) {
+      await stopScreencast(slot, cast);
+      cast = null;
+    }
+    if (!cast) {
+      const building = (async () => {
+        await screencastStops.get(slot);
+        if (!isActiveTarget(target)) throw new Error('Browser tab changed before the stream opened');
+        const created = await buildScreencast(target);
+        if (!isActiveTarget(target)) {
+          await created.stop();
+          throw new Error('Browser tab changed before the stream opened');
+        }
+        screencasts.set(slot, created);
+        return created;
+      })();
+      pendingScreencasts.set(slot, building);
+      try { cast = await building; }
+      finally { if (pendingScreencasts.get(slot) === building) pendingScreencasts.delete(slot); }
+    }
     const proof = await withTimeout(
-      page.screenshot({ type: 'jpeg', quality: 70 }).catch(() => null), 10000, 'proof shot').catch(() => null);
-    if (proof && proof.length > 500) { sess.proof = proof; return sess; }
-    try { await sess.stop(); } catch {}
-    screencasts.delete(slot);
+      target.page.screenshot({ type: 'jpeg', quality: 70, timeout: 10000 }), 11000, 'proof shot').catch(() => null);
+    if (proof?.length > 500 && !cast.dead && isActiveTarget(target)) {
+      cast.proof = proof;
+      return cast;
+    }
+    await stopScreencast(slot, cast);
+    if (!isActiveTarget(target)) throw new Error('Browser tab changed before the stream opened');
   }
   throw new Error('browser produced no render');
 }
-async function buildScreencast(slot) {
-  const { page } = await ensureSession(slot);
+
+async function buildScreencast(target) {
+  const { page, slot, tabId, generation } = target;
   const { PassThrough } = await import('node:stream');
   const cdp = await page.context().newCDPSession(page);
-  const boundary = 'profileframe' + Math.random().toString(36).slice(2);
+  const boundary = 'profileframe' + randomBytes(8).toString('hex');
   const stream = new PassThrough();
   let latest = null;
-  const sess = { cdp, dead: false, boundary, stream, latest: () => latest };
+  let stopping;
+  const cast = { cdp, page, slot, tabId, generation, dead: false, boundary, stream, latest: () => latest };
   const onFrame = async ({ data, sessionId }) => {
     try {
-      latest = Buffer.from(data, 'base64');
-      frameSeq.set(slot, (frameSeq.get(slot) || 0) + 1);
-      if (stream.writableLength < 1024 * 1024) {
-        stream.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${latest.length}\r\n\r\n`);
-        stream.write(latest); stream.write('\r\n');
+      if (!cast.dead) {
+        latest = Buffer.from(data, 'base64');
+        frameSeq.set(slot, (frameSeq.get(slot) || 0) + 1);
+        if (stream.writableLength < 1024 * 1024) {
+          stream.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${latest.length}\r\n\r\n`);
+          stream.write(latest);
+          stream.write('\r\n');
+        }
       }
     } catch {}
     try { await cdp.send('Page.screencastFrameAck', { sessionId }); } catch {}
   };
+  const onClose = () => { void stopScreencast(slot, cast).catch(() => {}); };
+  cast.stop = () => {
+    if (stopping) return stopping;
+    cast.dead = true;
+    cdp.off('Page.screencastFrame', onFrame);
+    page.off('close', onClose);
+    stream.end();
+    stopping = (async () => {
+      try { await cdp.send('Page.stopScreencast'); } catch {}
+      try { await cdp.detach(); } catch {}
+    })();
+    return stopping;
+  };
   cdp.on('Page.screencastFrame', onFrame);
-  sess.stop = async () => { sess.dead = true; try { cdp.off('Page.screencastFrame', onFrame); await cdp.send('Page.stopScreencast').catch(() => {}); } catch {} };
-  try { await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 68, maxWidth: 1100, maxHeight: 800, everyNthFrame: 3 }); } catch {}
-  page.on('close', () => sess.stop());
-  return sess;
-}
-export async function stopScreencast(slot) { const sess = screencasts.get(slot); if (sess) { screencasts.delete(slot); await sess.stop(); } }
-export async function mouseAct(slot, kind, fx, fy, w, h) {
-  const { page } = await ensureSession(slot);
+  page.once('close', onClose);
   try {
-    if (kind === 'move') await page.mouse.move(fx * w, fy * h);
+    const viewport = page.viewportSize() || { width: 1280, height: 800 };
+    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80,
+      maxWidth: viewport.width, maxHeight: viewport.height, everyNthFrame: 1 });
+    return cast;
+  } catch (error) {
+    await cast.stop();
+    throw error;
+  }
+}
+
+// The owner is the exact object returned by ensureScreencast, not a tab id.
+// A late close from an old HTTP response must not stop its replacement.
+export async function stopScreencast(slot, owner) {
+  const cast = screencasts.get(slot);
+  if (!cast || (owner && cast !== owner)) return;
+  screencasts.delete(slot);
+  const previous = screencastStops.get(slot);
+  const stopping = Promise.allSettled([previous, cast.stop()]).then(() => {});
+  screencastStops.set(slot, stopping);
+  await stopping;
+  if (screencastStops.get(slot) === stopping) screencastStops.delete(slot);
+}
+
+export async function mouseAct(slot, kind, fx, fy, w, h) {
+  let target;
+  try {
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    const { page } = target;
+    const viewport = page.viewportSize() || { width: w || 1280, height: h || 800 };
+    if (kind === 'move') await page.mouse.move(fx * viewport.width, fy * viewport.height);
     else if (kind === 'down') await page.mouse.down();
     else if (kind === 'up') await page.mouse.up();
-    else if (kind === 'click') await page.mouse.click(fx * w, fy * h);
-    else if (kind === 'dblclick') await page.mouse.dblclick(fx * w, fy * h);
+    else if (kind === 'click') await page.mouse.click(fx * viewport.width, fy * viewport.height);
+    else if (kind === 'dblclick') await page.mouse.dblclick(fx * viewport.width, fy * viewport.height);
     else if (kind === 'wheel') await page.mouse.wheel(0, fy || 120);
-    return { ok: true };
-  } catch (e) { return { ok: false, error: String(e && e.message || e).slice(0, 140) }; }
+    else return actionError(target, 'Unsupported mouse action');
+    return { ok: true, slot, tabId: target.tabId };
+  } catch (error) { return actionError(target, error); }
 }
+
 export async function keysAct(slot, kind, key, text) {
-  const { page } = await ensureSession(slot);
+  let target;
   try {
-    if (kind === 'type' && text) await page.keyboard.type(String(text).slice(0, 500), { delay: 8 });
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    const { page } = target;
+    if (kind === 'type' && typeof text === 'string' && text.length) await typeOnTarget(target, text.slice(0, 2000));
     else if (kind === 'press' && key) await page.keyboard.press(key);
     else if (kind === 'down' && key) await page.keyboard.down(key);
     else if (kind === 'up' && key) await page.keyboard.up(key);
-    return { ok: true };
-  } catch (e) { return { ok: false, error: String(e && e.message || e).slice(0, 140) }; }
+    else return actionError(target, 'Keyboard action needs a supported kind and text or key');
+    return { ok: true, slot, tabId: target.tabId };
+  } catch (error) { return actionError(target, error); }
 }
-/* Temporary compat: old type/click callers -> unified live path. */
-export async function viewType(slot, text, enter, backspace) {
-  if (backspace) await keysAct(slot, 'press', 'Backspace');
-  if (text) await keysAct(slot, 'type', null, text);
-  if (enter) await keysAct(slot, 'press', 'Enter');
-  return snap(slot);
-}
-export async function viewClick(slot, fx, fy) {
-  const { page } = await ensureSession(slot);
-  const vp = page.viewportSize() || { width: 1280, height: 800 };
-  const r = await mouseAct(slot, 'click', fx, fy, vp.width, vp.height);
-  await page.waitForTimeout(700).catch(() => {});
-  return { ...(await snap(slot)), click: r };
-}
-export function normViewUrl(url) {
-  const u = String(url || '').trim();
-  if (!u) return 'https://www.google.com';
-  if (/^https?:\/\//i.test(u)) return u;
-  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(u)) return 'https://' + u;
-  return 'https://www.google.com/search?q=' + encodeURIComponent(u);
-}
-export async function viewGo(slot, url) {
-  const u = normViewUrl(url);
-  if (usesNative(slot)) return requestNative(slot, 'navigate', { url: u });
-  let sess;
-  try { sess = await ensureSession(slot); }
-  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200), url: u }; }
-  const { page } = sess;
-  try {
-    await page.goto(u, { timeout: 15000, waitUntil: 'domcontentloaded' });
-  } catch (e) {
-    return { ok: false, error: 'Navigation failed: ' + String(e.message || e).slice(0, 160), url: u };
+
+// Missing named targets never redirect input to an unrelated focused field.
+async function pageTarget(page, selector, typing) {
+  const css = page.locator(selector).first();
+  let count = 0;
+  try { count = await css.count(); } catch {}
+  if (count) return css;
+  if (typing) {
+    const input = page.getByPlaceholder(selector).first();
+    return await input.count() ? input : null;
   }
-  return snap(slot);
+  const button = page.getByRole('button', { name: selector }).first();
+  if (await button.count()) return button;
+  const text = page.getByText(selector, { exact: false }).first();
+  return await text.count() ? text : null;
 }
+
+export async function viewType(slot, text, selector, press, clear) {
+  if (typeof text !== 'string' || !text.length || text.length > 2000) return { ok: false, error: 'Type needs text (1–2000 characters)' };
+  if (usesNative(slot)) return requestNative(slot, 'type', { text, selector, press, clear });
+  let target;
+  try {
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    const { page } = target;
+    if (selector) {
+      const input = await pageTarget(page, selector, true);
+      if (!input) return actionError(target, 'Input target not found: ' + selector);
+      assertActiveTarget(target);
+      // Do not leave an actionability-waiting fill queued on a hidden tab.
+      await input.fill(text, { timeout: 4000, force: true });
+      if (press) {
+        assertActiveTarget(target);
+        await page.keyboard.press(press);
+      }
+    } else {
+      const focused = page.locator(':focus').first();
+      if (!await focused.count() || !await focused.isEditable()) return actionError(target, 'No editable input is focused');
+      assertActiveTarget(target);
+      if (clear) {
+        await focused.fill('', { timeout: 4000, force: true });
+        assertActiveTarget(target);
+      }
+      await typeOnTarget(target, text);
+      if (press) {
+        assertActiveTarget(target);
+        await page.keyboard.press(press);
+      }
+    }
+    return { ...(await snap(slot, target)), typed: text, ...(selector ? { selector } : {}) };
+  } catch (error) { return actionError(target, error); }
+}
+
+export async function viewClick(slot, fx, fy, selector) {
+  const coordinates = fx !== undefined || fy !== undefined;
+  if ((coordinates || !selector) && (!Number.isFinite(fx) || !Number.isFinite(fy) || fx < 0 || fx > 1 || fy < 0 || fy > 1)) {
+    return { ok: false, error: 'Click needs a selector or both fx/fy coordinates between 0 and 1' };
+  }
+  if (usesNative(slot)) {
+    const out = await requestNative(slot, 'click', { fx, fy, selector });
+    // Visible computer-use: plant the virtual cursor where the click landed so
+    // the action is seen, not just done. Fire-and-forget: never fails a click.
+    if (out && out.ok) {
+      const px = Number.isFinite(out.fx) ? out.fx : fx, py = Number.isFinite(out.fy) ? out.fy : fy;
+      if (Number.isFinite(px) && Number.isFinite(py)) requestNative(slot, 'cursor', { show: true, fx: px, fy: py });
+    }
+    return out;
+  }
+  let target;
+  try {
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    const { page } = target;
+    if (selector) {
+      const element = await pageTarget(page, selector, false);
+      if (!element) return actionError(target, 'Click target not found: ' + selector);
+      assertActiveTarget(target);
+      // A trial may await actionability but cannot emit input. Recheck the
+      // generation afterwards; the real click must not queue another wait.
+      await element.click({ trial: true, timeout: 4000 });
+      assertActiveTarget(target);
+      await element.click({ force: true, timeout: 4000 });
+      return { ...(await snap(slot, target)), clicked: selector };
+    }
+    const viewport = page.viewportSize() || { width: 1280, height: 800 };
+    await page.mouse.click(fx * viewport.width, fy * viewport.height);
+    return { ...(await snap(slot, target)), click: { ok: true, slot, tabId: target.tabId } };
+  } catch (error) { return actionError(target, error); }
+}
+
+export async function viewPress(slot, key) {
+  if (typeof key !== 'string' || !key.trim()) return { ok: false, error: 'Press needs a key name' };
+  if (usesNative(slot)) return requestNative(slot, 'press', { key });
+  let target;
+  try {
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    await target.page.keyboard.press(key);
+    return { ...(await snap(slot, target)), pressed: key };
+  } catch (error) { return actionError(target, error); }
+}
+
+export async function viewScreenshot(slot, fullPage) {
+  if (usesNative(slot)) return requestNative(slot, 'screenshot', { fullPage });
+  let target;
+  try {
+    target = await ensureSession(slot);
+    const { page, tabId } = target;
+    const png = await page.screenshot({ type: 'png', fullPage: !!fullPage, timeout: 15000 });
+    if (png.length > MAX_SCREENSHOT_BYTES) return actionError(target, 'Screenshot exceeds the 4 MiB PNG limit');
+    const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
+    const url = page.url(), title = await page.title();
+    assertLiveTarget(target);
+    return { ok: true, slot, tabId, url, title, mime: 'image/png', width, height,
+      bytes: png.length, fullPage: !!fullPage, dataUrl: 'data:image/png;base64,' + png.toString('base64') };
+  } catch (error) { return actionError(target, error); }
+}
+
+export function normViewUrl(url) {
+  const value = String(url || '').trim();
+  if (value === 'about:blank') return value;
+  if (!value) return 'https://www.google.com';
+  if (/^https?:\/\//i.test(value)) return value;
+  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(value)) return 'https://' + value;
+  return 'https://www.google.com/search?q=' + encodeURIComponent(value);
+}
+
+export async function viewGo(slot, url) {
+  const destination = normViewUrl(url);
+  if (usesNative(slot)) return requestNative(slot, 'navigate', { url: destination });
+  let target;
+  try {
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    await target.page.goto(destination, { timeout: 15000, waitUntil: 'domcontentloaded' });
+    return snap(slot, target);
+  } catch (error) { return { ...actionError(target, error, 'Navigation failed: '), url: destination }; }
+}
+
 export async function viewHome(slot) { return viewGo(slot, 'https://www.google.com'); }
+
 export async function viewZoom(slot, value) {
   const zoom = Number(value);
   if (!Number.isFinite(zoom) || zoom < 0.5 || zoom > 2) return { ok: false, error: 'Zoom must be 50–200%' };
-  const { page } = await ensureSession(slot);
-  await page.evaluate(z => { document.documentElement.style.zoom = String(z); }, zoom);
-  return { ok: true, zoom };
+  if (usesNative(slot)) return requestNative(slot, 'zoom', { zoom });
+  let target;
+  try {
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    await target.page.evaluate(value => { document.documentElement.style.zoom = String(value); }, zoom);
+    target.tab.zoom = zoom;
+    return { ok: true, slot, tabId: target.tabId, zoom };
+  } catch (error) { return actionError(target, error); }
 }
-/* The page always matches the pane: the frontend reports the live pane
-   size and the session resizes its viewport to it (clamped). The stream
-   then maps 1:1 onto the frame — no crop math, no drift, at any window. */
+
 export async function viewSize(slot, w, h) {
-  const { page } = await ensureSession(slot);
   w = Math.max(320, Math.min(1920, Math.round(Number(w) || 1280)));
   h = Math.max(200, Math.min(1200, Math.round(Number(h) || 800)));
+  if (usesNative(slot)) return requestNative(slot, 'resize', { width: w, height: h });
+  let target;
   try {
-    await page.setViewportSize({ width: w, height: h });
-    const sess = screencasts.get(slot);
-    if (sess && !sess.dead) {
-      try { await sess.cdp.send('Page.stopScreencast').catch(() => {}); } catch {}
-      try { await sess.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: w, maxHeight: h, everyNthFrame: 1 }); } catch {}
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    await target.page.setViewportSize({ width: w, height: h });
+    const cast = screencasts.get(slot);
+    if (cast && !cast.dead && cast.page === target.page && cast.generation === target.generation) {
+      await cast.cdp.send('Page.stopScreencast');
+      assertActiveTarget(target);
+      if (!cast.dead) await cast.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80,
+        maxWidth: w, maxHeight: h, everyNthFrame: 1 });
     }
-    try {
-      const p = slotPaths(slot);
-      const dir = join(p.staging, 'browser');
-      await mkdir(dir, { recursive: true });
-      await page.screenshot({ path: join(dir, `view-${slot}.png`) });
-    } catch {}
-    return { ok: true, w, h };
-  } catch (e) { return { ok: false, error: String(e && e.message || e).slice(0, 140) }; }
+    return { ...(await snap(slot, target)), w, h };
+  } catch (error) { return actionError(target, error); }
 }
-export async function viewBack(slot) {
-  if (usesNative(slot)) return requestNative(slot, 'back');
-  let sess;
-  try { sess = await ensureSession(slot); }
-  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
+
+async function viewHistory(slot, action) {
+  if (usesNative(slot)) return requestNative(slot, action);
+  let target;
   try {
-    const { page } = sess;
-    await page.goBack({ timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(700);
-  } catch (e) { return { ok: false, error: 'back failed: ' + String(e.message || e).slice(0, 160) }; }
-  return snap(slot);
+    target = await ensureSession(slot);
+    assertActiveTarget(target);
+    const options = { timeout: 15000, waitUntil: 'domcontentloaded' };
+    if (action === 'back') await target.page.goBack(options);
+    else if (action === 'forward') await target.page.goForward(options);
+    else await target.page.reload(options);
+    return snap(slot, target);
+  } catch (error) { return actionError(target, error, action + ' failed: '); }
 }
+
+export async function viewBack(slot) { return viewHistory(slot, 'back'); }
+export async function viewForward(slot) { return viewHistory(slot, 'forward'); }
+export async function viewReload(slot) { return viewHistory(slot, 'reload'); }
 
 export async function viewCurrent(slot) {
   return usesNative(slot) ? requestNative(slot, 'current') : snap(slot);
 }
+
 export async function viewRead(slot) {
   if (usesNative(slot)) return requestNative(slot, 'read');
-  let sess;
-  try { sess = await ensureSession(slot); }
-  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200) }; }
+  let target;
   try {
-    const { page } = sess;
-    const text = await page.locator('body').innerText({ timeout: 8000 }).catch(() => '');
-    let title = '', url = '';
-    try { title = await page.title(); } catch {}
-    try { url = page.url(); } catch {}
-    return { ok: true, title, url, text: String(text).slice(0, 4000) };
-  } catch (e) { return { ok: false, error: 'read failed: ' + String(e.message || e).slice(0, 160) }; }
+    target = await ensureSession(slot);
+    const text = await target.page.locator('body').innerText({ timeout: 8000 });
+    const title = await target.page.title();
+    assertLiveTarget(target);
+    return { ok: true, slot, tabId: target.tabId, title, url: target.page.url(), text: String(text).slice(0, 4000) };
+  } catch (error) { return actionError(target, error, 'read failed: '); }
 }
 /** Web search through the visible native browser when connected, else live Playwright. */
 export async function webSearch(slot, query) {
@@ -340,17 +721,17 @@ export async function webSearch(slot, query) {
     const searchUrl = 'https://www.bing.com/search?q=' + encodeURIComponent(q);
     let nav = null;
     try { nav = await requestNative(slot, 'navigate', { url: searchUrl }); }
-    catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 200), query: q, results: [], native: true, pageUrl: searchUrl }; }
+    catch (e) { return { ok: false, slot, error: String((e && e.message) || e).slice(0, 200), query: q, results: [], native: true, pageUrl: searchUrl }; }
     if (!nav || !nav.ok) {
       return { ok: false, error: String((nav && nav.error) || 'native navigation failed').slice(0, 200),
-        query: q, results: [], native: true, pageUrl: (nav && nav.url) || searchUrl };
+        slot, tabId: nav?.tabId, query: q, results: [], native: true, pageUrl: (nav && nav.url) || searchUrl };
     }
     let rd = null;
-    try { rd = await requestNative(slot, 'read'); }
-    catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 200), query: q, results: [], native: true, pageUrl: nav.url || searchUrl }; }
+    try { rd = await requestNative(slot, 'read', { tabId: nav.tabId }); }
+    catch (e) { return { ok: false, slot, tabId: nav.tabId, error: String((e && e.message) || e).slice(0, 200), query: q, results: [], native: true, pageUrl: nav.url || searchUrl }; }
     if (!rd || !rd.ok) {
       return { ok: false, error: String((rd && rd.error) || 'native read failed').slice(0, 200),
-        query: q, results: [], native: true, pageUrl: (rd && rd.url) || nav.url || searchUrl };
+        slot, tabId: nav.tabId, query: q, results: [], native: true, pageUrl: (rd && rd.url) || nav.url || searchUrl };
     }
     const results = [];
     const rawLinks = Array.isArray(rd.links) ? rd.links : [];
@@ -397,14 +778,14 @@ export async function webSearch(slot, query) {
     }
     if (!results.length) {
       return { ok: false, error: 'no usable results in native read — page shows live in Browser pane; try different words or "read this page"',
-        query: q, results: [], native: true, pageUrl: rd.url || nav.url || searchUrl, via: 'bing-native' };
+        slot, tabId: nav.tabId, query: q, results: [], native: true, pageUrl: rd.url || nav.url || searchUrl, via: 'bing-native' };
     }
-    return { ok: true, query: q, results, via: 'bing-native', pageUrl: rd.url || searchUrl, native: true };
+    return { ok: true, slot, tabId: nav.tabId, query: q, results, via: 'bing-native', pageUrl: rd.url || searchUrl, native: true };
   }
   let sess;
-  try { sess = await ensureSession(slot); }
-  catch (e) { return { ok: false, error: String(e.message || e).slice(0, 200), query: q, results: [] }; }
-  const { page } = sess;
+  try { sess = await ensureSession(slot); assertActiveTarget(sess); }
+  catch (e) { return { ok: false, slot, error: String(e.message || e).slice(0, 200), query: q, results: [] }; }
+  const { page, tabId } = sess;
   const extractBing = () => page.evaluate(() => {
     const out = [];
     document.querySelectorAll('#b_results .b_algo').forEach((li) => {
@@ -424,15 +805,22 @@ export async function webSearch(slot, query) {
   }).catch(() => []);
   /* Pass 1: Bing (renders headless, no wall as of 2026-10-29). Google
      scraping is retired: it sorry-pages automated browsers, and one
-     rate-limited IP poisons the whole visible session. */
+     rate-limited IP poisons the whole visible session. Headed user search
+     (main.js searchUrl, start page) defaults Google — never this path. */
   try {
+    assertActiveTarget(sess);
     await page.goto('https://www.bing.com/search?q=' + encodeURIComponent(q), { timeout: 25000 });
     await page.waitForTimeout(1200).catch(() => {});
+    assertActiveTarget(sess);
     const results = (await extractBing()).filter((r) => r.title && /^https?:\/\//.test(r.href));
-    if (results.length) return { ok: true, query: q, results, via: 'bing', pageUrl: page.url() };
-  } catch {}
+    assertActiveTarget(sess);
+    if (results.length) return { ok: true, slot, tabId, query: q, results, via: 'bing', pageUrl: page.url() };
+  } catch (error) {
+    if (!isActiveTarget(sess)) return { ...actionError(sess, error), query: q, results: [] };
+  }
   /* Pass 2: DuckDuckGo html (often challenged; cheap to try). */
   try {
+    assertActiveTarget(sess);
     await page.goto('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q), { timeout: 15000 });
     const results = await page.evaluate(() => {
       const out = [];
@@ -443,10 +831,13 @@ export async function webSearch(slot, query) {
       });
       return out.slice(0, 6);
     }).catch(() => []);
-    if (results.length) return { ok: true, query: q, results, via: 'duckduckgo' };
-  } catch {}
+    assertActiveTarget(sess);
+    if (results.length) return { ok: true, slot, tabId, query: q, results, via: 'duckduckgo', pageUrl: page.url() };
+  } catch (error) {
+    if (!isActiveTarget(sess)) return { ...actionError(sess, error), query: q, results: [] };
+  }
   let pageUrl = '';
   try { pageUrl = page.url() || ''; } catch {}
-  return { ok: false, query: q, results: [], via: 'none', pageUrl,
-    error: 'both search backends came back empty — the page is showing Bing for the query; read it there or try different words' };
+  return { ok: false, slot, tabId, query: q, results: [], via: 'none', pageUrl,
+    error: 'No usable search results were returned. The Browser pane shows the last attempted search; read it there or try different words.' };
 }
