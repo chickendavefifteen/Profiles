@@ -36,7 +36,9 @@
 
 Six modes ship everywhere: **babylite · chill · FOCUSMAX · Vibes · calm** — plus **xMAX**, exclusive to Profile X.
 
-Local-first reading, browsing, writing and agent workspace. Synthetic demo data only; no employer data.
+**Profiles is your agentic browser-workspace.** Separate profiles for home (A), work (B) and dev (X); six comfort and productivity modes from soft Babylite to full-parallel xMAX; and an agent that lives beside every page — it sees what you see and works the same tabs, notes, sketches and documents you do. Everything stays on your device, sandboxed per profile.
+
+Swap the agent core to fit your mood or task — Pi and Pi-durable today, Muse, Grok or Hermes tomorrow. Bring your own API key (stored in your OS keyring) or run downloaded local models, no cloud required. Built and tested with Muse Spark and Muse Wonder for the Meta Global AI Hackathon. Synthetic demo data only; no employer data.
 
 ## Run
 
