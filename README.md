@@ -16,7 +16,7 @@
 
 > Continued development — semi-working preview. It runs and demos end-to-end, but still needs debug, polish and refinement going forward.
 
-![Agent opening BBC News live beside the chat](shots/agent-opens-bbc-2026-10-28.png)
+![Agent beside dark Google results in Calm mode — the web lives inside Profiles](shots/agent-dark-google-2026-11-04.png)
 
 | Work apps live in B | Drag tiles, own the layout |
 |---|---|
