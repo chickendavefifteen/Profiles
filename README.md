@@ -22,6 +22,12 @@
 |---|---|
 | ![Work panes with staged drafts](shots/canvas-panes-2026-10-28.png) | ![Tile drag in adjust mode](shots/drag-tiles-agent-layout-2026-10-28.png) |
 
+| Calm: low-sensory dark | Vibes: loose and playful |
+|---|---|
+| ![Calm mode theme](shots/theme-calm-2026-10-29.png) | ![Vibes mode theme](shots/theme-vibes-2026-10-29.png) |
+
+Six modes ship everywhere: **babylite · chill · FOCUSMAX · Vibes · calm** — plus **xMAX**, exclusive to Profile X.
+
 Local-first reading, browsing, writing and agent workspace. Synthetic demo data only; no employer data.
 
 ## Run
