@@ -1,8 +1,7 @@
 <p align="center">
   <img src="shots/logo-baseline-aligned-2026-10-28.png" alt="Profiles — your profile, your world" width="720" />
-</p>
+<h3 align="center">YOUR Profile. Agency, accessibility, ownership, mood &amp; mode.</h3>
 
-<h3 align="center">YOUR Profile. Agency, ownership, mood &amp; mode.</h3>
 
 <p align="center">
   <a href="https://github.com/chickendavefifteen/profiles/releases/tag/v0.1.0-indie"><img src="https://img.shields.io/github/v/release/chickendavefifteen/profiles?label=download&color=ff4fa3" alt="download the release" /></a>
@@ -18,9 +17,6 @@
 
 ![Agent beside dark Google results in Calm mode — the web lives inside Profiles](shots/agent-dark-google-2026-11-04.png)
 
-| Work apps live in B | Drag tiles, own the layout |
-|---|---|
-| ![Work panes with staged drafts](shots/canvas-panes-2026-10-28.png) | ![Tile drag in adjust mode](shots/drag-tiles-agent-layout-2026-10-28.png) |
 
 | Babylite: soft + simple | FOCUSMAX: mono-task calm |
 |---|---|
