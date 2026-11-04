@@ -22,9 +22,17 @@
 |---|---|
 | ![Work panes with staged drafts](shots/canvas-panes-2026-10-28.png) | ![Tile drag in adjust mode](shots/drag-tiles-agent-layout-2026-10-28.png) |
 
+| Babylite: soft + simple | FOCUSMAX: mono-task calm |
+|---|---|
+| ![Babylite mode theme](shots/mode-babylite-2026-11-04.png) | ![FOCUSMAX mode theme](shots/mode-focusmax-2026-11-04.png) |
+
 | Calm: low-sensory dark | Vibes: loose and playful |
 |---|---|
 | ![Calm mode theme](shots/theme-calm-2026-10-29.png) | ![Vibes mode theme](shots/theme-vibes-2026-10-29.png) |
+
+| Profile X: agentic IDE | xMAX: full parallelism |
+|---|---|
+| ![Profile X: the dev world](shots/card-profilex-ide-2026-11-04.png) | ![Mode 6 xMAX storm](shots/card-xmax-storm-2026-11-04.png) |
 
 Six modes ship everywhere: **babylite · chill · FOCUSMAX · Vibes · calm** — plus **xMAX**, exclusive to Profile X.
 
