@@ -1,10 +1,28 @@
-# Profiles
+<p align="center">
+  <img src="shots/logo-baseline-aligned-2026-10-28.png" alt="Profiles — your profile, your world" width="720" />
+</p>
 
-Local-first reading, browsing, writing and agent workspace. Meta Global AI Hackathon, Indie track. Synthetic demo data only; no employer data.
+<h3 align="center">YOUR Profile. Agency, ownership, mood &amp; mode.</h3>
 
-## Status
+<p align="center">
+  <a href="https://github.com/chickendavefifteen/profiles/releases/tag/v0.1.0-indie"><img src="https://img.shields.io/github/v/release/chickendavefifteen/profiles?label=download&color=ff4fa3" alt="download the release" /></a>
+  <img src="https://img.shields.io/badge/Tauri-2-7c5cff" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/Linux-x86__64-17122E" alt="Linux x86_64" />
+  <br />
+  Meta Global AI Hackathon · Indie track · <b>Build for Your World</b>
+</p>
+
+🎬 **[Watch the 3-minute demo](https://github.com/chickendavefifteen/profiles/releases/download/v0.1.0-indie/profiles-demo-v4.mp4)** — the safe A/B sandbox on every device, Profile X superpowers, a swappable Pi / Muse / Grok / Hermes agent core, bring-your-own key or local models. Built and tested by Spark and Wonder.
 
 > Continued development — semi-working preview. It runs and demos end-to-end, but still needs debug, polish and refinement going forward.
+
+![Agent opening BBC News live beside the chat](shots/agent-opens-bbc-2026-10-28.png)
+
+| Work apps live in B | Drag tiles, own the layout |
+|---|---|
+| ![Work panes with staged drafts](shots/canvas-panes-2026-10-28.png) | ![Tile drag in adjust mode](shots/drag-tiles-agent-layout-2026-10-28.png) |
+
+Local-first reading, browsing, writing and agent workspace. Synthetic demo data only; no employer data.
 
 ## Run
 
