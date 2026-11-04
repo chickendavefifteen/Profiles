@@ -1,56 +1,165 @@
 #!/usr/bin/env node
-// Every-build gate: the 8 checks that run before anything is shown to Dave.
-// Usage: node scripts/verify-build.mjs [--port 1420] [--skip-qa]
-import { execSync, spawnSync } from 'node:child_process';
-import { statSync, existsSync } from 'node:fs';
-const port = Number(process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : 1420);
+// Every-build gate: preflight + unit + behaviour QA + proxy + click, all disposable.
+// Default owns its servers (free loopback ports + throwaway vaults, keyring
+// disabled): never touches a shared user vault, never resets slots, never kills
+// foreign apps/servers. Behaviour QA is tests/qa/reliability.mjs (headless
+// software-mute Chromium only); nothing here launches a headed browser, host
+// window, audio, or GPU work. Exit codes decide, never numerical test counts or
+// legacy iframe IDs. Binary freshness runs only with --check-native (explicit
+// native build, separate from the default gate).
+// Usage: node scripts/verify-build.mjs [--port 1420] [--skip-qa] [--check-native]
+import { spawn, spawnSync } from 'node:child_process';
+import { statSync, readdirSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:net';
+import {ensureSoftwareRuntime} from './qa-software-runtime.mjs';
+ensureSoftwareRuntime();
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const skipQa = process.argv.includes('--skip-qa');
-const base = `http://localhost:${port}`;
+const checkNative = process.argv.includes('--check-native');
+const explicitPort = process.argv.includes('--port')
+  ? Number(process.argv[process.argv.indexOf('--port') + 1])
+  : NaN;
+
 let pass = 0, fail = 0;
 const check = (c, n, extra = '') => { console.log(((c ? 'ok' : 'FAIL') + ' - ' + n + (extra ? ' ' + extra : ''))); c ? pass++ : fail++; };
-const sh = (cmd, timeout = 120000) => {
-  const r = spawnSync('bash', ['-c', cmd], { timeout, encoding: 'utf8' });
+const run = (cmd, args, timeout = 300000) => {
+  const r = spawnSync(cmd, args, { cwd: root, timeout, encoding: 'utf8' });
   return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
 };
 
-// 1. preflight: server alive, build matches disk, model present, browser renders
-console.log('--- 1/6 preflight ---');
-let r = sh(`node scripts/preflight.mjs --port ${port}`, 60000);
-console.log(r.out.trim().split('\n').slice(-6).join('\n'));
-check(r.code === 0, 'preflight green');
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const s = createServer();
+    s.on('error', reject);
+    s.listen(0, '127.0.0.1', () => {
+      const port = s.address().port;
+      s.close(() => resolve(port));
+    });
+  });
+}
 
-// 2. unit tests
-console.log('--- 2/6 unit ---');
-r = sh('npm test 2>&1 | tail -1', 120000);
-check(/0 failed/.test(r.out), 'unit green', r.out.trim());
+async function waitHealthy(base, timeoutMs = 25000, expectedPid) {
+  const t0 = Date.now();
+  for (;;) {
+    try {
+      const r = await fetch(base + '/api/health');
+      if (r.ok) {
+        const j = await r.json().catch(() => null);
+        if (j && j.ok && (expectedPid===undefined || j.pid===expectedPid)) return j;
+      }
+    } catch {}
+    if (Date.now() - t0 > timeoutMs) return null;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+}
 
-// 3. behaviour QA (headless Playwright)
+// 1. preflight (own ephemeral by default; explicit --port probes read-only).
+console.log('--- 1/4 preflight ---');
+{
+  const args = Number.isFinite(explicitPort)
+    ? ['scripts/preflight.mjs', '--port', String(explicitPort)]
+    : ['scripts/preflight.mjs'];
+  const r = run(process.execPath, args, 90000);
+  console.log(r.out.trim().split('\n').slice(-6).join('\n'));
+  check(r.code === 0, 'preflight green');
+}
+
+// 2. unit: all DOM-free regressions, exit code decides (no count greps).
+console.log('--- 2/4 unit ---');
+{
+  const r = run('npm', ['test'], 300000);
+  console.log(r.out.trim().split('\n').slice(-4).join('\n'));
+  check(r.code === 0, 'unit green (exit 0 across run + model-agent + native suites)');
+}
+
+// 3. real frontend behavior, including document rendering; exit code decides.
 if (!skipQa) {
-  console.log('--- 3/6 behaviour QA ---');
-  r = sh(`node tests/qa/core-flows.mjs 2>&1 | grep -E "^FAIL|QA:"`, 540000);
-  console.log(r.out.trim());
-  check(!/^FAIL/m.test(r.out) && /QA: \d+\/\d+ passed/.test(r.out), 'behaviour QA green');
-} else console.log('--- 3/6 behaviour QA SKIPPED ---');
+  console.log('--- 3/4 behaviour QA ---');
+  const r = run('npm', ['run', 'qa'], 540000);
+  console.log(r.code===0 ? r.out.trim().split('\n').slice(-6).join('\n') : r.out.trim());
+  check(r.code === 0 && !/^FAIL/m.test(r.out), 'behaviour QA green (panes + documents, headless only)');
+  if(process.platform==='linux'){
+    const lifetime=run(process.execPath,['tests/qa/browser-environment.mjs'],45000);
+    console.log(lifetime.out.trim());
+    check(lifetime.code===0,'browser remains live after an unrelated desktop bus shuts down');
+  }
+} else console.log('--- 3/4 behaviour QA SKIPPED ---');
 
-// 4. proxy embeds real pages (framing stripped, links rewritten)
-console.log('--- 4/6 proxy embeds ---');
-r = sh(`curl -s --max-time 25 "${base}/api/proxy?url=https://www.bbc.co.uk/news" -o /tmp/verify-proxy.html -D /tmp/verify-proxy.h; grep -qi "x-frame-options" /tmp/verify-proxy.h && echo HAS_XFRAME || echo NO_XFRAME; grep -c "api/proxy?url=" /tmp/verify-proxy.html; python3 -c "d=open('/tmp/verify-proxy.html',encoding='utf8',errors='replace').read(); print('bytes=%d bbc=%s' % (len(d), 'bbc' in d.lower()))"`, 90000);
-console.log(r.out.trim());
-check(r.out.includes('NO_XFRAME') && /bytes=\d+ bbc=true/i.test(r.out), 'proxy strips framing, keeps content+links');
+// 4. proxy + click round-trip through one owned ephemeral server (local fixture only).
+console.log('--- 4/4 proxy + click (owned ephemeral, local fixture) ---');
+{
+  const port = await freePort();
+  const base = `http://127.0.0.1:${port}`;
+  const vault = await mkdtemp(join(tmpdir(), 'profiles-verify-vault-'));
+  let child = null;
+  try {
+    child = spawn(process.execPath, ['server.mjs', '--port', String(port)], {
+      cwd: root,
+      env: { ...process.env, PROFILES_VAULT_DIR: vault, PROFILES_DISABLE_KEYRING: '1', PORT: String(port) },
+      stdio: 'pipe',
+    });
+    const h = await waitHealthy(base, 25000, child.pid);
+    check(!!h && !!h.build, 'owned verify server boots with build stamp');
+    if (!h) throw new Error('verify server did not boot');
 
-// 5. click round-trip through the real stack (view -> click center -> title flips)
-console.log('--- 5/6 click round-trip ---');
-r = sh(`SLOT=$(curl -s --max-time 10 ${base}/api/slot | python3 -c "import json,sys; print(json.load(sys.stdin).get('active','A'))"); curl -s --max-time 10 -X POST ${base}/api/slot -H 'content-type: application/json' -d '{"slot":"C"}' >/dev/null; curl -s --max-time 30 -X POST ${base}/api/browser/view -H 'content-type: application/json' -d '{"url":"${base}/api/test/click-target"}' | head -c 80; echo; sleep 1; curl -s --max-time 30 -X POST ${base}/api/browser/click -H 'content-type: application/json' -d '{"fx":0.5,"fy":0.5}' >/dev/null; sleep 1; curl -s --max-time 30 -X POST ${base}/api/browser/view -H 'content-type: application/json' -d '{}' | python3 -c "import json,sys; print('title:', json.load(sys.stdin).get('title'))"; curl -s --max-time 10 -X POST ${base}/api/slot -H 'content-type: application/json' -d "{\"slot\":\"$SLOT\"}" >/dev/null; echo "(slot restored: $SLOT)"`, 120000);
-console.log(r.out.trim());
-check(r.out.includes('title: HIT'), 'click flips test page');
+    // Proxy: local fixture through /api/proxy keeps content+links, strips framing.
+    try {
+      const target = base + '/api/test/click-target';
+      const r = await fetch(base + '/api/proxy?url=' + encodeURIComponent(target));
+      const text = await r.text();
+      const xframe = r.headers.get('x-frame-options');
+      check(r.ok && !xframe && /CLICKTEST/i.test(text), 'proxy keeps local content without framing headers');
+    } catch (e) {
+      check(false, 'proxy keeps local content without framing headers', String(e?.message || e).slice(0, 100));
+    }
 
-// 6. binary freshness: native bundle newer than every src/agent file
-console.log('--- 6/6 binary freshness ---');
-try {
-  const bin = statSync('src-tauri/target/debug/profiles').mtimeMs;
-  const src = execSync(`find src agent server.mjs -type f -newer src-tauri/target/debug/profiles 2>/dev/null | head -5`, { encoding: 'utf8' }).trim();
-  check(!src, 'binary newer than all frontend/agent sources', src ? ('STALE vs: ' + src.split('\n')[0]) : '');
-} catch (e) { check(false, 'binary freshness', 'no debug binary built yet'); }
+    // Click: view fixture -> click HIT zone -> title flips on the same actor page.
+    try {
+      const fixture = base + '/api/test/click-target';
+      await fetch(base + '/api/browser/view', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: fixture }),
+      });
+      await new Promise((r) => setTimeout(r, 1500));
+      await fetch(base + '/api/browser/click', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ fx: 0.5, fy: 0.2 }),
+      });
+      await new Promise((r) => setTimeout(r, 1500));
+      const v = await (await fetch(base + '/api/browser/state')).json().catch(() => null);
+      check(!!v && /HIT/.test(String(v.title || '')) && String(v.url || '').includes('click-target'),
+        'click flips fixture title on the same actor page');
+    } catch (e) {
+      check(false, 'click flips fixture title on the same actor page', String(e?.message || e).slice(0, 100));
+    }
+  } finally {
+    try { child?.kill(); } catch {}
+    try { await rm(vault, { recursive: true, force: true }); } catch {}
+  }
+}
+
+// Native bundle freshness: explicit only, never part of the default gate.
+if (checkNative) {
+  console.log('--- native bundle freshness (explicit --check-native only) ---');
+  try {
+    const binPath=join(root,'src-tauri/target/release/profiles');
+    const bin=statSync(binPath).mtimeMs;
+    function newer(path){
+      const info=statSync(path);
+      if(info.isDirectory()) return readdirSync(path,{withFileTypes:true}).some(e=>!e.isSymbolicLink() && newer(join(path,e.name)));
+      return info.mtimeMs>bin;
+    }
+    const stale=['src','src-tauri/src','src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/build.rs'].find(p=>newer(join(root,p)));
+    check(!stale,'release binary newer than embedded frontend and Rust sources',stale?'STALE vs '+stale:'');
+  } catch { check(false, 'binary freshness', 'build the release binary first'); }
+} else {
+  console.log('--- native bundle freshness SKIPPED (pass --check-native for the explicit native gate) ---');
+}
 
 console.log(`\nVERIFY: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -1,5 +1,12 @@
 # Profiles — Build Spec (overnight build, 2026-10-26)
 
+Current reliability work (2026-10-31): use `README.md`, `QUALITY-GATES.md`
+and the current entry in `QA-REPORT.md` for the actual architecture,
+verification commands and measured artifacts. The overnight instructions
+below are historical; the owner's current GitHub-backup request supersedes
+their old no-push instruction. Desktop resource-budget checks are not
+physical Chromebook certification.
+
 Owner is asleep / on SSH. Build this all the way through so that in the
 morning (Desky, main desktop) he can sit down, open the app, and TEST it.
 Work autonomously in small steps. Keep WORKBOARD.md updated with what is
@@ -85,11 +92,11 @@ continue when idle. Keep going until MORNING.md is written.
 
 Target: the compiled Tauri binary stays small and still modes stay still.
 
-- Binary: `src-tauri/target/release/profiles` is ~4.1MB (limit 12MB). It stays
-  tiny because `[profile.release]` sets `opt-level="z" + lto + codegen-units=1
-  + panic="abort" + strip`, and Tauri uses the OS webview — no bundled
-  Chromium. No new npm deps; `npm run sync-packs` vendors `packs/*.json`
-  into `src/vendor-packs/` so app builds work offline from disk.
+- Binary budget: 12MB. The current measured release size is recorded in
+  `QA-REPORT.md`. Rust uses `opt-level="z"`, LTO and stripping; Tauri uses
+  the OS webview rather than bundling Chromium. Node/project resources,
+  optional Playwright Chromium and optional model weights remain separate.
+  `npm run sync-packs` vendors the offline profile packs.
 - Stillness: `babylite`/`lite` budgets are `max_animation 0,
   max_simultaneous 0` (same as calm/low-sensory), so the governor reports
   `still()` and the frontend holds `gov-freeze`. Celebrations are capped
@@ -102,5 +109,5 @@ Target: the compiled Tauri binary stays small and still modes stay still.
 - Local vs Chromebook: dev/verify happens on a 16-core/62GB omarchy box, but
   the envelope that matters is Chromebook-class (weak iGPU, software
   compositing): zero motion in babylite/calm, settle-only in chill, capped
-  celebration in Vibes/FOCUSMAX/xMAX. `tests/run.mjs` §11 pins this
-  headlessly (no browser, no GPU).
+  celebration in Vibes/FOCUSMAX/xMAX. Run the behavioral gates in
+  `QUALITY-GATES.md`; source/wording pins are not verification.

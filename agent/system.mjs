@@ -2,10 +2,11 @@
 // snapshots/rollback, and the scripted "get me a better agent" setup.
 // NO LLM anywhere here - same input, same steps, every time. Allowlisted
 // actions only; nothing here runs arbitrary shell.
-import { readFile, writeFile, mkdir, readdir, copyFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, copyFile, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import os from 'node:os';
@@ -30,7 +31,9 @@ export async function loadConfig(slot) {
 export async function saveConfig(cfg, slot) {
   const p = await ensureSlot(slot ?? await activeSlot());
   cfg.updated = new Date().toISOString();
-  await writeFile(p.config, JSON.stringify(cfg, null, 2));
+  const temporary = p.config + '.' + randomUUID() + '.tmp';
+  await writeFile(temporary, JSON.stringify(cfg, null, 2));
+  await rename(temporary, p.config);
   return cfg;
 }
 

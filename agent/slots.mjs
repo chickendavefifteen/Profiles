@@ -6,9 +6,13 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+const requestSlot = new AsyncLocalStorage();
+export function withSlot(slot, run) { return requestSlot.run(slot, run); }
 
 export const SLOTS = ['A', 'B', 'C', 'D', 'E', 'X'];
-const vaultRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'vault');
+const vaultRoot = process.env.PROFILES_VAULT_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', 'vault');
 const pointerPath = join(vaultRoot, 'active-slot.json');
 
 export function slotRoot(slot) { return join(vaultRoot, slot); }
@@ -28,6 +32,7 @@ export function slotPaths(slot) {
   };
 }
 export async function activeSlot() {
+  if (requestSlot.getStore()) return requestSlot.getStore();
   try { const p = JSON.parse(await readFile(pointerPath, 'utf8')); return SLOTS.includes(p.active) ? p.active : 'A'; }
   catch { return 'A'; }
 }

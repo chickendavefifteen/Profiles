@@ -6,12 +6,14 @@
   "build": {
     "frontendDist": "../src",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "node /home/dh/profiles-hackathon/server.mjs --port 1420",
-    "beforeBuildCommand": "npm run sync-packs"
+    "beforeBuildCommand": "npm run sync-packs && npm run sync-docs"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "Profiles",
         "width": 1500,
         "height": 1020,
@@ -20,7 +22,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:1420 http://localhost:8123 http://127.0.0.1:1420; img-src 'self' data: blob: http://localhost:1420 http://localhost:8123; frame-src http://localhost:1420 http://localhost:8123 http://127.0.0.1:1420"
+      "capabilities": [{
+        "identifier": "main-events",
+        "description": "Trusted app chrome may observe native browser events.",
+        "webviews": ["main"],
+        "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+      }],
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; style-src-attr 'unsafe-inline'; worker-src 'self' blob:; font-src 'self' data: blob:; connect-src 'self' ipc: https: http://ipc.localhost http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:*; frame-src http://localhost:* http://127.0.0.1:*"
     }
   },
   "bundle": {

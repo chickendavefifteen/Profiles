@@ -102,30 +102,6 @@ export function rewriteHtml(html, pageUrl) {
   // meta CSP frame-ancestors would re-block the embed
   out = out.replace(/(<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy["']?[^>]*content\s*=\s*["'])([^"']*)(["'])/gi,
     (m, pre, csp, post) => pre + csp.replace(/frame-ancestors[^;]*;?/gi, '') + post);
-  const bridgeScript = `<script id="__profiles_frame_bridge">
-(function(){
-  try{
-    window.addEventListener('wheel', function(e){
-      if(e.ctrlKey || e.metaKey){
-        e.preventDefault(); e.stopPropagation();
-        var d = e.deltaY < 0 ? 0.1 : (e.deltaY > 0 ? -0.1 : 0);
-        window.parent.postMessage({ type: 'browser_zoom_step', step: d }, '*');
-      }
-    }, { passive: false, capture: true });
-    window.addEventListener('keydown', function(e){
-      if(e.ctrlKey || e.metaKey){
-        if(e.key === '=' || e.key === '+' || e.key === '-' || e.key === '_' || e.key === '0'){
-          e.preventDefault();
-          var step = (e.key === '-' || e.key === '_') ? -0.1 : (e.key === '0' ? 0 : 0.1);
-          window.parent.postMessage({ type: 'browser_zoom_key', step: step }, '*');
-        }
-      }
-    }, true);
-  }catch(err){}
-})();
-</script>`;
-  if(/<\/body>/i.test(out)) out = out.replace(/<\/body>/i, bridgeScript + '</body>');
-  else out += bridgeScript;
   return out;
 }
 
@@ -180,55 +156,6 @@ export async function fetchUpstream(url, slot, method = 'GET', body = null, cont
   let current = url;
   for (let hop = 0; hop < 5; hop++) {
     const u = new URL(current);
-    if (/^news\.sky\.com$/i.test(u.hostname) && (u.pathname === '/' || u.pathname === '/uk' || u.pathname === '' || u.pathname === '/home')) {
-      try {
-        const feedRes = await h1Fetch('https://feeds.skynews.com/feeds/rss/home.xml');
-        if (feedRes.status === 200 && feedRes.body) {
-          const xml = feedRes.body.toString('utf8');
-          const items = [];
-          const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
-          for (const m of itemMatches) {
-            const t = m[1];
-            const title = t.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1') || '';
-            const link = t.match(/<link>([\s\S]*?)<\/link>/)?.[1] || '';
-            const desc = t.match(/<description>([\s\S]*?)<\/description>/)?.[1]?.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1') || '';
-            const media = t.match(/<media:content[^>]*url="([^"]*)"/)?.[1] || t.match(/<enclosure[^>]*url="([^"]*)"/)?.[1] || '';
-            if (title && link) items.push({ title, link, desc, media });
-          }
-          const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          const cards = items.map((it) => `
-            <div class="card">
-              ${it.media ? `<img src="${esc(it.media)}" alt="" loading="lazy">` : ''}
-              <div class="content">
-                <h2>${esc(it.title)}</h2>
-                <p>${esc(it.desc)}</p>
-                <div style="margin-top:10px"><a href="${esc(it.link)}" target="_blank" rel="noopener" style="color:#22d3ee;font-size:.84rem;text-decoration:none">Read full story on Sky News ↗</a></div>
-              </div>
-            </div>`).join('');
-          const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-            <title>Sky News — Live Breaking News</title>
-            <style>
-            *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#101022;color:#f0efff;padding:24px 20px 60px;line-height:1.5}
-            .header{display:flex;align-items:center;gap:12px;margin-bottom:24px;border-bottom:1.5px solid #2c2c52;padding-bottom:16px}
-            .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
-            .card{background:#181830;border:1.5px solid #2c2c52;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .2s,transform .2s}
-            .card:hover{border-color:#ff3ea5;transform:translateY(-2px)}
-            .card img{width:100%;height:170px;object-fit:cover;background:#202042}
-            .card .content{padding:14px 16px;flex:1}
-            .card h2{font-size:1.02rem;margin:0 0 8px;line-height:1.4;color:#fff}
-            .card p{font-size:.85rem;color:#9d9bd0;margin:0;line-height:1.5}
-            </style></head><body>
-            <div class="header">
-              <span style="font-size:1.3rem;font-weight:900;color:#ff3ea5">SKY</span>
-              <span style="font-size:1.3rem;font-weight:700;color:#fff">NEWS</span>
-              <span style="font-size:.8rem;color:#9d9bd0;margin-left:auto">Live breaking news</span>
-            </div>
-            <div class="grid">${cards}</div>
-            </body></html>`;
-          return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: Buffer.from(html), url: current };
-        }
-      } catch (e) {}
-    }
     const headers = { 'user-agent': UA, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'accept-language': 'en-GB,en;q=0.9' };
     const ck = cookieHeader(slot, u.host);
     if (ck) headers.cookie = ck;
@@ -238,29 +165,6 @@ export async function fetchUpstream(url, slot, method = 'GET', body = null, cont
       ({ status, headers: rheaders, body: buf } = await h1Fetch(current, { method, headers, body }));
     } catch (e) {
       return { status: 502, headers: {}, body: Buffer.from('proxy failed: ' + String(e.message || e).slice(0, 120)), url: current };
-    }
-    if (status === 403 || (buf && /Access Denied|403 Forbidden|errors\.edgesuite\.net/i.test(buf.toString('utf8').slice(0, 2000)))) {
-      const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Restricted Page</title>
-        <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#101022;color:#f0efff;padding:60px 20px;text-align:center;line-height:1.5}
-        .box{max-width:540px;margin:0 auto;background:#181830;border:1.5px solid #2c2c52;border-radius:16px;padding:32px 24px}
-        h2{font-size:1.2rem;margin:0 0 10px;color:#ff3ea5}
-        p{font-size:.9rem;color:#9d9bd0;margin:0 0 24px;line-height:1.6}
-        .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-        .btn{font:inherit;font-size:.88rem;font-weight:600;padding:10px 20px;border-radius:10px;text-decoration:none;display:inline-block}
-        .btn.primary{background:#ff3ea5;color:#fff}
-        .btn.secondary{background:#202042;color:#f0efff;border:1px solid #2c2c52}
-        </style></head><body>
-        <div class="box">
-          <h2>Embedded Access Restricted</h2>
-          <p><b>${esc(u.hostname)}</b> uses bot filters that prevent it from embedding directly inside the pane. You can open it in your browser or search for the topic.</p>
-          <div class="btns">
-            <a class="btn primary" href="${esc(current)}" target="_blank" rel="noopener">Open in Browser ↗</a>
-            <a class="btn secondary" href="/api/search?q=${encodeURIComponent(u.hostname.replace(/^www\./, ''))}">Search Topic</a>
-          </div>
-        </div>
-        </body></html>`;
-      return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: Buffer.from(html), url: current };
     }
     const setCookies = rheaders['set-cookie'] || [];
     if (setCookies.length) {
@@ -292,7 +196,7 @@ export function proxyUrl(url) {
    (fetchUpstream below); only the rendering differs: sanitized inline
    HTML for text kinds, an honest fallback for heavy binaries. */
 const DOC_TEXT_EXT = ['md', 'markdown', 'txt', 'text', 'html', 'htm'];
-const DOC_BINARY_EXT = ['pdf', 'docx', 'pptx', 'ppt', 'xls', 'xlsx'];
+const DOC_BINARY_EXT = ['pdf', 'docx', 'odt', 'pptx', 'ppt', 'doc', 'xls', 'xlsx'];
 /** Classify a document URL: 'text' (renderable), 'binary' (honest
    fallback), or 'other'. Pure. */
 export function docKindForUrl(raw) {
