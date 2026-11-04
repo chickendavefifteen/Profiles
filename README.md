@@ -2,6 +2,10 @@
 
 Local-first reading, browsing, writing and agent workspace. Meta Global AI Hackathon, Indie track. Synthetic demo data only; no employer data.
 
+## Status
+
+> Continued development — semi-working preview. It runs and demos end-to-end, but still needs debug, polish and refinement going forward.
+
 ## Run
 
 Building requires Node.js, the npm dependencies (`npm ci`), and the platform Tauri prerequisites. A copied native executable can run basic browsing and local document reading without Node.
