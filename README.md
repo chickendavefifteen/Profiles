@@ -22,9 +22,9 @@
 |---|---|
 | ![Babylite mode theme](shots/mode-babylite-2026-11-04.png) | ![FOCUSMAX mode theme](shots/mode-focusmax-2026-11-04.png) |
 
-| Calm: low-sensory dark | Vibes: loose and playful |
-|---|---|
-| ![Calm mode theme](shots/mode-calm-2026-11-04.png) | ![Vibes mode theme](shots/theme-vibes-2026-10-29.png) |
+| Calm: low-sensory dark |
+|---|
+| ![Calm mode theme](shots/mode-calm-2026-11-04.png) |
 
 | Profile X: agentic IDE | xMAX: full parallelism |
 |---|---|
