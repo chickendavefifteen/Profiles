@@ -12,7 +12,7 @@
   Meta Global AI Hackathon · Indie track · <b>Build for Your World</b>
 </p>
 
-🎬 **[Watch the 3-minute demo](https://github.com/chickendavefifteen/profiles/releases/download/v0.1.0-indie/profiles-demo-v4.mp4)** — the safe A/B sandbox on every device, Profile X superpowers, a swappable Pi / Muse / Grok / Hermes agent core, bring-your-own key or local models. Built and tested by Spark and Wonder.
+🎬 **[Watch the 3-minute demo](https://github.com/chickendavefifteen/profiles/releases/download/v0.1.0-indie/profiles-demo-v5c.mp4)** — the safe A/B sandbox on every device, Profile X superpowers, a swappable Pi / Muse / Grok / Hermes agent core, bring-your-own key or local models. Built and tested by Spark and Wonder.
 
 > Continued development — semi-working preview. It runs and demos end-to-end, but still needs debug, polish and refinement going forward.
 
