@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="shots/logo-baseline-aligned-2026-10-28.png" alt="Profiles — your profile, your world" width="720" />
+
 <h3 align="center">YOUR Profile. Agency, accessibility, ownership, mood &amp; mode.</h3>
 
 
